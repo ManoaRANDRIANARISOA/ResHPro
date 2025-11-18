@@ -72,6 +72,24 @@ export default function RestoReservations() {
                             <Typography variant="caption">
                               Statut: {r.statut}
                             </Typography>
+                            {r.heureArrivee && (
+                              <Typography variant="caption" sx={{ color: '#4CAF50', display: 'block' }}>
+                                Arrivée: {r.heureArrivee}
+                              </Typography>
+                            )}
+                            {r.heureDepart && (
+                              <Typography variant="caption" sx={{ color: '#F44336', display: 'block' }}>
+                                Départ: {r.heureDepart}
+                              </Typography>
+                            )}
+                            {r.heureArrivee && !r.heureDepart && r.statut !== 'terminee' && (
+                              <Chip 
+                                label="Attente départ" 
+                                size="small" 
+                                color="warning" 
+                                sx={{ mt: 0.5, height: 20 }}
+                              />
+                            )}
                             <Box
                               sx={{
                                 mt: 1,
@@ -107,6 +125,24 @@ export default function RestoReservations() {
                                   color="default"
                                   size="small"
                                 />
+                              )}
+                              {r.heureArrivee && !r.heureDepart && r.statut !== 'terminee' && (
+                                <Button
+                                  size="small"
+                                  variant="contained"
+                                  color="error"
+                                  onClick={() => {
+                                    // Quick mark as departed with current time
+                                    const now = new Date();
+                                    const currentTime = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+                                    // In a real app, this would call an API
+                                    r.heureDepart = currentTime;
+                                    r.statut = 'terminee';
+                                  }}
+                                  sx={{ fontSize: '11px', py: 0.5 }}
+                                >
+                                  Client Parti
+                                </Button>
                               )}
                             </Box>
                           </Paper>

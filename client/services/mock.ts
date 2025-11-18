@@ -153,7 +153,8 @@ export const chambres: Chambre[] = [
 
 export const tables: TableResto[] = Array.from({ length: 12 }).map((_, i) => {
   const numero = i + 1;
-  const caps = [2, 4, 4, 6, 2, 8, 3, 4, 2, 6, 2, 4];
+  // Ajusté pour correspondre au cahier des charges: 43 couverts au total
+  const caps = [2, 4, 4, 6, 2, 6, 3, 4, 2, 4, 2, 4];
   const zones = ["Intérieur", "Terrasse"] as const;
   return {
     id: `t${numero}`,
@@ -183,38 +184,118 @@ export const menu: MenuItem[] = [
 ];
 
 export const reservations: Reservation[] = [
-  // Réservations restaurant
+  // Réservations restaurant - DONNEES DYNAMIQUES basées sur l'heure actuelle (11:20)
+  
+  // Réservation PASSÉE (terminée) - 9:15 (durée 60min, terminée à 10:15)
   {
-    id: "r1",
+    id: "r_passee",
     type: "restaurant",
-    clientId: clients[0].id,
-    tableId: "t3",
-    dateDebut: addHours(startOfToday(), 12).toISOString(),
-    heure: "12:10",
+    clientId: clients[0].id, // Rabe Andry
+    tableId: "t1",
+    dateDebut: addHours(startOfToday(), 9).toISOString(),
+    heure: "09:15",
+    heureDebut: "09:15",
+    heureArrivee: "09:10",
+    heureDepart: "10:30",
+    duree: 60,
+    nbPersonnes: 2,
+    statut: "terminee",
+    gracePeriodMinutes: 15,
+  },
+  
+  // Réservation EN COURS (occupé) - 10:30 (durée 90min, fin prévue 12:00, client arrivé)
+  {
+    id: "r_encours",
+    type: "restaurant",
+    clientId: clients[1].id, // Hanitra Solo
+    tableId: "t2",
+    dateDebut: addHours(startOfToday(), 10).toISOString(),
+    heure: "10:30",
+    heureDebut: "10:30",
+    heureArrivee: "10:25", // Client arrivé
+    // Pas d'heure de départ - encore présent
+    duree: 90,
     nbPersonnes: 3,
     statut: "arrivee",
     gracePeriodMinutes: 15,
   },
+  
+  // Réservation EN RETARD (dépassement) - 9:00 (durée 60min, fin prévue 10:00, client arrivé mais pas parti)
   {
-    id: "r2",
+    id: "r_retard",
     type: "restaurant",
-    clientId: clients[1].id,
-    tableId: "t10",
-    dateDebut: addHours(startOfToday(), 13).toISOString(),
-    heure: "13:05",
+    clientId: clients[2].id, // Rakoto Jean
+    tableId: "t3",
+    dateDebut: addHours(startOfToday(), 9).toISOString(),
+    heure: "09:00",
+    heureDebut: "09:00",
+    heureArrivee: "08:55", // Client arrivé
+    // Pas d'heure de départ - dépassement!
+    duree: 60,
     nbPersonnes: 4,
     statut: "arrivee",
     gracePeriodMinutes: 15,
   },
+  
+  // Réservation FUTURE (réservé) - 12:15 (durée 75min, début dans 1h)
   {
-    id: "r3",
+    id: "r_future1",
     type: "restaurant",
-    clientId: clients[0].id,
-    tableId: "t9",
-    dateDebut: addHours(startOfToday(), 18).toISOString(),
-    heure: "18:30",
+    clientId: clients[3].id, // Marie Rasoanaivo
+    tableId: "t4",
+    dateDebut: addHours(startOfToday(), 12).toISOString(),
+    heure: "12:15",
+    heureDebut: "12:15",
+    // Pas d'arrivée ni départ
+    duree: 75,
     nbPersonnes: 2,
     statut: "confirmee",
+    gracePeriodMinutes: 15,
+  },
+  
+  // Réservation FUTURE avec arrivée en avance - 13:00 (durée 60min, client va arriver en avance)
+  {
+    id: "r_future_avance",
+    type: "restaurant",
+    clientId: clients[4].id, // Ravalomanana Hery
+    tableId: "t5",
+    dateDebut: addHours(startOfToday(), 13).toISOString(),
+    heure: "13:00",
+    heureDebut: "13:00",
+    // Pas d'arrivée encore - mais quand il arrivera, ce sera en avance
+    duree: 60,
+    nbPersonnes: 2,
+    statut: "confirmee",
+    gracePeriodMinutes: 15,
+  },
+  
+  // Réservation SOIR (réservé) - 19:30 (durée 120min)
+  {
+    id: "r_soir",
+    type: "restaurant",
+    clientId: clients[5].id, // SARL TIKO
+    tableId: "t6",
+    dateDebut: addHours(startOfToday(), 19).toISOString(),
+    heure: "19:30",
+    heureDebut: "19:30",
+    duree: 120,
+    nbPersonnes: 6,
+    statut: "confirmee",
+    gracePeriodMinutes: 15,
+  },
+  
+  // Réservation ANNULÉE
+  {
+    id: "r_annulee",
+    type: "restaurant",
+    clientId: clients[0].id, // Rabe Andry
+    tableId: "t7",
+    dateDebut: addHours(startOfToday(), 14).toISOString(),
+    heure: "14:00",
+    heureDebut: "14:00",
+    duree: 90,
+    nbPersonnes: 2,
+    statut: "annulee",
     gracePeriodMinutes: 15,
   },
   
@@ -297,7 +378,16 @@ for (const r of reservations) {
     const t = tables.find((t) => t.id === r.tableId);
     if (t) {
       t.assignedReservationId = r.id;
-      t.statut = r.statut === "arrivee" ? "occupee" : "reservee";
+      // Mapper les statuts vers les statuts de table appropriés
+      if (r.statut === "arrivee") {
+        t.statut = "occupee";
+      } else if (r.statut === "confirmee" || r.statut === "en_attente") {
+        t.statut = "reservee";
+      } else if (r.statut === "terminee" || r.statut === "annulee" || r.statut === "no_show") {
+        t.statut = "libre";
+      } else {
+        t.statut = "reservee";
+      }
     }
   }
 }

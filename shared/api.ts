@@ -40,6 +40,10 @@ export interface Reservation {
   dateDebut: string; // ISO
   dateFin?: string; // ISO
   heure?: string; // HH:mm (heures pleines)
+  heureDebut?: string; // HH:mm (avec minutes précises pour le planning dynamique)
+  heureArrivee?: string; // HH:mm (heure réelle d'arrivée du client)
+  heureDepart?: string; // HH:mm (heure réelle de départ du client)
+  duree?: number; // durée en minutes (par défaut 60)
   nbPersonnes?: number;
   statut:
     | "en_attente"

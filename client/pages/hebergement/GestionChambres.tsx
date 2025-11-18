@@ -3,9 +3,8 @@ import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import { addDays, format, getISOWeek, startOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, endOfMonth } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useMemo, useState, useEffect, Fragment } from "react";
-import { chambres as chambresData } from "@/services/mock";
-import { useHebergementReservations, useUpdateHebergementReservation, useCreateHebergementReservation, useClients, useCreateClient } from "@/services/api";
-import { Reservation } from "@shared/api";
+import { useHebergementReservations, useUpdateHebergementReservation, useCreateHebergementReservation, useClients, useCreateClient, useChambres } from "@/services/api";
+import { Reservation, Chambre } from "@shared/api";
 import { RoomCalendar } from "@/components/RoomCalendar";
 import { exportToCSV, exportToPDF } from "@/lib/export";
 import { useSearchParams } from "react-router-dom";
@@ -34,6 +33,7 @@ export default function GestionChambres() {
   const update = useUpdateHebergementReservation();
   const create = useCreateHebergementReservation();
   const { data: clients } = useClients();
+  const { data: rooms } = useChambres();
   const [open, setOpen] = useState<Reservation | null>(null);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [view, setView] = useState<View>('month');
@@ -48,12 +48,27 @@ export default function GestionChambres() {
   }, [searchParams]);
   // Status filter supprimé sur cette page (UI)
 
+  function deriveReservationStatus(r: Reservation) {
+    const now = new Date();
+    const dStart = new Date(r.dateDebut);
+    const dEnd = new Date(r.dateFin || r.dateDebut);
+    if (r.statut === 'annulee') return 'annulee';
+    if (now < dStart) {
+      // Ne pas afficher "arrivee" pour le futur; garder confirmée/en_attente
+      return r.statut === 'arrivee' ? 'confirmee' : r.statut;
+    }
+    if (now >= dStart && now < dEnd) {
+      return r.statut === 'arrivee' ? 'arrivee' : 'confirmee';
+    }
+    return 'terminee';
+  }
+
   // Calcul dynamique de la chambre la plus occupée du mois courant
   const chambresStats = useMemo(() => {
     const start = startOfMonth(dateRef);
     const end = endOfMonth(dateRef);
     const daysInMonth = eachDayOfInterval({ start, end }).length;
-    const stats = chambresData.map((ch) => {
+    const stats = (rooms || []).map((ch) => {
       // Compte des jours occupés dans le mois (statut annulé ignoré)
       const occupiedDays = (list || [])
         .filter((r) => r.type === 'hebergement' && r.chambreId === ch.id && r.statut !== 'annulee')
@@ -71,7 +86,7 @@ export default function GestionChambres() {
       return { chambre: ch.numero, categorie: ch.categorie, totalReservations: occupiedDays, tauxOccupation: taux };
     });
     return stats.sort((a, b) => b.totalReservations - a.totalReservations);
-  }, [list, dateRef]);
+  }, [list, dateRef, rooms]);
 
   function label() {
     if (view==='month') {
@@ -88,7 +103,7 @@ export default function GestionChambres() {
       'Client': clients?.find(c => c.id === r.clientId)?.nom || r.clientId,
       'Arrivée': format(new Date(r.dateDebut), 'dd/MM/yyyy'),
       'Départ': r.dateFin ? format(new Date(r.dateFin), 'dd/MM/yyyy') : '-',
-      'Chambre': chambresData.find(c => c.id === r.chambreId)?.numero || '-',
+      'Chambre': (rooms || []).find(c => c.id === r.chambreId)?.numero || '-',
       'Statut': r.statut,
       'Personnes': r.nbPersonnes || '-'
     }));
@@ -101,7 +116,7 @@ export default function GestionChambres() {
       'Client': clients?.find(c => c.id === r.clientId)?.nom || r.clientId,
       'Arrivée': format(new Date(r.dateDebut), 'dd/MM/yyyy'),
       'Départ': r.dateFin ? format(new Date(r.dateFin), 'dd/MM/yyyy') : '-',
-      'Chambre': chambresData.find(c => c.id === r.chambreId)?.numero || '-',
+      'Chambre': (rooms || []).find(c => c.id === r.chambreId)?.numero || '-',
       'Statut': r.statut,
       'Personnes': r.nbPersonnes || '-'
     }));
@@ -167,6 +182,7 @@ export default function GestionChambres() {
             dateRef={dateRef} 
             statusFilter={'all'}
             reservations={list || []}
+            chambres={rooms || []}
           />
             <Stack direction="row" spacing={2} sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
               <Legend color="#FFFFFF" label="Libre" />
@@ -197,8 +213,8 @@ export default function GestionChambres() {
                 <Box>{clients?.find(c => c.id === r.clientId)?.nom ?? r.clientId}</Box>
                 <Box>{format(new Date(r.dateDebut), 'dd/MM/yyyy')}</Box>
                 <Box>{r.dateFin ? format(new Date(r.dateFin), 'dd/MM/yyyy') : '-'}</Box>
-                <Box>{chambresData.find((c) => c.id === r.chambreId)?.numero ?? '-'}</Box>
-                <Box>{r.statut}</Box>
+                <Box>{(rooms || []).find((c) => c.id === r.chambreId)?.numero ?? '-'}</Box>
+                <Box>{deriveReservationStatus(r)}</Box>
                 <Box><Button size="small" variant="outlined" onClick={() => setOpen(r)}>Voir</Button></Box>
               </Box>
             ))}
@@ -211,10 +227,11 @@ export default function GestionChambres() {
         <DialogTitle>Voir réservation</DialogTitle>
         <DialogContent>
           {!open && <Typography color="text.secondary">Sélectionnez une réservation</Typography>}
-          {open && (
+            {open && (
             <EditReservation 
               r={open} 
               reservations={list || []}
+              rooms={rooms || []}
               onClose={()=> setOpen(null)} 
               onSave={(p)=> update.mutate(p as any, { onSuccess: ()=> setOpen(null) })} 
             />
@@ -228,6 +245,7 @@ export default function GestionChambres() {
         <DialogContent>
           <CreateReservationForm 
             reservations={list || []}
+            rooms={rooms || []}
             onClose={() => setCreateModalOpen(false)}
             initialClientId={searchParams.get('clientId') || undefined}
             onCreate={(payload) => {
@@ -248,11 +266,13 @@ function Ariary({ value }: { value: number }) {
 
 function CreateReservationForm({ 
   reservations, 
+  rooms,
   onClose, 
   onCreate,
   initialClientId
 }: { 
   reservations: Reservation[];
+  rooms: Chambre[];
   onClose: () => void;
   onCreate: (payload: any) => void;
   initialClientId?: string;
@@ -287,7 +307,7 @@ function CreateReservationForm({
     const debut = selectedDates.start;
     const fin = selectedDates.end;
     
-    return chambresData.filter(chambre => {
+    return rooms.filter(chambre => {
       if (chambre.statut === 'maintenance') return false;
       
       const hasConflict = reservations.some(r => {
@@ -299,7 +319,7 @@ function CreateReservationForm({
       
       return !hasConflict;
     });
-  }, [selectedDates, reservations]);
+  }, [selectedDates, reservations, rooms]);
 
   // Générer les dates affichées pour le calendrier (fenêtre glissante)
   const weekStart = startOfWeek(modalDateRef, { weekStartsOn: 1 });
@@ -363,7 +383,7 @@ function CreateReservationForm({
 
   // Couleur de la cellule selon la sélection
   function getCellColor(chambreId: string, date: Date) {
-    const chambre = chambresData.find(c => c.id === chambreId);
+    const chambre = rooms.find(c => c.id === chambreId);
     if (chambre?.statut === 'maintenance') return '#9E9E9E'; // Gris - indisponible
     if (!isRoomAvailable(chambreId, date)) return '#EF5350'; // Rouge - occupé
     
@@ -480,7 +500,7 @@ function CreateReservationForm({
             </Box>
           ))}
           
-          {chambresData.map((chambre) => (
+          {(rooms || []).map((chambre) => (
             <Fragment key={chambre.id}>
               <Box sx={{ py: 0.5, fontSize: '0.75rem', fontWeight: 700 }}>
                 {chambre.numero}
@@ -529,7 +549,7 @@ function CreateReservationForm({
         <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'primary.50' }}>
           <Typography variant="body2" fontWeight={700}>Résumé de la réservation</Typography>
           <Typography variant="caption">
-            Chambre: {chambresData.find(c => c.id === form.chambreId)?.numero}
+            Chambre: {(rooms || []).find(c => c.id === form.chambreId)?.numero}
           </Typography>
           <br />
           <Typography variant="caption">
@@ -572,7 +592,7 @@ function CreateReservationForm({
   );
 }
 
-function EditReservation({ r, reservations, onSave, onClose }: { r: Reservation; reservations: Reservation[]; onSave: (p: Partial<Reservation> & { id: string }) => void; onClose: ()=>void }) {
+function EditReservation({ r, reservations, rooms, onSave, onClose }: { r: Reservation; reservations: Reservation[]; rooms: Chambre[]; onSave: (p: Partial<Reservation> & { id: string }) => void; onClose: ()=>void }) {
   const { data: clients } = useClients();
   const [form, setForm] = useState({
     clientId: r.clientId || '',
@@ -601,7 +621,7 @@ function EditReservation({ r, reservations, onSave, onClose }: { r: Reservation;
       const resFin = new Date(rr.dateFin || rr.dateDebut);
       return resDebut < nextDay && resFin > date;
     });
-    const chambre = chambresData.find(c => c.id === chambreId);
+    const chambre = rooms.find(c => c.id === chambreId);
     if (chambre?.statut === 'maintenance') return false;
     return !hasConflict;
   }
@@ -641,7 +661,7 @@ function EditReservation({ r, reservations, onSave, onClose }: { r: Reservation;
   }
 
   function getCellColor(chambreId: string, date: Date) {
-    const chambre = chambresData.find(c => c.id === chambreId);
+    const chambre = rooms.find(c => c.id === chambreId);
     if (chambre?.statut === 'maintenance') return '#9E9E9E';
     if (!isRoomAvailable(chambreId, date)) return '#EF5350';
 
@@ -720,7 +740,7 @@ function EditReservation({ r, reservations, onSave, onClose }: { r: Reservation;
             </Box>
           ))}
 
-          {chambresData.map((chambre) => (
+          {(rooms || []).map((chambre) => (
             <Fragment key={chambre.id}>
               <Box sx={{ py: 0.5, fontSize: '0.75rem', fontWeight: 700 }}>
                 {chambre.numero}
@@ -753,7 +773,7 @@ function EditReservation({ r, reservations, onSave, onClose }: { r: Reservation;
         <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'primary.50' }}>
           <Typography variant="body2" fontWeight={700}>Résumé</Typography>
           <Typography variant="caption">
-            Chambre: {chambresData.find(c => c.id === form.chambreId)?.numero}
+            Chambre: {(rooms || []).find(c => c.id === form.chambreId)?.numero}
           </Typography>
           <br />
           <Typography variant="caption">

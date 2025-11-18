@@ -236,6 +236,7 @@ export default function RestoMenu() {
     data?.[0]?.id ?? null,
   );
   const selected = (data || []).find((i) => i.id === selectedId) || null;
+  const [openFiche, setOpenFiche] = useState(false);
 
   const categories = useMemo(() => {
     const map: Record<string, number> = {};
@@ -368,6 +369,32 @@ export default function RestoMenu() {
         </Stack>
       </Box>
 
+      {/* Plat le plus pris - déplacé depuis la page Plan */}
+      <Grid container spacing={2} sx={{ mb: 2 }}>
+        <Grid item xs={12} sm={6} md={3}>
+          <Paper sx={{ p: 2, bgcolor: 'secondary.50', border: '1px solid', borderColor: 'secondary.200' }}>
+            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+              <RestaurantIcon color="secondary" fontSize="small" />
+              <Typography variant="caption" fontWeight={700} color="secondary.main">
+                Plat le plus pris
+              </Typography>
+            </Stack>
+            <Typography variant="h5" fontWeight={800}>
+              Zebu Roti
+            </Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+              Plat principal
+            </Typography>
+            <Typography variant="body2" fontWeight={700} color="secondary.main" sx={{ mt: 0.5 }}>
+              142 commandes
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              34% du total
+            </Typography>
+          </Paper>
+        </Grid>
+      </Grid>
+
       {/* Header with categories (left) and filters (right) */}
       <Grid container spacing={2} alignItems="center" sx={{ mb: 2 }}>
         <Grid item xs={12} md={8}>
@@ -492,6 +519,7 @@ export default function RestoMenu() {
           >
             <Typography fontWeight={800}>Détails de l'article</Typography>
             <Stack direction="row" spacing={1}>
+              <Button variant="outlined" onClick={() => setOpenFiche(true)}>Fiche technique</Button>
               <Button variant="outlined">Dupliquer</Button>
               <Button
                 variant="contained"
@@ -597,6 +625,39 @@ export default function RestoMenu() {
       </Box>
 
       {/* Modal new article */}
+      {/* Fiche technique (dialog simple) */}
+      <Dialog open={openFiche} onClose={() => setOpenFiche(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Fiche technique — {selected?.nom || "Article"}</DialogTitle>
+        <DialogContent>
+          {!selected && (
+            <Typography color="text.secondary">Sélectionnez un article pour afficher sa fiche.</Typography>
+          )}
+          {selected && (
+            <Stack spacing={1.5} sx={{ mt: 1 }}>
+              <Stack direction="row" spacing={1} alignItems="center">
+                <Chip size="small" icon={categoryIcons[selected.categorieId] as any} label={categoryLabels[selected.categorieId] || selected.categorieId} />
+                <Chip size="small" label={selected.enabled ? "Disponible" : "Indisponible"} color={selected.enabled ? "success" : "default"} />
+                <Chip size="small" label={`${selected.prix.toLocaleString()} Ar`} />
+              </Stack>
+              <Divider />
+              <Typography variant="body2" fontWeight={700}>Ingrédients</Typography>
+              <Typography variant="caption" color="text.secondary">À compléter — liste d’ingrédients et grammages</Typography>
+              <Typography variant="body2" fontWeight={700} sx={{ mt: 1 }}>Allergènes</Typography>
+              <Typography variant="caption" color="text.secondary">À compléter — allergènes potentiels (gluten, arachides, etc.)</Typography>
+              <Typography variant="body2" fontWeight={700} sx={{ mt: 1 }}>Coût matière & Marge</Typography>
+              <Stack direction="row" spacing={1}>
+                <Chip label={`Coût matière: 5 200 Ar`} variant="outlined" />
+                <Chip label={`Marge: 58%`} variant="outlined" />
+              </Stack>
+              <Typography variant="caption" color="text.secondary">Ces valeurs sont simulées et seront reliées au stock plus tard.</Typography>
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenFiche(false)}>Fermer</Button>
+        </DialogActions>
+      </Dialog>
+
       <Dialog
         open={openNew}
         onClose={() => setOpenNew(false)}

@@ -68,4 +68,3 @@ Architecture overview
 Notes
 - Linting: ESLint is not configured in this repo. Use TypeScript type checking (pnpm typecheck) and Prettier formatting (pnpm format.fix).
 - Package manager: package.json pins pnpm@10.14.0 via the packageManager field.
-

@@ -10,10 +10,11 @@ import {
   List,
   ListItemButton,
   ListItemText,
+  Select,
+  MenuItem,
 } from "@mui/material";
 import { ResponsiveContainer, BarChart, Bar, XAxis, Tooltip } from "recharts";
-import { chambres } from "@/services/mock";
-import { useFactures, useEvenements, useStockProduits } from "@/services/api";
+import { useFactures, useEvenements, useStockProduits, useChambres, useHebergementReservations } from "@/services/api";
 import {
   addDays,
   format,
@@ -25,7 +26,6 @@ import {
 import { fr } from "date-fns/locale";
 import { Link } from "react-router-dom";
 import { RoomCalendar } from "@/components/RoomCalendar";
-import { useHebergementReservations } from "@/services/api";
 import { Fragment, useState } from "react";
 import { exportToCSV, exportToPDF } from "@/lib/export";
 
@@ -38,8 +38,10 @@ export default function Dashboard() {
   const { data: factures } = useFactures();
   const { data: stock } = useStockProduits();
   const { data: events } = useEvenements();
+  const { data: rooms } = useChambres();
   const pendingList = (factures || []).filter((f) => f.statut === "emise");
   const lowList = (stock || []).filter((p) => p.stock <= p.seuilMin);
+  const zeroList = (stock || []).filter((p) => p.stock === 0);
   
   // État pour le calendrier des chambres
   const [roomView, setRoomView] = useState<"month" | "week" | "day">("week");
@@ -49,7 +51,7 @@ export default function Dashboard() {
   const revenus = (() => {
     const sum = (src: import("@shared/api").Facture["source"]) =>
       (factures || [])
-        .filter((f) => f.source === src)
+        .filter((f) => f.source === src && f.statut === "payee")
         .reduce((s, f) => s + f.totalTTC, 0);
     return [
       { name: "Héb.", value: sum("Hebergement") },
@@ -75,14 +77,20 @@ export default function Dashboard() {
   }
 
   // Alerts data (stock + housekeeping)
-  const chambreAlerts = chambres
+  const chambreAlerts = (rooms || [])
     .filter((c) => c.statut === "maintenance")
     .map((c) => ({
       type: "chambre" as const,
       text: `${c.numero} en maintenance`,
       badge: "En nettoyage",
     }));
-  const stockAlerts = lowList.map((p) => ({
+  // Filtres secondaires pour le stock
+  const [stockFamilleFilter, setStockFamilleFilter] = useState<"all" | "Restaurant" | "Hebergement">("all");
+  const filteredLow = (stock || [])
+    .filter((p) => p.stock <= p.seuilMin)
+    .filter((p) => stockFamilleFilter === "all" ? true : p.famille === stockFamilleFilter)
+    .map((p) => p);
+  const stockAlerts = filteredLow.map((p) => ({
     type: "stock" as const,
     text: `${p.nom} sous seuil`,
     badge: "Rupture",
@@ -99,6 +107,25 @@ export default function Dashboard() {
         ? a.type === "stock"
         : a.type === "chambre",
   );
+
+  // KPIs dynamiques
+  const today = new Date();
+  const occupiedCount = (rooms || []).filter((c) =>
+    (reservations || []).some((r) => {
+      if (r.type !== "hebergement" || r.chambreId !== c.id) return false;
+      const dStart = new Date(r.dateDebut);
+      const dEnd = new Date(r.dateFin || r.dateDebut);
+      return r.statut === "arrivee" && today >= dStart && today < dEnd;
+    })
+  ).length;
+  const occupancyRate = (rooms || []).length
+    ? Math.round((occupiedCount / (rooms || []).length) * 100)
+    : 0;
+  const arrivalsNext7 = (reservations || []).filter((r) => {
+    if (r.type !== "hebergement") return false;
+    const d = new Date(r.dateDebut);
+    return d > today && d <= addDays(today, 7);
+  }).length;
 
   // Week calendar (events) — synchronisés avec page événements
   const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
@@ -123,7 +150,7 @@ export default function Dashboard() {
           <Paper sx={{ p: 2 }}>
             <Typography color="text.secondary">Taux d'occupation</Typography>
             <Typography variant="h4" fontWeight={800}>
-              72%
+              {occupancyRate}%
             </Typography>
           </Paper>
         </Grid>
@@ -133,7 +160,7 @@ export default function Dashboard() {
               Arrivées à venir (7j)
             </Typography>
             <Typography variant="h4" fontWeight={800}>
-              18
+              {arrivalsNext7}
             </Typography>
           </Paper>
         </Grid>
@@ -188,6 +215,18 @@ export default function Dashboard() {
                   variant={alertFilter === "chambre" ? "filled" : "outlined"}
                   onClick={() => setAlertFilter("chambre")}
                 />
+                {alertFilter === "stock" && (
+                  <Select
+                    size="small"
+                    value={stockFamilleFilter}
+                    onChange={(e) => setStockFamilleFilter(e.target.value as any)}
+                    sx={{ minWidth: 200 }}
+                  >
+                    <MenuItem value="all">Tous stocks</MenuItem>
+                    <MenuItem value="Restaurant">Restaurant</MenuItem>
+                    <MenuItem value="Hebergement">Hébergement</MenuItem>
+                  </Select>
+                )}
               </Stack>
             </Stack>
             <Box
@@ -420,6 +459,7 @@ export default function Dashboard() {
                 dateRef={roomDateRef}
                 statusFilter="all"
                 reservations={reservations || []}
+                chambres={rooms || []}
                 compact={true}
               />
             </Box>
@@ -477,7 +517,7 @@ export default function Dashboard() {
             <Button
               variant="outlined"
               component={Link as any}
-              to="/hebergement/planning"
+              to="/hebergement/gestion"
             >
               Voir
             </Button>

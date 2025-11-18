@@ -3,14 +3,17 @@ import { addDays, addHours, eachDayOfInterval, endOfMonth, endOfWeek, format, is
 import { fr } from "date-fns/locale";
 import { Fragment } from "react";
 import { chambres as chambresData } from "@/services/mock";
-import type { Reservation } from "@shared/api";
+import type { Reservation, Chambre } from "@shared/api";
 
 type View = "month" | "week" | "day";
 
-function reservationColor(r?: Reservation) {
-  if (!r) return "#FFFFFF"; // libre - blanc
-  if (r.statut === "arrivee") return "#EF5350"; // occupée - rouge
-  return "#66BB6A"; // réservée - vert
+function reservationColor(r: Reservation, cellDate: Date) {
+  const now = new Date();
+  const dStart = new Date(r.dateDebut);
+  const dEnd = new Date(r.dateFin || r.dateDebut);
+  const nowInStay = now >= dStart && now < dEnd;
+  if (r.statut === "arrivee" && nowInStay) return "#EF5350"; // occupée - rouge (en cours)
+  return "#66BB6A"; // réservée - vert (futur ou confirmé)
 }
 
 function roomStatusColor(statut: string) {
@@ -41,6 +44,7 @@ interface RoomCalendarProps {
   reservations: Reservation[];
   compact?: boolean;
   onCellClick?: (chambreId: string, date: Date) => void;
+  chambres?: Chambre[];
 }
 
 export function RoomCalendar({ 
@@ -49,23 +53,38 @@ export function RoomCalendar({
   statusFilter, 
   reservations,
   compact = false,
-  onCellClick
+  onCellClick,
+  chambres,
 }: RoomCalendarProps) {
   const range = intervalFor(view, dateRef);
 
+  const roomsData = chambres ?? chambresData;
+
   function roomDerivedStatus(roomId: string) {
-    const room = chambresData.find(c => c.id === roomId)!;
+    const room = roomsData.find(c => c.id === roomId)!;
     if (room.statut === "maintenance") return "maintenance" as const;
-    const has = reservations.some(r => 
-      r.type === 'hebergement' && 
-      r.chambreId === roomId && 
-      isWithinInterval(new Date(r.dateDebut), range)
-    );
-    if (has) return "reservee" as const;
+    const hasOverlap = reservations.some(r => {
+      if (r.type !== 'hebergement' || r.chambreId !== roomId) return false;
+      const resDebut = new Date(r.dateDebut);
+      const resFin = r.dateFin ? new Date(r.dateFin) : addDays(resDebut, 1);
+      const rangeStart = range.start;
+      const rangeEnd = range.end;
+      return resDebut < rangeEnd && resFin > rangeStart;
+    });
+    if (hasOverlap) {
+      const now = new Date();
+      const inStayNow = reservations.some(r => {
+        if (r.type !== 'hebergement' || r.chambreId !== roomId) return false;
+        const resDebut = new Date(r.dateDebut);
+        const resFin = r.dateFin ? new Date(r.dateFin) : addDays(resDebut, 1);
+        return r.statut === 'arrivee' && now >= resDebut && now < resFin;
+      });
+      return inStayNow ? 'occupee' : 'reservee';
+    }
     return "libre" as const;
   }
 
-  const rooms = chambresData.filter(c => 
+  const rooms = roomsData.filter(c => 
     statusFilter === 'all' ? true : roomDerivedStatus(c.id) === statusFilter
   );
 
@@ -137,7 +156,7 @@ export function RoomCalendar({
                     onClick={() => onCellClick?.(c.id, d)}
                     sx={{ 
                       height: compact ? 20 : 32,
-                      bgcolor: r ? reservationColor(r) : roomStatusColor(c.statut),
+                      bgcolor: r ? reservationColor(r, d) : roomStatusColor(c.statut),
                       border: '1px solid',
                       borderColor: 'divider',
                       '&:hover': { opacity: 0.8, cursor: onCellClick ? 'pointer' : 'default' }
@@ -209,7 +228,7 @@ export function RoomCalendar({
                     onClick={() => onCellClick?.(c.id, d)}
                     sx={{ 
                       height: compact ? 32 : 32,
-                      bgcolor: r ? reservationColor(r) : roomStatusColor(c.statut),
+                      bgcolor: r ? reservationColor(r, d) : roomStatusColor(c.statut),
                       border: '1px solid',
                       borderColor: 'divider',
                       '&:hover': { opacity: 0.8, cursor: onCellClick ? 'pointer' : 'default' }
@@ -281,7 +300,7 @@ export function RoomCalendar({
                   onClick={() => onCellClick?.(c.id, h)}
                   sx={{ 
                     height: compact ? 24 : 32,
-                    bgcolor: r ? reservationColor(r) : roomStatusColor(c.statut),
+                    bgcolor: r ? reservationColor(r, h) : roomStatusColor(c.statut),
                     border: '1px solid',
                     borderColor: 'divider',
                     '&:hover': { opacity: 0.8, cursor: onCellClick ? 'pointer' : 'default' }

@@ -11,6 +11,7 @@ import {
   clients,
   utilisateurs,
   userAuth,
+  chambres,
 } from "./mock";
 import {
   Commande,
@@ -19,7 +20,25 @@ import {
   TableResto,
   Evenement,
   Utilisateur,
+  Chambre,
 } from "@shared/api";
+
+// Helper function pour détecter les chevauchements d'horaires
+function timeToMinutes(timeString: string): number {
+  const [hours, minutes] = timeString.split(':').map(Number);
+  return hours * 60 + minutes;
+}
+
+function hasTimeOverlap(
+  start1: number,
+  duration1: number,
+  start2: number,
+  duration2: number
+): boolean {
+  const end1 = start1 + duration1;
+  const end2 = start2 + duration2;
+  return (start1 < end2 && end1 > start2);
+}
 
 export const keys = {
   tables: ["tables"] as const,
@@ -31,6 +50,7 @@ export const keys = {
   events: ["events"] as const,
   clients: ["clients"] as const,
   users: ["users"] as const,
+  chambres: ["chambres"] as const,
 };
 
 export function useStockProduits() {
@@ -141,13 +161,43 @@ export function useUpdateHebergementReservation() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (payload: Partial<Reservation> & { id: string }) => {
-      const list = (await import("./mock"))
-        .reservations as any as Reservation[];
+      const mod = await import("./mock");
+      const list = mod.reservations as any as Reservation[];
       const i = list.findIndex((e) => e.id === payload.id);
-      if (i >= 0) list[i] = { ...list[i], ...payload };
+      if (i >= 0) {
+        const prev = { ...list[i] };
+        list[i] = { ...list[i], ...payload };
+        if (
+          prev.type === "hebergement" &&
+          !["confirmee", "arrivee"].includes(prev.statut as any) &&
+          ["confirmee", "arrivee"].includes(list[i].statut as any)
+        ) {
+          const ch = chambres.find((c) => c.id === list[i].chambreId);
+          const cli = clients.find((c) => c.id === list[i].clientId);
+          const dStart = new Date(list[i].dateDebut);
+          const dEnd = new Date(list[i].dateFin || list[i].dateDebut);
+          const nights = Math.max(1, Math.ceil((dEnd.getTime() - dStart.getTime()) / (1000 * 60 * 60 * 24)));
+          const total = (ch?.tarif_base ?? 0) * nights;
+          const created: import("@shared/api").Facture = {
+            id: `f-${Date.now()}`,
+            numero: `NAS-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, "0")}`,
+            date: new Date().toISOString(),
+            clientNom: cli?.nom ?? list[i].clientId,
+            source: "Hebergement",
+            lignes: [{ description: `Nuitée ${ch?.numero ?? list[i].chambreId} (${dStart.toLocaleDateString()} – ${dEnd.toLocaleDateString()})`, qte: nights, pu: ch?.tarif_base ?? 0 }],
+            totalTTC: total,
+            statut: "emise",
+          };
+          mod.factures.push(created as any);
+        }
+      }
       return list[i];
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: keys.reservations }),
+    onSuccess: () => {
+      // Ne pas invalider le cache pour préserver les modifications locales
+      // qc.invalidateQueries({ queryKey: keys.reservations });
+      qc.invalidateQueries({ queryKey: keys.factures });
+    },
   });
 }
 
@@ -165,10 +215,34 @@ export function useCreateHebergementReservation() {
         gracePeriodMinutes: 0,
         ...payload,
       } as Reservation;
-      (await import("./mock")).reservations.push(r);
+      const mod = await import("./mock");
+      mod.reservations.push(r);
+      if (["confirmee", "arrivee"].includes(r.statut as any)) {
+        const ch = chambres.find((c) => c.id === r.chambreId);
+        const cli = clients.find((c) => c.id === r.clientId);
+        const dStart = new Date(r.dateDebut);
+        const dEnd = new Date(r.dateFin || r.dateDebut);
+        const nights = Math.max(1, Math.ceil((dEnd.getTime() - dStart.getTime()) / (1000 * 60 * 60 * 24)));
+        const total = (ch?.tarif_base ?? 0) * nights;
+        const created: import("@shared/api").Facture = {
+          id: `f-${Date.now()}`,
+          numero: `NAS-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, "0")}`,
+          date: new Date().toISOString(),
+          clientNom: cli?.nom ?? r.clientId,
+          source: "Hebergement",
+          lignes: [{ description: `Nuitée ${ch?.numero ?? r.chambreId} (${dStart.toLocaleDateString()} – ${dEnd.toLocaleDateString()})`, qte: nights, pu: ch?.tarif_base ?? 0 }],
+          totalTTC: total,
+          statut: "emise",
+        };
+        mod.factures.push(created as any);
+      }
       return r;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: keys.reservations }),
+    onSuccess: () => {
+      // Ne pas invalider le cache pour préserver les modifications locales
+      // qc.invalidateQueries({ queryKey: keys.reservations });
+      qc.invalidateQueries({ queryKey: keys.factures });
+    },
   });
 }
 
@@ -182,7 +256,7 @@ export function useTodayRestoReservations() {
         (r) =>
           r.type === "restaurant" &&
           new Date(r.dateDebut).setHours(0, 0, 0, 0) === today.getTime(),
-      ),
+  ),
   });
 }
 
@@ -295,7 +369,7 @@ export function useCreateRestoReservation() {
         gracePeriodMinutes: 15,
         ...payload,
       } as Reservation;
-      (await import("./mock")).reservations.push(r);
+      reservations.push(r);
       if (r.tableId) {
         const t = tables.find((t) => t.id === r.tableId);
         if (t) {
@@ -305,8 +379,12 @@ export function useCreateRestoReservation() {
       }
       return r;
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: keys.reservations });
+    onSuccess: (newReservation) => {
+      // Stocker la nouvelle réservation dans le cache de React Query
+      qc.setQueryData([...keys.reservations, "today"], (old: any) => {
+        if (!old) return [newReservation];
+        return [...old, newReservation];
+      });
       qc.invalidateQueries({ queryKey: keys.tables });
     },
   });
@@ -316,11 +394,16 @@ export function useUpdateRestoReservation() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (payload: Partial<Reservation> & { id: string }) => {
-      const list = (await import("./mock")).reservations as any as Reservation[];
-      const i = list.findIndex((r) => r.id === payload.id);
+      const i = reservations.findIndex((r) => r.id === payload.id);
       if (i >= 0) {
-        const oldTableId = list[i].tableId;
-        list[i] = { ...list[i], ...payload };
+        const oldTableId = reservations[i].tableId;
+        reservations[i] = { ...reservations[i], ...payload };
+        
+        // Mettre à jour le cache React Query
+        qc.setQueryData([...keys.reservations, "today"], (old: any) => {
+          if (!old) return [reservations[i]];
+          return old.map((r: Reservation) => r.id === payload.id ? reservations[i] : r);
+        });
         
         // Mettre à jour les tables si nécessaire
         if (oldTableId !== payload.tableId) {
@@ -337,15 +420,15 @@ export function useUpdateRestoReservation() {
             const newTable = tables.find((t) => t.id === payload.tableId);
             if (newTable) {
               newTable.assignedReservationId = payload.id;
-              newTable.statut = list[i].statut === "arrivee" ? "occupee" : "reservee";
+              newTable.statut = reservations[i].statut === "arrivee" ? "occupee" : "reservee";
             }
           }
         }
+        return reservations[i];
       }
-      return list[i];
+      return null;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: keys.reservations });
       qc.invalidateQueries({ queryKey: keys.tables });
     },
   });
@@ -355,10 +438,9 @@ export function useDeleteRestoReservation() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id }: { id: string }) => {
-      const list = (await import("./mock")).reservations as any as Reservation[];
-      const i = list.findIndex((r) => r.id === id);
+      const i = reservations.findIndex((r) => r.id === id);
       if (i >= 0) {
-        const reservation = list[i];
+        const reservation = reservations[i];
         // Libérer la table associée
         if (reservation.tableId) {
           const table = tables.find((t) => t.id === reservation.tableId);
@@ -367,12 +449,17 @@ export function useDeleteRestoReservation() {
             table.statut = "libre";
           }
         }
-        list.splice(i, 1);
+        reservations.splice(i, 1);
+        
+        // Mettre à jour le cache React Query
+        qc.setQueryData([...keys.reservations, "today"], (old: any) => {
+          if (!old) return [];
+          return old.filter((r: Reservation) => r.id !== id);
+        });
       }
       return true;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: keys.reservations });
       qc.invalidateQueries({ queryKey: keys.tables });
     },
   });
@@ -469,9 +556,33 @@ export function useMarkServed() {
           (c) => c.reservationId === reservationId && c.statut === "envoyee",
         )
         .forEach((c) => (c.statut = "servie"));
+      const res = reservations.find((r) => r.id === reservationId);
+      const lines = commandes
+        .filter((c) => c.reservationId === reservationId && c.statut === "servie")
+        .map((c) => {
+          const it = menu.find((m) => m.id === c.menuItemId);
+          return { description: it?.nom || c.menuItemId, qte: c.quantite, pu: it?.prix || 0 };
+        });
+      const total = lines.reduce((s, l) => s + l.qte * l.pu, 0);
+      if (res && lines.length && total > 0) {
+        const cli = clients.find((c) => c.id === res.clientId);
+        const created: import("@shared/api").Facture = {
+          id: `f-${Date.now()}`,
+          numero: `NAS-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, "0")}`,
+          date: new Date().toISOString(),
+          clientNom: cli?.nom || res.clientId,
+          source: "Restaurant",
+          lignes: lines,
+          totalTTC: total,
+          statut: "emise",
+        };
+        (await import("./mock")).factures.push(created as any);
+      }
     },
-    onSuccess: (_r, v) =>
-      qc.invalidateQueries({ queryKey: [...keys.commandes, v.reservationId] }),
+    onSuccess: (_r, v) => {
+      qc.invalidateQueries({ queryKey: [...keys.commandes, v.reservationId] });
+      qc.invalidateQueries({ queryKey: keys.factures });
+    },
   });
 }
 
@@ -489,6 +600,21 @@ export function useCancelCommande() {
   });
 }
 
+export function useCancelPendingCommandesForReservation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ reservationId, motif }: { reservationId: string; motif?: string }) => {
+      commandes
+        .filter((c) => c.reservationId === reservationId && (c.statut === "saisie" || c.statut === "envoyee"))
+        .forEach((c) => {
+          c.statut = "annulee";
+          c.motifAnnulation = motif ?? "Annulé (non arrivé)";
+        });
+    },
+    onSuccess: (_r, v) => qc.invalidateQueries({ queryKey: [...keys.commandes, v.reservationId] }),
+  });
+}
+
 export function useEndOfService() {
   const qc = useQueryClient();
   return useMutation({
@@ -500,19 +626,79 @@ export function useEndOfService() {
   });
 }
 
+// Fonction pour obtenir les créneaux disponibles pour une table à une date/heure donnée
+export function getAvailableTimeSlots(
+  tableId: string,
+  targetTime: string,
+  duration: number = 60
+): { time: string; available: boolean }[] {
+  const slots: { time: string; available: boolean }[] = [];
+  const targetMinutes = timeToMinutes(targetTime);
+  
+  // Générer des créneaux de 15 minutes autour de l'heure cible (±2 heures)
+  for (let offset = -120; offset <= 120; offset += 15) {
+    const slotTime = targetMinutes + offset;
+    if (slotTime >= 0 && slotTime <= 840) { // 8h-22h = 840 minutes
+      const timeString = `${Math.floor(slotTime / 60).toString().padStart(2, '0')}:${(slotTime % 60).toString().padStart(2, '0')}`;
+      const availability = checkTableAvailability(tableId, timeString, duration);
+      
+      slots.push({
+        time: timeString,
+        available: availability.available
+      });
+    }
+  }
+  
+  return slots;
+}
+
+// Fonction pour vérifier si un créneau est disponible pour une table
+export function checkTableAvailability(
+  tableId: string,
+  startTime: string,
+  duration: number,
+  excludeReservationId?: string
+): { available: boolean; conflictingReservations?: Reservation[] } {
+  const startMinutes = timeToMinutes(startTime);
+  const endMinutes = startMinutes + duration;
+  
+  const conflictingReservations = reservations.filter(r => {
+    if (r.tableId !== tableId) return false;
+    if (excludeReservationId && r.id === excludeReservationId) return false;
+    
+    const rStartMinutes = timeToMinutes(r.heure || '00:00');
+    const rEndMinutes = rStartMinutes + (r.duree || 60);
+    
+    // Détection de chevauchement
+    return (startMinutes < rEndMinutes && endMinutes > rStartMinutes);
+  });
+  
+  return {
+    available: conflictingReservations.length === 0,
+    conflictingReservations
+  };
+}
+
 export function useAssignTable() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (payload: { tableId: string; reservationId: string }) => {
-      // Collision: same table, same hour
+      // Détection de collision complète (chevauchement d'horaires)
       const r = reservations.find((r) => r.id === payload.reservationId);
-      const collision = reservations.some(
-        (rr) =>
-          rr.id !== r?.id &&
-          rr.tableId === payload.tableId &&
-          rr.heure === r?.heure,
+      if (!r) throw new Error("Réservation non trouvée");
+      
+      // Vérifier la disponibilité avec la fonction complète
+      const availability = checkTableAvailability(
+        payload.tableId,
+        r.heure || '00:00',
+        r.duree || 60,
+        r.id
       );
-      if (collision) throw new Error("Collision de table pour ce créneau");
+      
+      if (!availability.available) {
+        throw new Error(`Collision de table pour ce créneau. Conflit avec: ${availability.conflictingReservations?.map(cr => cr.clientId || 'Réservation').join(', ')}`);
+      }
+      
       const t = tables.find((t) => t.id === payload.tableId);
       if (t)
         ((t.assignedReservationId = payload.reservationId),
@@ -522,7 +708,8 @@ export function useAssignTable() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: keys.tables });
-      qc.invalidateQueries({ queryKey: keys.reservations });
+      // Ne pas invalider le cache pour préserver les modifications locales
+      // qc.invalidateQueries({ queryKey: keys.reservations });
     },
   });
 }
@@ -530,7 +717,38 @@ export function useAssignTable() {
 export function useFactures() {
   return useQuery({
     queryKey: keys.factures,
-    queryFn: async () => factures,
+    queryFn: async () => {
+      const mod = await import("./mock");
+      const events = mod.evenements as any as Evenement[];
+      const list = mod.factures as any as import("@shared/api").Facture[];
+      const RATE_AR = 15000; // tarif par personne (événement)
+      const missing = (events || [])
+        .filter((e) => e.statut === "confirme")
+        .filter(
+          (e) =>
+            !list.some(
+              (f) =>
+                f.source === "Evenement" &&
+                f.lignes?.some((l) => (l.description || "").includes(e.nom)),
+            ),
+        );
+      for (const ev of missing) {
+        const qty = Number(ev.nb || 1);
+        const total = qty * RATE_AR;
+        const created: import("@shared/api").Facture = {
+          id: `f-${Date.now()}`,
+          numero: `NAS-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, "0")}`,
+          date: new Date().toISOString(),
+          clientNom: ev.contact || "Client",
+          source: "Evenement",
+          lignes: [{ description: `Événement ${ev.nom}`, qte: qty, pu: RATE_AR }],
+          totalTTC: total,
+          statut: "emise",
+        };
+        list.push(created as any);
+      }
+      return list;
+    },
   });
 }
 
@@ -556,5 +774,70 @@ export function useCreateFacture() {
       return created;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: keys.factures }),
+  });
+}
+
+export function useUpdateFactureStatut() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, statut }: { id: string; statut: import("@shared/api").Facture["statut"] }) => {
+      const list = (await import("./mock")).factures as any as import("@shared/api").Facture[];
+      const i = list.findIndex((f) => f.id === id);
+      if (i >= 0) list[i] = { ...list[i], statut };
+      return list[i];
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.factures }),
+  });
+}
+
+// ==========================
+// Chambres (mock CRUD)
+// ==========================
+export function useChambres() {
+  return useQuery({
+    queryKey: keys.chambres,
+    queryFn: async (): Promise<Chambre[]> => chambres,
+  });
+}
+
+export function useCreateChambre() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (
+      payload: Omit<Chambre, "id">,
+    ) => {
+      const created: Chambre = { id: `ch-${Date.now()}`, ...payload } as Chambre;
+      (await import("./mock")).chambres.push(created as any);
+      return created;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.chambres }),
+  });
+}
+
+export function useUpdateChambre() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (
+      payload: Partial<Chambre> & { id: string },
+    ) => {
+      const list = (await import("./mock")).chambres as any as Chambre[];
+      const i = list.findIndex((c) => c.id === payload.id);
+      if (i >= 0) list[i] = { ...list[i], ...payload };
+      return list[i];
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.chambres }),
+  });
+}
+
+export function useDeleteChambre() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id }: { id: string }) => {
+      const list = (await import("./mock")).chambres as any as Chambre[];
+      const i = list.findIndex((c) => c.id === id);
+      if (i >= 0) list.splice(i, 1);
+      return true;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.chambres }),
   });
 }

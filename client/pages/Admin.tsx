@@ -53,16 +53,16 @@ const initialRoles: Omit<Role, "utilisateurs">[] = [
   },
   {
     id: "r2",
-    nom: "Manager",
+    nom: "Responsable Hébergement",
     hebergement: "Modif.",
-    restaurant: "Modif.",
+    restaurant: "Lecture",
     stock: "Modif.",
     facturation: "Lecture",
     rapports: "Lecture",
   },
   {
     id: "r3",
-    nom: "Serveur",
+    nom: "Staff Restaurant",
     hebergement: "Aucun",
     restaurant: "Modif.",
     stock: "Lecture",
@@ -71,11 +71,11 @@ const initialRoles: Omit<Role, "utilisateurs">[] = [
   },
   {
     id: "r4",
-    nom: "Réception",
-    hebergement: "Modif.",
-    restaurant: "Aucun",
-    stock: "Lecture",
-    facturation: "Création",
+    nom: "Responsable Restaurant",
+    hebergement: "Lecture",
+    restaurant: "Modif.",
+    stock: "Modif.",
+    facturation: "Lecture",
     rapports: "Lecture",
   },
 ];
@@ -90,15 +90,15 @@ export default function AdminPage() {
     const toLabel = (r: string) => {
       const map: Record<string, string> = {
         admin: "Admin",
-        reception: "Réception",
-        chef_salle: "Chef de salle",
-        serveur: "Serveur",
-        cuisine: "Cuisine",
-        bar: "Bar",
-        comptoir: "Comptoir",
-        economat: "Économat",
+        reception: "Responsable Hébergement",
+        chef_salle: "Responsable Restaurant",
+        serveur: "Staff Restaurant",
+        cuisine: "Staff Restaurant",
+        bar: "Staff Restaurant",
+        comptoir: "Staff Restaurant",
+        economat: "Responsable Hébergement",
         comptable: "Comptable",
-        direction: "Direction",
+        direction: "Admin",
       };
       return map[r] || r;
     };
@@ -186,16 +186,10 @@ export default function AdminPage() {
     const roleKey = (() => {
       const map: Record<string, string> = {
         Admin: "admin",
-        "Réception": "reception",
-        "Chef de salle": "chef_salle",
-        Serveur: "serveur",
-        Cuisine: "cuisine",
-        Bar: "bar",
-        Comptoir: "comptoir",
-        Économat: "economat",
+        "Responsable Hébergement": "reception",
+        "Responsable Restaurant": "chef_salle",
+        "Staff Restaurant": "serveur",
         Comptable: "comptable",
-        Direction: "direction",
-        Manager: "direction", // fallback
       };
       return map[userForm.role] || userForm.role;
     })();
@@ -553,14 +547,10 @@ export default function AdminPage() {
               fullWidth
             >
               <MenuItem value="Admin">Admin</MenuItem>
-              <MenuItem value="Manager">Manager</MenuItem>
-              <MenuItem value="Serveur">Serveur</MenuItem>
-              <MenuItem value="Réception">Réception</MenuItem>
-              <MenuItem value="Chef de salle">Chef de salle</MenuItem>
-              <MenuItem value="Comptoir">Comptoir</MenuItem>
-              <MenuItem value="Économat">Économat</MenuItem>
+              <MenuItem value="Responsable Hébergement">Responsable Hébergement</MenuItem>
+              <MenuItem value="Responsable Restaurant">Responsable Restaurant</MenuItem>
+              <MenuItem value="Staff Restaurant">Staff Restaurant</MenuItem>
               <MenuItem value="Comptable">Comptable</MenuItem>
-              <MenuItem value="Direction">Direction</MenuItem>
             </TextField>
             <TextField
               label="Canal"

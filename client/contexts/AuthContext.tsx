@@ -33,7 +33,19 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
     // Mettre à jour le contexte et le store (RBAC)
     setUser({ email: found.login, name: found.nom, role: found.role });
-    dispatch(setRole(found.role as any));
+    const map: Record<string, import("@/hooks/useRBAC").Role> = {
+      admin: "admin",
+      reception: "resp_hebergement",
+      chef_salle: "resp_resto",
+      serveur: "staff_resto",
+      cuisine: "staff_resto",
+      bar: "staff_resto",
+      comptoir: "staff_resto",
+      economat: "resp_hebergement",
+      comptable: "comptable",
+      direction: "admin",
+    };
+    dispatch(setRole((map[found.role] || "admin") as any));
     return true;
   };
 

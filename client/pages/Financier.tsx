@@ -13,7 +13,7 @@ import {
 } from "@mui/material";
 import { useMemo, useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { useCreateFacture, useFactures, useClients } from "@/services/api";
+import { useCreateFacture, useFactures, useClients, useUpdateFactureStatut } from "@/services/api";
 import { Facture } from "@shared/api";
 import { exportToCSV, exportToPDF } from "@/lib/export";
 import {
@@ -72,6 +72,7 @@ export default function Financier() {
   const { data: restoAll } = useRestoReservations();
   const { data: hebergementAll } = useHebergementReservations();
   const create = useCreateFacture();
+  const updateStatut = useUpdateFactureStatut();
   const [searchParams] = useSearchParams();
 
   const [q, setQ] = useState("");
@@ -93,6 +94,7 @@ export default function Financier() {
   }, [factures, q, clientIdParam, clients]);
 
   const selected = list.find((f) => f.id === selectedId) || list[0] || null;
+  const [selectedStatut, setSelectedStatut] = useState<Facture["statut"]>(selected?.statut || "emise");
 
   useEffect(() => {
     const fromParam = searchParams.get("factureId");
@@ -184,7 +186,7 @@ export default function Financier() {
   const ca = useMemo(() => {
     const sum = (src: Facture["source"]) =>
       (factures || [])
-        .filter((f) => f.source === src)
+        .filter((f) => f.source === src && f.statut === "payee")
         .reduce((s, f) => s + f.totalTTC, 0);
     return [
       { name: "Hébergement", revenus: sum("Hebergement") },
@@ -326,14 +328,29 @@ export default function Financier() {
           {!selected && (
             <Typography color="text.secondary">Sélectionnez une facture</Typography>
           )}
-          {selected && (
-            <>
-              <Stack direction={{ xs: "column", md: "row" }} spacing={2} sx={{ mb: 1 }}>
-                <TextField size="small" label="Numéro" value={selected.numero} InputProps={{ readOnly: true }} />
-                <TextField size="small" label="Date" value={new Date(selected.date).toLocaleDateString()} InputProps={{ readOnly: true }} />
-                <TextField size="small" label="Client" value={selected.clientNom} InputProps={{ readOnly: true }} />
-                <TextField size="small" label="Source" value={selected.source} InputProps={{ readOnly: true }} />
-              </Stack>
+  {selected && (
+    <>
+      <Stack direction={{ xs: "column", md: "row" }} spacing={2} sx={{ mb: 1 }}>
+        <TextField size="small" label="Numéro" value={selected.numero} InputProps={{ readOnly: true }} />
+        <TextField size="small" label="Date" value={new Date(selected.date).toLocaleDateString()} InputProps={{ readOnly: true }} />
+        <TextField size="small" label="Client" value={selected.clientNom} InputProps={{ readOnly: true }} />
+        <TextField size="small" label="Source" value={selected.source} InputProps={{ readOnly: true }} />
+        <Select
+          size="small"
+          value={selectedStatut}
+          onChange={(e) => setSelectedStatut(e.target.value as any)}
+        >
+          <MenuItem value="emise">Envoyée</MenuItem>
+          <MenuItem value="payee">Payée</MenuItem>
+          <MenuItem value="annulee">Annulée</MenuItem>
+        </Select>
+        <Button
+          variant="contained"
+          onClick={() => updateStatut.mutate({ id: selected.id, statut: selectedStatut })}
+        >
+          Mettre à jour
+        </Button>
+      </Stack>
               <Box
                 sx={{
                   display: "grid",
@@ -370,8 +387,8 @@ export default function Financier() {
               <Stack alignItems="flex-end" sx={{ mt: 1 }}>
                 <Chip label={`Total ${selected.totalTTC.toLocaleString()} Ar`} color="primary" />
               </Stack>
-            </>
-          )}
+    </>
+  )}
         </Paper>
 
         <Paper sx={{ p: 2 }}>

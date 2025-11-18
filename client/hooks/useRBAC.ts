@@ -3,6 +3,10 @@ import { useAppSelector } from "@/store";
 
 export type Role =
   | "admin"
+  | "resp_hebergement"
+  | "resp_resto"
+  | "staff_resto"
+  | "comptable"
   | "reception"
   | "chef_salle"
   | "serveur"
@@ -10,7 +14,6 @@ export type Role =
   | "bar"
   | "comptoir"
   | "economat"
-  | "comptable"
   | "direction";
 
 export const useRBAC = () => {
@@ -37,38 +40,35 @@ export const useRBAC = () => {
       { label: "Gestion / Admin", path: "/admin" },
     ];
 
-    const map: Record<
-      Role,
-      { label: string; children: { label: string; path: string }[] }[]
-    > = {
+    const map: Record<Role, { label: string; children: { label: string; path: string }[] }[]> = {
       admin: [
         { label: "Hébergement", children: hebergement },
         { label: "Restaurant", children: resto },
         { label: "Financier", children: financier },
         { label: "Administration", children: admin },
       ],
-      reception: [
+      resp_hebergement: [
         { label: "Hébergement", children: hebergement },
-        {
-          label: "Restaurant",
-          children: resto.filter((i) => ["/resto/plan"].includes(i.path)),
-        },
         { label: "Financier", children: financier },
       ],
+      resp_resto: [
+        { label: "Restaurant", children: resto },
+        { label: "Financier", children: financier },
+      ],
+      staff_resto: [{ label: "Restaurant", children: resto }],
+      comptable: [{ label: "Financier", children: financier }],
+      reception: [{ label: "Hébergement", children: hebergement }],
       chef_salle: [{ label: "Restaurant", children: resto }],
       serveur: [{ label: "Restaurant", children: resto }],
       cuisine: [{ label: "Restaurant", children: resto }],
       bar: [{ label: "Restaurant", children: resto }],
-      comptoir: [
-        { label: "Restaurant", children: resto },
-        { label: "Financier", children: financier },
-      ],
-      economat: [{ label: "Hébergement", children: hebergement }],
-      comptable: [{ label: "Financier", children: financier }],
+      comptoir: [{ label: "Restaurant", children: resto }],
+      economat: [{ label: "Stock", children: stock }],
       direction: [
         { label: "Hébergement", children: hebergement },
         { label: "Restaurant", children: resto },
         { label: "Financier", children: financier },
+        { label: "Administration", children: admin },
       ],
     };
 
