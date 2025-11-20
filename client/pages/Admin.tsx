@@ -1,4 +1,6 @@
 import { Add } from "@mui/icons-material";
+import { Navigate } from "react-router-dom";
+import { useAppSelector } from "@/store";
 import {
   Box,
   Button,
@@ -81,6 +83,8 @@ const initialRoles: Omit<Role, "utilisateurs">[] = [
 ];
 
 export default function AdminPage() {
+  const role = useAppSelector((s) => s.session.role);
+  if (role !== "admin") return <Navigate to="/dashboard?notice=admin-only" replace />;
   const { data: usersData } = useUsers();
   const createUser = useCreateUser();
   const updateUser = useUpdateUser();
@@ -91,14 +95,18 @@ export default function AdminPage() {
       const map: Record<string, string> = {
         admin: "Admin",
         reception: "Responsable Hébergement",
+        "responsable hebergement": "Responsable Hébergement",
         chef_salle: "Responsable Restaurant",
+        "responsable restaurant": "Responsable Restaurant",
         serveur: "Staff Restaurant",
         cuisine: "Staff Restaurant",
         bar: "Staff Restaurant",
         comptoir: "Staff Restaurant",
-        economat: "Responsable Hébergement",
+        economat: "Économat",
         comptable: "Comptable",
         direction: "Admin",
+        staff_restaurant: "Staff Restaurant",
+        saff_restaurant: "Staff Restaurant",
       };
       return map[r] || r;
     };
@@ -112,11 +120,31 @@ export default function AdminPage() {
       statut: "Actif",
     }));
   }, [usersData]);
-  const [roles, setRoles] = useState<Omit<Role, "utilisateurs">[]>(initialRoles);
+  const [roles, setRoles] = useState<Omit<Role, "utilisateurs">[]>([
+    ...initialRoles,
+    {
+      id: "r5",
+      nom: "Comptable",
+      hebergement: "Aucun",
+      restaurant: "Aucun",
+      stock: "Aucun",
+      facturation: "Total",
+      rapports: "Lecture",
+    },
+    {
+      id: "r6",
+      nom: "Économat",
+      hebergement: "Aucun",
+      restaurant: "Aucun",
+      stock: "Total",
+      facturation: "Aucun",
+      rapports: "Lecture",
+    },
+  ]);
   
   // Filtres
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "Actif" | "Invité" | "Suspendu">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "Actif" | "Suspendu">("all");
   
   // Modal de gestion utilisateur
   const [modalOpen, setModalOpen] = useState(false);
@@ -189,6 +217,7 @@ export default function AdminPage() {
         "Responsable Hébergement": "reception",
         "Responsable Restaurant": "chef_salle",
         "Staff Restaurant": "serveur",
+        "Économat": "economat",
         Comptable: "comptable",
       };
       return map[userForm.role] || userForm.role;
@@ -280,13 +309,6 @@ export default function AdminPage() {
             />
             <Chip
               size="small"
-              label="Invités"
-              variant={statusFilter === "Invité" ? "filled" : "outlined"}
-              color={statusFilter === "Invité" ? "primary" : "default"}
-              onClick={() => setStatusFilter("Invité")}
-            />
-            <Chip
-              size="small"
               label="Suspendus"
               variant={statusFilter === "Suspendu" ? "filled" : "outlined"}
               color={statusFilter === "Suspendu" ? "primary" : "default"}
@@ -298,9 +320,8 @@ export default function AdminPage() {
 
       <Stack spacing={2}>
         <Stack direction="row" spacing={1} sx={{ flexWrap: "wrap" }}>
-          <Chip label="Utilisateurs actifs 24" />
-          <Chip label="Invitations en attente 3" />
-          <Chip label="Dernière connexion il y a 2 h" />
+          <Chip label={`Utilisateurs actifs ${users.filter(u=>u.statut==='Actif').length}` } />
+          
           <Box sx={{ flex: 1 }} />
           <Button startIcon={<Add />} variant="contained" onClick={openCreateModal}>
             Nouvel utilisateur
@@ -550,6 +571,7 @@ export default function AdminPage() {
               <MenuItem value="Responsable Hébergement">Responsable Hébergement</MenuItem>
               <MenuItem value="Responsable Restaurant">Responsable Restaurant</MenuItem>
               <MenuItem value="Staff Restaurant">Staff Restaurant</MenuItem>
+              <MenuItem value="Économat">Économat</MenuItem>
               <MenuItem value="Comptable">Comptable</MenuItem>
             </TextField>
             <TextField
@@ -578,7 +600,7 @@ export default function AdminPage() {
               fullWidth
             >
               <MenuItem value="Actif">Actif</MenuItem>
-              <MenuItem value="Invité">Invité</MenuItem>
+              {/* <MenuItem value="Invité">Invité</MenuItem> */}
               <MenuItem value="Suspendu">Suspendu</MenuItem>
             </TextField>
           </Stack>

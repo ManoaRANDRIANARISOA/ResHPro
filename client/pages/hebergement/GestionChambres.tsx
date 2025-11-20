@@ -3,7 +3,7 @@ import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import { addDays, format, getISOWeek, startOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, endOfMonth } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useMemo, useState, useEffect, Fragment } from "react";
-import { useHebergementReservations, useUpdateHebergementReservation, useCreateHebergementReservation, useClients, useCreateClient, useChambres } from "@/services/api";
+import { useHebergementReservations, useUpdateHebergementReservation, useCreateHebergementReservation, useClients, useCreateClient, useChambres, useFactures, useCreateFacture, useRoomMaintenance, useAddRoomMaintenance, useRemoveRoomMaintenance, useUpdateChambre } from "@/services/api";
 import { Reservation, Chambre } from "@shared/api";
 import { RoomCalendar } from "@/components/RoomCalendar";
 import { exportToCSV, exportToPDF } from "@/lib/export";
@@ -30,6 +30,12 @@ function Legend({ color, label }: { color: string; label: string }) {
 
 export default function GestionChambres() {
   const { data: list } = useHebergementReservations();
+  const { data: factures } = useFactures();
+  const createFacture = useCreateFacture();
+  const maintenance = useRoomMaintenance();
+  const addMaint = useAddRoomMaintenance();
+  const removeMaint = useRemoveRoomMaintenance();
+  const updateRoom = useUpdateChambre();
   const update = useUpdateHebergementReservation();
   const create = useCreateHebergementReservation();
   const { data: clients } = useClients();
@@ -39,6 +45,9 @@ export default function GestionChambres() {
   const [view, setView] = useState<View>('month');
   const [dateRef, setDateRef] = useState<Date>(startOfMonth(new Date()));
   const [searchParams] = useSearchParams();
+  const [maintRoomId, setMaintRoomId] = useState<string>('');
+  const [maintStart, setMaintStart] = useState<string>('');
+  const [maintEnd, setMaintEnd] = useState<string>('');
   
   // Ouvrir automatiquement le modal de création si demandé via l’URL
   useEffect(() => {
@@ -46,6 +55,14 @@ export default function GestionChambres() {
       setCreateModalOpen(true);
     }
   }, [searchParams]);
+  useEffect(() => {
+    const rid = rooms?.[0]?.id || '';
+    setMaintRoomId((v) => v || rid);
+    const s = format(dateRef, 'yyyy-MM-dd');
+    const e = format(addDays(dateRef, 1), 'yyyy-MM-dd');
+    setMaintStart((v) => v || s);
+    setMaintEnd((v) => v || e);
+  }, [rooms, dateRef]);
   // Status filter supprimé sur cette page (UI)
 
   function deriveReservationStatus(r: Reservation) {
@@ -183,6 +200,7 @@ export default function GestionChambres() {
             statusFilter={'all'}
             reservations={list || []}
             chambres={rooms || []}
+            maintenance={maintenance.data || []}
           />
             <Stack direction="row" spacing={2} sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
               <Legend color="#FFFFFF" label="Libre" />
@@ -205,17 +223,76 @@ export default function GestionChambres() {
                 </Button>
               </Stack>
             </Stack>
-            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 140px 140px 140px 120px 100px', px: 1, py: 1, color: 'text.secondary', fontWeight: 700 }}>
-              <Box>Client</Box><Box>Arrivée</Box><Box>Départ</Box><Box>Chambre</Box><Box>Statut</Box><Box>Action</Box>
+            <Paper sx={{ p: 1, mb: 1 }}>
+              <Stack direction={{ xs:'column', md:'row' }} spacing={1} alignItems={{ xs:'stretch', md:'center' }}>
+                <Typography variant="body2" color="text.secondary">Hors service (période)</Typography>
+                <Box sx={{ display:'flex', gap:1, flexWrap:'wrap' }}>
+                  <Select size="small" value={maintRoomId} onChange={(e)=> setMaintRoomId(e.target.value)} sx={{ minWidth:160 }}>
+                    {(rooms||[]).map(r=> (<MenuItem key={r.id} value={r.id}>{r.numero}</MenuItem>))}
+                  </Select>
+                  <TextField size="small" type="date" label="Début" value={maintStart} onChange={(e)=> setMaintStart(e.target.value)} sx={{ minWidth:160 }} />
+                  <TextField size="small" type="date" label="Fin" value={maintEnd} onChange={(e)=> setMaintEnd(e.target.value)} sx={{ minWidth:160 }} />
+                  <Button size="small" variant="outlined" onClick={() => {
+                    if (!maintRoomId || !maintStart || !maintEnd) return;
+                    removeMaint.mutate({ chambreId: maintRoomId, start: maintStart, end: maintEnd }, {
+                      onSuccess: () => updateRoom.mutate({ id: maintRoomId, statut: 'libre' } as any)
+                    });
+                  }}>Réactiver</Button>
+                  <Button size="small" variant="text" onClick={() => {
+                    if (!maintRoomId || !maintStart || !maintEnd) return;
+                    addMaint.mutate({ chambreId: maintRoomId, start: maintStart, end: maintEnd });
+                  }}>Marquer HS</Button>
+                </Box>
+              </Stack>
+            </Paper>
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 140px 140px 140px 140px 120px 140px', px: 1, py: 1, color: 'text.secondary', fontWeight: 700 }}>
+              <Box>Client</Box><Box>Arrivée</Box><Box>Départ</Box><Box>Chambre</Box><Box>Montant</Box><Box>Statut</Box><Box>Action</Box>
             </Box>
             {(list || []).map((r) => (
-              <Box key={r.id} sx={{ display: 'grid', gridTemplateColumns: '1fr 140px 140px 140px 120px 100px', px: 1, py: 1, alignItems: 'center', borderTop: '1px solid', borderColor: 'divider' }}>
+              <Box key={r.id} sx={{ display: 'grid', gridTemplateColumns: '1fr 140px 140px 140px 140px 120px 140px', px: 1, py: 1, alignItems: 'center', borderTop: '1px solid', borderColor: 'divider' }}>
                 <Box>{clients?.find(c => c.id === r.clientId)?.nom ?? r.clientId}</Box>
                 <Box>{format(new Date(r.dateDebut), 'dd/MM/yyyy')}</Box>
                 <Box>{r.dateFin ? format(new Date(r.dateFin), 'dd/MM/yyyy') : '-'}</Box>
                 <Box>{(rooms || []).find((c) => c.id === r.chambreId)?.numero ?? '-'}</Box>
+                <Box>
+                  {(() => {
+                    const f = (factures || []).find((x) => x.reservationId === r.id && x.source === 'Hebergement');
+                    if (!f) return <Chip size="small" label="—" variant="outlined" />;
+                    return (
+                      <Button size="small" variant="text" onClick={() => (window.location.href = `/financier?factureId=${f.id}`)}>
+                        {f.totalTTC.toLocaleString()} Ar
+                      </Button>
+                    );
+                  })()}
+                </Box>
                 <Box>{deriveReservationStatus(r)}</Box>
-                <Box><Button size="small" variant="outlined" onClick={() => setOpen(r)}>Voir</Button></Box>
+                <Box>
+                  {(() => {
+                    const f = (factures || []).find((x) => x.reservationId === r.id && x.source === 'Hebergement');
+                    if (!f || f.statut === 'annulee') {
+                      const ch = (rooms || []).find((c) => c.id === r.chambreId);
+                      const dStart = new Date(r.dateDebut);
+                      const dEnd = new Date(r.dateFin || r.dateDebut);
+                      const nights = eachDayOfInterval({ start: dStart, end: dEnd }).length;
+                      const total = (ch?.tarif_base ?? 0) * nights;
+                      return (
+                        <Button size="small" variant="contained" onClick={() => createFacture.mutate({
+                          clientNom: clients?.find(c => c.id === r.clientId)?.nom || String(r.clientId),
+                          date: new Date().toISOString(),
+                          dueDate: addDays(dStart, 15).toISOString(),
+                          source: 'Hebergement',
+                          lignes: [{ description: `Nuitée ${(rooms || []).find(c => c.id === r.chambreId)?.numero || r.chambreId} (${dStart.toLocaleDateString()} – ${dEnd.toLocaleDateString()})`, qte: nights, pu: ch?.tarif_base ?? 0 }],
+                          totalTTC: total,
+                          reservationId: r.id,
+                          statut: 'emise',
+                        })}>
+                          Créer facture
+                        </Button>
+                      );
+                    }
+                    return <Button size="small" variant="outlined" onClick={() => setOpen(r)}>Voir</Button>;
+                  })()}
+                </Box>
               </Box>
             ))}
           </Paper>
@@ -232,6 +309,7 @@ export default function GestionChambres() {
               r={open} 
               reservations={list || []}
               rooms={rooms || []}
+              maintenance={maintenance.data || []}
               onClose={()=> setOpen(null)} 
               onSave={(p)=> update.mutate(p as any, { onSuccess: ()=> setOpen(null) })} 
             />
@@ -246,6 +324,7 @@ export default function GestionChambres() {
           <CreateReservationForm 
             reservations={list || []}
             rooms={rooms || []}
+            maintenance={maintenance.data || []}
             onClose={() => setCreateModalOpen(false)}
             initialClientId={searchParams.get('clientId') || undefined}
             onCreate={(payload) => {
@@ -267,12 +346,14 @@ function Ariary({ value }: { value: number }) {
 function CreateReservationForm({ 
   reservations, 
   rooms,
+  maintenance,
   onClose, 
   onCreate,
   initialClientId
 }: { 
   reservations: Reservation[];
   rooms: Chambre[];
+  maintenance: { chambreId: string; start: string; end: string }[];
   onClose: () => void;
   onCreate: (payload: any) => void;
   initialClientId?: string;
@@ -328,11 +409,14 @@ function CreateReservationForm({
   // Vérifier la disponibilité d'une chambre pour une date
   function isRoomAvailable(chambreId: string, date: Date) {
     const nextDay = addDays(date, 1);
+    const inMaint = maintenance.some(m => m.chambreId === chambreId && new Date(m.start) < nextDay && new Date(m.end) > date);
+    if (inMaint) return false;
     const hasConflict = reservations.some(r => {
       if (r.type !== 'hebergement' || r.chambreId !== chambreId) return false;
       if (r.statut === 'annulee') return false;
       const resDebut = new Date(r.dateDebut);
-      const resFin = new Date(r.dateFin || r.dateDebut);
+      const resFinBase = new Date(r.dateFin || r.dateDebut);
+      const resFin = addDays(resFinBase, 1);
       return resDebut < nextDay && resFin > date;
     });
     return !hasConflict;
@@ -592,8 +676,9 @@ function CreateReservationForm({
   );
 }
 
-function EditReservation({ r, reservations, rooms, onSave, onClose }: { r: Reservation; reservations: Reservation[]; rooms: Chambre[]; onSave: (p: Partial<Reservation> & { id: string }) => void; onClose: ()=>void }) {
+function EditReservation({ r, reservations, rooms, maintenance, onSave, onClose }: { r: Reservation; reservations: Reservation[]; rooms: Chambre[]; maintenance: { chambreId: string; start: string; end: string }[]; onSave: (p: Partial<Reservation> & { id: string }) => void; onClose: ()=>void }) {
   const { data: clients } = useClients();
+  const { data: factures } = useFactures();
   const [form, setForm] = useState({
     clientId: r.clientId || '',
     chambreId: r.chambreId || '',
@@ -613,12 +698,15 @@ function EditReservation({ r, reservations, rooms, onSave, onClose }: { r: Reser
 
   function isRoomAvailable(chambreId: string, date: Date) {
     const nextDay = addDays(date, 1);
+    const inMaint = maintenance.some(m => m.chambreId === chambreId && new Date(m.start) < nextDay && new Date(m.end) > date);
+    if (inMaint) return false;
     const hasConflict = reservations.some(rr => {
       if (rr.id === r.id) return false;
       if (rr.type !== 'hebergement' || rr.chambreId !== chambreId) return false;
       if (rr.statut === 'annulee') return false;
       const resDebut = new Date(rr.dateDebut);
-      const resFin = new Date(rr.dateFin || rr.dateDebut);
+      const resFinBase = new Date(rr.dateFin || rr.dateDebut);
+      const resFin = addDays(resFinBase, 1);
       return resDebut < nextDay && resFin > date;
     });
     const chambre = rooms.find(c => c.id === chambreId);
@@ -693,15 +781,7 @@ function EditReservation({ r, reservations, rooms, onSave, onClose }: { r: Reser
     });
   }
 
-  // Facture liée (inchangé)
-  const [lines, setLines] = useState<{ label: string; qte: number; prix: number }[]>([
-    { label: 'Nuitée', qte: 1, prix: 120000 },
-    { label: 'Petit-déj.', qte: 2, prix: 8000 },
-  ]);
-  const total = lines.reduce((a,b)=> a + b.qte*b.prix, 0);
-  function changeLine(i:number, key: 'label'|'qte'|'prix', v:any){
-    setLines(ls=> ls.map((l,idx)=> idx===i? { ...l, [key]: key==='label'? v : parseInt(v||'0',10)} : l));
-  }
+  const linkedInvoice = (factures || []).find(f => f.reservationId === r.id && f.source === 'Hebergement');
 
   return (
     <Stack spacing={2} sx={{ mt: 1 }}>
@@ -802,16 +882,25 @@ function EditReservation({ r, reservations, rooms, onSave, onClose }: { r: Reser
 
       <Divider />
       <Typography fontWeight={700}>Facture liée</Typography>
-      {lines.map((l,i)=> (
-        <Stack key={i} direction="row" spacing={1} alignItems="center">
-          <TextField size="small" value={l.label} onChange={e=> changeLine(i,'label', e.target.value)} />
-          <TextField size="small" type="number" value={l.qte} onChange={e=> changeLine(i,'qte', e.target.value)} sx={{ width:90 }} />
-          <TextField size="small" type="number" value={l.prix} onChange={e=> changeLine(i,'prix', e.target.value)} sx={{ width:120 }} />
-          <Typography>= <Ariary value={l.qte*l.prix} /></Typography>
+      {!linkedInvoice && (
+        <Typography variant="caption" color="text.secondary">Aucune facture liée</Typography>
+      )}
+      {linkedInvoice && (
+        <Stack spacing={1}>
+          <Typography variant="caption">Numéro: {linkedInvoice.numero}</Typography>
+          <Typography variant="caption">Échéance: {linkedInvoice.dueDate ? new Date(linkedInvoice.dueDate).toLocaleDateString() : '—'}</Typography>
+          {linkedInvoice.lignes.map((l, i) => (
+            <Stack key={i} direction="row" spacing={1} alignItems="center">
+              <Typography sx={{ minWidth: 160 }}>{l.description}</Typography>
+              <Typography>× {l.qte}</Typography>
+              <Typography><Ariary value={l.pu} /></Typography>
+              <Typography>= <Ariary value={l.qte * l.pu} /></Typography>
+            </Stack>
+          ))}
+          <Typography><b>Total:</b> <Ariary value={linkedInvoice.totalTTC} /></Typography>
+          <Button size="small" variant="outlined" onClick={() => (window.location.href = `/financier?factureId=${linkedInvoice.id}`)}>Ouvrir la facture</Button>
         </Stack>
-      ))}
-      <Button variant="outlined" onClick={()=> setLines(ls=> [...ls, { label:'Article', qte:1, prix:0 }])}>Ajouter une ligne</Button>
-      <Typography><b>Total:</b> <Ariary value={total} /></Typography>
+      )}
     </Stack>
   );
 }

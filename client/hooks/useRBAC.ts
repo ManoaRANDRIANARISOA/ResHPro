@@ -33,7 +33,10 @@ export const useRBAC = () => {
       { label: "Stock", path: "/resto/stock" },
       { label: "Événements", path: "/resto/evenements" },
     ];
-    const stock: any[] = [];
+    const stock = [
+      { label: "Stock Hébergement", path: "/hebergement/stock" },
+      { label: "Stock Restaurant", path: "/resto/stock" },
+    ];
     const financier = [{ label: "Financier", path: "/financier" }];
     const rapports = [{ label: "Rapports", path: "/rapports" }];
     const admin = [
@@ -68,7 +71,6 @@ export const useRBAC = () => {
         { label: "Hébergement", children: hebergement },
         { label: "Restaurant", children: resto },
         { label: "Financier", children: financier },
-        { label: "Administration", children: admin },
       ],
     };
 

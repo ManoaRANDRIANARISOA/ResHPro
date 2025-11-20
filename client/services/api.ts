@@ -22,6 +22,7 @@ import {
   Utilisateur,
   Chambre,
 } from "@shared/api";
+import { eachDayOfInterval, addDays } from "date-fns";
 
 // Helper function pour détecter les chevauchements d'horaires
 function timeToMinutes(timeString: string): number {
@@ -122,7 +123,10 @@ export function useCreateEvenement() {
       (await import("./mock")).evenements.push(ev as any);
       return ev;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: keys.events }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: keys.events });
+      qc.invalidateQueries({ queryKey: keys.factures });
+    },
   });
 }
 
@@ -135,7 +139,10 @@ export function useUpdateEvenement() {
       if (i >= 0) list[i] = { ...list[i], ...payload };
       return list[i];
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: keys.events }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: keys.events });
+      qc.invalidateQueries({ queryKey: keys.factures });
+    },
   });
 }
 
@@ -176,12 +183,14 @@ export function useUpdateHebergementReservation() {
           const cli = clients.find((c) => c.id === list[i].clientId);
           const dStart = new Date(list[i].dateDebut);
           const dEnd = new Date(list[i].dateFin || list[i].dateDebut);
-          const nights = Math.max(1, Math.ceil((dEnd.getTime() - dStart.getTime()) / (1000 * 60 * 60 * 24)));
+          const nights = eachDayOfInterval({ start: dStart, end: dEnd }).length;
           const total = (ch?.tarif_base ?? 0) * nights;
           const created: import("@shared/api").Facture = {
             id: `f-${Date.now()}`,
             numero: `NAS-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, "0")}`,
             date: new Date().toISOString(),
+            dueDate: addDays(dStart, 15).toISOString(),
+            reservationId: list[i].id,
             clientNom: cli?.nom ?? list[i].clientId,
             source: "Hebergement",
             lignes: [{ description: `Nuitée ${ch?.numero ?? list[i].chambreId} (${dStart.toLocaleDateString()} – ${dEnd.toLocaleDateString()})`, qte: nights, pu: ch?.tarif_base ?? 0 }],
@@ -197,6 +206,7 @@ export function useUpdateHebergementReservation() {
       // Ne pas invalider le cache pour préserver les modifications locales
       // qc.invalidateQueries({ queryKey: keys.reservations });
       qc.invalidateQueries({ queryKey: keys.factures });
+      qc.invalidateQueries({ queryKey: [...keys.reservations, "hebergement"] });
     },
   });
 }
@@ -222,12 +232,14 @@ export function useCreateHebergementReservation() {
         const cli = clients.find((c) => c.id === r.clientId);
         const dStart = new Date(r.dateDebut);
         const dEnd = new Date(r.dateFin || r.dateDebut);
-        const nights = Math.max(1, Math.ceil((dEnd.getTime() - dStart.getTime()) / (1000 * 60 * 60 * 24)));
+        const nights = eachDayOfInterval({ start: dStart, end: dEnd }).length;
         const total = (ch?.tarif_base ?? 0) * nights;
         const created: import("@shared/api").Facture = {
           id: `f-${Date.now()}`,
           numero: `NAS-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, "0")}`,
           date: new Date().toISOString(),
+          dueDate: addDays(dStart, 15).toISOString(),
+          reservationId: r.id,
           clientNom: cli?.nom ?? r.clientId,
           source: "Hebergement",
           lignes: [{ description: `Nuitée ${ch?.numero ?? r.chambreId} (${dStart.toLocaleDateString()} – ${dEnd.toLocaleDateString()})`, qte: nights, pu: ch?.tarif_base ?? 0 }],
@@ -242,6 +254,7 @@ export function useCreateHebergementReservation() {
       // Ne pas invalider le cache pour préserver les modifications locales
       // qc.invalidateQueries({ queryKey: keys.reservations });
       qc.invalidateQueries({ queryKey: keys.factures });
+      qc.invalidateQueries({ queryKey: [...keys.reservations, "hebergement"] });
     },
   });
 }
@@ -290,7 +303,10 @@ export function useCreateUser() {
       }
       return user;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: keys.users }),
+    onSuccess: (user) => {
+      qc.setQueryData(keys.users, (old: any) => (old ? [...old, user] : [user]));
+      qc.invalidateQueries({ queryKey: keys.users });
+    },
   });
 }
 
@@ -312,7 +328,10 @@ export function useUpdateUser() {
       }
       return list[i];
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: keys.users }),
+    onSuccess: (updated) => {
+      qc.setQueryData(keys.users, (old: any) => (old ? old.map((u: any) => (u.id === updated.id ? updated : u)) : [updated]));
+      qc.invalidateQueries({ queryKey: keys.users });
+    },
   });
 }
 
@@ -329,7 +348,10 @@ export function useDeleteUser() {
       }
       return true;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: keys.users }),
+    onSuccess: (_ok, vars) => {
+      qc.setQueryData(keys.users, (old: any) => (old ? old.filter((u: any) => u.id !== vars.id) : []));
+      qc.invalidateQueries({ queryKey: keys.users });
+    },
   });
 }
 
@@ -386,6 +408,7 @@ export function useCreateRestoReservation() {
         return [...old, newReservation];
       });
       qc.invalidateQueries({ queryKey: keys.tables });
+      qc.invalidateQueries({ queryKey: keys.reservations });
     },
   });
 }
@@ -430,6 +453,7 @@ export function useUpdateRestoReservation() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: keys.tables });
+      qc.invalidateQueries({ queryKey: keys.reservations });
     },
   });
 }
@@ -461,6 +485,7 @@ export function useDeleteRestoReservation() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: keys.tables });
+      qc.invalidateQueries({ queryKey: keys.reservations });
     },
   });
 }
@@ -720,34 +745,67 @@ export function useFactures() {
     queryFn: async () => {
       const mod = await import("./mock");
       const events = mod.evenements as any as Evenement[];
-      const list = mod.factures as any as import("@shared/api").Facture[];
-      const RATE_AR = 15000; // tarif par personne (événement)
-      const missing = (events || [])
-        .filter((e) => e.statut === "confirme")
-        .filter(
-          (e) =>
-            !list.some(
-              (f) =>
-                f.source === "Evenement" &&
-                f.lignes?.some((l) => (l.description || "").includes(e.nom)),
-            ),
+      const reservationsAll = mod.reservations as any as Reservation[];
+      const chambresAll = mod.chambres as any as Chambre[];
+      const clientsAll = mod.clients as any as any[];
+      const baseRaw = mod.factures as any as import("@shared/api").Facture[];
+      const base = Array.from(new Map(baseRaw.map((f) => [f.id, f])).values());
+      const RATE_AR = 15000;
+      const augmented = [...base];
+      for (const ev of events || []) {
+        const hasExisting = augmented.some(
+          (f) =>
+            f.source === "Evenement" &&
+            (f.lignes?.some((l) => (l.description || "").includes(ev.nom)) || f.id === `f-ev-${ev.id}`),
         );
-      for (const ev of missing) {
-        const qty = Number(ev.nb || 1);
-        const total = qty * RATE_AR;
-        const created: import("@shared/api").Facture = {
-          id: `f-${Date.now()}`,
-          numero: `NAS-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, "0")}`,
-          date: new Date().toISOString(),
-          clientNom: ev.contact || "Client",
-          source: "Evenement",
-          lignes: [{ description: `Événement ${ev.nom}`, qte: qty, pu: RATE_AR }],
-          totalTTC: total,
-          statut: "emise",
-        };
-        list.push(created as any);
+        if (!hasExisting) {
+          const qty = Number(ev.nb || 1);
+          const total = qty * RATE_AR;
+          const defaultDue = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString();
+          const created: import("@shared/api").Facture = {
+            id: `f-ev-${ev.id}`,
+            numero: `NAS-${new Date().getFullYear()}-EV${String(ev.id).replace(/[^0-9a-zA-Z]/g, "").toUpperCase()}`,
+            date: new Date().toISOString(),
+            dueDate: defaultDue,
+            clientNom: ev.contact || "Client",
+            source: "Evenement",
+            lignes: [{ description: `Événement ${ev.nom}`, qte: qty, pu: RATE_AR }],
+            totalTTC: total,
+            statut: ev.statut === "confirme" ? "payee" : "emise",
+          };
+          augmented.push(created as any);
+          (mod.factures as any as import("@shared/api").Facture[]).push(created as any);
+        }
       }
-      return list;
+
+      // Générer les factures manquantes pour les réservations hébergement (statut Envoyée par défaut)
+      const heb = (reservationsAll || []).filter((r) => r.type === "hebergement");
+      for (const r of heb) {
+        const has = augmented.some((f) => f.source === "Hebergement" && (f.reservationId === r.id || f.lignes?.some((l) => (l.description || "").includes(String(r.chambreId)))));
+        if (!has) {
+          const ch = chambresAll.find((c) => c.id === r.chambreId);
+          const cli = clientsAll.find((c) => c.id === r.clientId);
+          const dStart = new Date(r.dateDebut);
+          const dEnd = new Date(r.dateFin || r.dateDebut);
+          const nights = eachDayOfInterval({ start: dStart, end: dEnd }).length;
+          const total = (ch?.tarif_base ?? 0) * nights;
+          const created: import("@shared/api").Facture = {
+            id: `f-res-${r.id}`,
+            numero: `NAS-${new Date().getFullYear()}-HEB${String(r.id).replace(/[^0-9a-zA-Z]/g, "").toUpperCase()}`,
+            date: new Date().toISOString(),
+            dueDate: addDays(dStart, 15).toISOString(),
+            reservationId: r.id,
+            clientNom: cli?.nom ?? r.clientId,
+            source: "Hebergement",
+            lignes: [{ description: `Nuitée ${ch?.numero ?? r.chambreId} (${dStart.toLocaleDateString()} – ${dEnd.toLocaleDateString()})`, qte: nights, pu: ch?.tarif_base ?? 0 }],
+            totalTTC: total,
+            statut: "emise",
+          };
+          augmented.push(created as any);
+          (mod.factures as any as import("@shared/api").Facture[]).push(created as any);
+        }
+      }
+      return augmented;
     },
   });
 }
@@ -764,10 +822,12 @@ export function useCreateFacture() {
       const total =
         payload.totalTTC ??
         payload.lignes.reduce((s, l) => s + l.qte * l.pu, 0);
+      const defaultDue = new Date(Date.now() + 15 * 24 * 60 * 60 * 1000).toISOString();
       const created: import("@shared/api").Facture = {
         id: `f-${Date.now()}`,
         numero: `NAS-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, "0")}`,
         totalTTC: total,
+        dueDate: payload.dueDate ?? defaultDue,
         ...payload,
       };
       (await import("./mock")).factures.push(created);
@@ -790,6 +850,19 @@ export function useUpdateFactureStatut() {
   });
 }
 
+export function useUpdateFacture() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: Partial<import("@shared/api").Facture> & { id: string }) => {
+      const list = (await import("./mock")).factures as any as import("@shared/api").Facture[];
+      const i = list.findIndex((f) => f.id === payload.id);
+      if (i >= 0) list[i] = { ...list[i], ...payload } as any;
+      return list[i];
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: keys.factures }),
+  });
+}
+
 // ==========================
 // Chambres (mock CRUD)
 // ==========================
@@ -797,6 +870,39 @@ export function useChambres() {
   return useQuery({
     queryKey: keys.chambres,
     queryFn: async (): Promise<Chambre[]> => chambres,
+  });
+}
+
+// Gestion des périodes de maintenance (hors service) des chambres
+export function useRoomMaintenance() {
+  return useQuery({ queryKey: [...keys.chambres, "maintenance"], queryFn: async () => (await import("./mock")).chambresMaintenance });
+}
+
+export function useAddRoomMaintenance() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: { chambreId: string; start: string; end: string }) => {
+      (await import("./mock")).chambresMaintenance.push(payload);
+      return payload;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: [...keys.chambres, "maintenance"] }),
+  });
+}
+
+export function useRemoveRoomMaintenance() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: { chambreId: string; start?: string; end?: string }) => {
+      const list = (await import("./mock")).chambresMaintenance;
+      const idxs = list
+        .map((m, i) => ({ m, i }))
+        .filter(({ m }) => m.chambreId === payload.chambreId && (!payload.start || !payload.end || (new Date(m.start) <= new Date(payload.end!) && new Date(m.end) >= new Date(payload.start!))))
+        .map(({ i }) => i)
+        .reverse();
+      for (const i of idxs) list.splice(i, 1);
+      return true;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: [...keys.chambres, "maintenance"] }),
   });
 }
 

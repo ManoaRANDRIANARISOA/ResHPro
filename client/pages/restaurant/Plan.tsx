@@ -48,6 +48,7 @@ interface FormState {
   table: string;
   heureArrivee: string;
   heureDepart: string;
+  duree: number;
 }
 
 export default function RestoPlan() {
@@ -136,14 +137,46 @@ export default function RestoPlan() {
 
   // Statistiques (statique pour l'instant, prêt pour données dynamiques du backend)
   const topTableStats = useMemo(() => {
-    // Simulation - à remplacer par vraies données du backend
+    const SERVICE_START = 8;
+    const SERVICE_END = 22;
+    const SERVICE_MINUTES = (SERVICE_END - SERVICE_START) * 60;
+    const now = new Date();
+    function toMinutes(time?: string) {
+      if (!time) return null;
+      const [h, m] = time.split(":").map(Number);
+      return h * 60 + m;
+    }
+    function durationForReservation(r: EnrichedReservation) {
+      const arriveMin = toMinutes(r.heureArrivee);
+      const departMin = toMinutes(r.heureDepart);
+      if (arriveMin != null && departMin != null && departMin > arriveMin) {
+        return departMin - arriveMin;
+      }
+      if (arriveMin != null && departMin == null) {
+        const curMin = now.getHours() * 60 + now.getMinutes();
+        const planned = (r.duree as number) || 60;
+        return Math.min(Math.max(0, curMin - arriveMin), planned);
+      }
+      return (r.duree as number) || 60;
+    }
+    const totalOccupied = localEnrichedReservations.reduce((sum, r) => sum + durationForReservation(r), 0);
+    const capacity = (tables?.length || 0) * SERVICE_MINUTES;
+    const avgOccupationPct = capacity > 0 ? Math.min(100, Math.round((totalOccupied / capacity) * 100)) : 0;
+    const perTable: Record<string, number> = {};
+    for (const r of localEnrichedReservations) {
+      const d = durationForReservation(r);
+      const key = r.tableId || "_none";
+      perTable[key] = (perTable[key] || 0) + d;
+    }
+    const favEntry = Object.entries(perTable).sort((a, b) => b[1] - a[1])[0];
+    const favTableId = favEntry?.[0];
+    const favTable = (tables || []).find(t => t.id === favTableId)?.numero || (favTableId ? favTableId : "—");
     return {
-      totalReservations: enrichedReservations.length,
-      avgOccupation: "75%",
-      topTable: "Table 5",
-      satisfaction: "4.8/5"
+      totalReservations: localEnrichedReservations.length,
+      avgOccupation: `${avgOccupationPct}%`,
+      topTable: favTable
     };
-  }, [enrichedReservations.length]);
+  }, [localEnrichedReservations, tables]);
 
   return (
     <Box>
@@ -160,7 +193,7 @@ export default function RestoPlan() {
           </Grid>
           <Grid item xs={12} md={6}>
             <Stack direction="row" spacing={2} justifyContent="flex-end">
-              <FormControl size="small" sx={{ minWidth: 120 }}>
+              {/* <FormControl size="small" sx={{ minWidth: 120 }}>
                 <InputLabel>Service</InputLabel>
                 <Select
                   value={service}
@@ -171,7 +204,7 @@ export default function RestoPlan() {
                   <MenuItem value="dej">Déjeuner</MenuItem>
                   <MenuItem value="diner">Dîner</MenuItem>
                 </Select>
-              </FormControl>
+              </FormControl> */}
               <FormControl size="small" sx={{ minWidth: 120 }}>
                 <InputLabel>Capacité</InputLabel>
                 <Select
@@ -191,8 +224,8 @@ export default function RestoPlan() {
 
       {/* Statistiques */}
       <Paper sx={{ p: 2, mb: 2 }}>
-        <Grid container spacing={3}>
-          <Grid item xs={6} md={3}>
+        <Grid container spacing={3} justifyContent="center" alignItems="stretch">
+          <Grid item xs={12} sm={4} md={4}>
             <Box textAlign="center">
               <Typography variant="h6" color="primary">
                 {topTableStats.totalReservations}
@@ -202,7 +235,7 @@ export default function RestoPlan() {
               </Typography>
             </Box>
           </Grid>
-          <Grid item xs={6} md={3}>
+          <Grid item xs={12} sm={4} md={4}>
             <Box textAlign="center">
               <Typography variant="h6" color="primary">
                 {topTableStats.avgOccupation}
@@ -212,23 +245,13 @@ export default function RestoPlan() {
               </Typography>
             </Box>
           </Grid>
-          <Grid item xs={6} md={3}>
+          <Grid item xs={12} sm={4} md={4}>
             <Box textAlign="center">
               <Typography variant="h6" color="primary">
                 {topTableStats.topTable}
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Table favorite
-              </Typography>
-            </Box>
-          </Grid>
-          <Grid item xs={6} md={3}>
-            <Box textAlign="center">
-              <Typography variant="h6" color="primary">
-                {topTableStats.satisfaction}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Satisfaction
               </Typography>
             </Box>
           </Grid>
@@ -427,6 +450,7 @@ function NewReservationForm({
     table: "",
     heureArrivee: "",
     heureDepart: "",
+    duree: 60,
   });
 
   const todayStr = format(new Date(), "yyyy-MM-dd");
@@ -449,6 +473,7 @@ function NewReservationForm({
         table: currentReservation.tableId || "",
         heureArrivee: currentReservation.heureArrivee || "",
         heureDepart: currentReservation.heureDepart || "",
+        duree: (currentReservation.duree as number) || 60,
       });
     } else if (mode === "new") {
       // Réinitialiser pour une nouvelle réservation
@@ -461,6 +486,7 @@ function NewReservationForm({
         table: initialTableId || "",
         heureArrivee: "",
         heureDepart: "",
+        duree: 60,
       });
     }
   }, [mode, selectedReservation, clients, initialHour, initialTableId, localEnrichedReservations]);
@@ -477,7 +503,7 @@ function NewReservationForm({
         tableId: form.table || undefined,
         heureArrivee: form.heureArrivee || undefined,
         heureDepart: form.heureDepart || undefined,
-        duree: (selectedReservation?.duree as number) ?? 60,
+        duree: form.duree || 60,
       });
       
       // Mettre à jour l'état local immédiatement
@@ -491,7 +517,7 @@ function NewReservationForm({
               tableId: form.table || undefined,
               heureArrivee: form.heureArrivee || undefined,
               heureDepart: form.heureDepart || undefined,
-              duree: (selectedReservation?.duree as number) ?? (r.duree as number) ?? 60,
+              duree: form.duree || (r.duree as number) || 60,
             }
           : r
       );
@@ -520,6 +546,7 @@ function NewReservationForm({
       
       // Ajouter la nouvelle réservation à l'état local
       const enrichedNewReservation = { ...newReservation, client };
+      enrichedNewReservation.duree = form.duree || 60;
       setLocalEnrichedReservations([...localEnrichedReservations, enrichedNewReservation]);
     }
   }
@@ -570,20 +597,8 @@ function NewReservationForm({
           <TextField
             label="Durée d'occupation (minutes)"
             type="number"
-            value={(selectedReservation?.duree as number) ?? 60}
-            onChange={(e) => {
-              const d = parseInt(e.target.value) || 60;
-              if (mode === "view" && selectedReservation) {
-                const updatedReservations = localEnrichedReservations.map(r =>
-                  r.id === selectedReservation.id ? { ...r, duree: d } : r
-                );
-                setLocalEnrichedReservations(updatedReservations);
-                const updatedSelected = updatedReservations.find(r => r.id === selectedReservation.id);
-                if (updatedSelected) setSelectedReservation(updatedSelected);
-              } else {
-                setForm({ ...form, nb: form.nb });
-              }
-            }}
+            value={form.duree}
+            onChange={(e) => setForm({ ...form, duree: parseInt(e.target.value) || 60 })}
           />
           <FormControl fullWidth>
             <InputLabel>Table</InputLabel>

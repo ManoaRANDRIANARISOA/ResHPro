@@ -90,7 +90,7 @@ function getCachedReservationDisplayStatus(
 }
 
 function getReservationDisplayStatus(reservation: EnrichedReservation, currentTimeMinutes: number): ReservationDisplayInfo {
-  const startMinutes = timeToMinutes(reservation.heureDebut || reservation.heure || '00:00');
+  const startMinutes = timeToMinutes(reservation.heureArrivee || reservation.heureDebut || reservation.heure || '00:00');
   const duration = reservation.duree || DEFAULT_DURATION;
   const plannedEndMinutes = startMinutes + duration;
 
@@ -110,7 +110,7 @@ function getReservationDisplayStatus(reservation: EnrichedReservation, currentTi
   
   // NO-SHOW - reste vert mais avec indication spéciale
   if (reservation.statut === 'no_show') {
-    return { status: 'no_show', color: '#66BB6A', text: 'No-Show', isExtended: false, isOverdue: false, plannedEndMinutes };
+    return { status: 'no_show', color: '#66BB6A', text: 'Non arrivé', isExtended: false, isOverdue: false, plannedEndMinutes };
   }
 
   // CLIENT ARRIVÉ - toujours rouge (peu importe l'heure réelle)
@@ -529,17 +529,11 @@ export default function DynamicSchedule({ reservations, tables, clients, onReser
                   let topPosition = (startMinutes / TOTAL_MINUTES) * 100;
                   let height = (duration / TOTAL_MINUTES) * 100;
                   
-                  // Si client arrivé et pas encore parti, montrer la durée réelle d'occupation jusqu'à maintenant
+                  // Si client arrivé et pas encore parti
                   if (reservation.heureArrivee && !reservation.heureDepart) {
-                    const occupyDuration = Math.max(0, currentTimeMinutes - startMinutes);
-                    height = (occupyDuration / TOTAL_MINUTES) * 100;
-                  }
-                  
-                  // Si l'heure d'arrivée est différente de l'heure prévue, accorder une durée par défaut d'une heure
-                  if (reservation.heureArrivee && reservation.heureArrivee !== reservation.heureDebut) {
-                    // Le client arrive en avance ou en retard - accorder une heure d'occupation par défaut
-                    if (!reservation.heureDepart) {
-                      height = (DEFAULT_DURATION / TOTAL_MINUTES) * 100;
+                    // Avant l'heure de fin prévue: montrer la durée planifiée (custom si fournie, sinon 60min)
+                    if (currentTimeMinutes <= (startMinutes + duration)) {
+                      height = ((reservation.duree || DEFAULT_DURATION) / TOTAL_MINUTES) * 100;
                     }
                   }
 

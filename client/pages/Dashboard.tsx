@@ -539,3 +539,11 @@ function LegendDot({ color, label }: { color: string; label: string }) {
   );
 }
 
+import { useSearchParams } from "react-router-dom";
+import { Alert } from "@mui/material";
+  const [sp] = useSearchParams();
+  const notice = sp.get("notice");
+      {notice === "admin-only" && (
+        <Alert severity="info" sx={{ mb: 2 }}>Accès réservé aux administrateurs</Alert>
+      )}
+

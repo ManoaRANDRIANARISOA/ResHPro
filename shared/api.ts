@@ -116,6 +116,8 @@ export interface Facture {
   id: string;
   numero: string;
   date: string; // ISO
+  dueDate?: string; // ISO - échéance
+  reservationId?: string;
   clientNom: string;
   source: "Hebergement" | "Restaurant" | "Evenement";
   lignes: FactureLigne[];

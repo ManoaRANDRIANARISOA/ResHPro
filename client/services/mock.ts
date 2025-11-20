@@ -91,15 +91,15 @@ export const clients: Client[] = [
 // Comptes utilisateurs (mock) — utilisés pour l’auth et l’admin
 export const utilisateurs: Utilisateur[] = [
   { id: "u-admin", nom: "Administrateur", login: "admin@nas.local", role: "admin" },
-  { id: "u-reception", nom: "Réception", login: "reception@nas.local", role: "reception" },
-  { id: "u-chef", nom: "Chef de salle", login: "chef.salle@nas.local", role: "chef_salle" },
-  { id: "u-serveur", nom: "Serveur", login: "serveur@nas.local", role: "serveur" },
-  { id: "u-cuisine", nom: "Cuisine", login: "cuisine@nas.local", role: "cuisine" },
-  { id: "u-bar", nom: "Bar", login: "bar@nas.local", role: "bar" },
-  { id: "u-comptoir", nom: "Comptoir", login: "comptoir@nas.local", role: "comptoir" },
+  { id: "u-reception", nom: "Réception", login: "reception@nas.local", role: "responsable hebergement" },
+  { id: "u-chef", nom: "Chef de salle", login: "chef.salle@nas.local", role: "responsable restaurant" },
+  { id: "u-serveur", nom: "Serveur", login: "serveur@nas.local", role: "saff_restaurant" },
+  { id: "u-cuisine", nom: "Cuisine", login: "cuisine@nas.local", role: "staff_restaurant" },
+  { id: "u-bar", nom: "Bar", login: "bar@nas.local", role: "staff_restaurant" },
+  { id: "u-comptoir", nom: "Comptoir", login: "comptoir@nas.local", role: "staff_restaurant" },
   { id: "u-economat", nom: "Économat", login: "economat@nas.local", role: "economat" },
   { id: "u-comptable", nom: "Comptable", login: "comptable@nas.local", role: "comptable" },
-  { id: "u-direction", nom: "Direction", login: "direction@nas.local", role: "direction" },
+  { id: "u-direction", nom: "Direction", login: "direction@nas.local", role: "admin" },
 ];
 
 // Secrets mock (plaintext, uniquement pour démo) — login -> password
@@ -167,20 +167,20 @@ export const tables: TableResto[] = Array.from({ length: 12 }).map((_, i) => {
 });
 
 export const menu: MenuItem[] = [
-  { id: "m1", categorieId: "plats", nom: "Ravitoto", prix: 12000, enabled: true, photoUrl: "/placeholder.svg" },
-  { id: "m2", categorieId: "plats", nom: "Romazava", prix: 14000, enabled: true, photoUrl: "/placeholder.svg" },
-  { id: "m3", categorieId: "plats", nom: "Poulet coco", prix: 16000, enabled: false, photoUrl: "/placeholder.svg" },
-  { id: "m4", categorieId: "plats", nom: "Zébu grillé", prix: 18000, enabled: true, photoUrl: "/placeholder.svg" },
-  { id: "m5", categorieId: "plats", nom: "Poisson grillé", prix: 20000, enabled: true, photoUrl: "/placeholder.svg" },
-  { id: "m6", categorieId: "entrees", nom: "Sambos", prix: 8000, enabled: false, photoUrl: "/placeholder.svg" },
-  { id: "m7", categorieId: "entrees", nom: "Salade", prix: 6000, enabled: true, photoUrl: "/placeholder.svg" },
-  { id: "m8", categorieId: "entrees", nom: "Soupe", prix: 7000, enabled: true, photoUrl: "/placeholder.svg" },
-  { id: "m9", categorieId: "boissons", nom: "Thé glacé", prix: 3000, enabled: false, photoUrl: "/placeholder.svg" },
-  { id: "m10", categorieId: "boissons", nom: "Café", prix: 2500, enabled: true, photoUrl: "/placeholder.svg" },
-  { id: "m11", categorieId: "boissons", nom: "Jus papaye", prix: 4000, enabled: true, photoUrl: "/placeholder.svg" },
-  { id: "m12", categorieId: "desserts", nom: "Koba", prix: 5000, enabled: true, photoUrl: "/placeholder.svg" },
-  { id: "m13", categorieId: "desserts", nom: "Mofo gasy", prix: 3500, enabled: true, photoUrl: "/placeholder.svg" },
-  { id: "m14", categorieId: "desserts", nom: "Crème caramel", prix: 6000, enabled: true, photoUrl: "/placeholder.svg" },
+  { id: "m1", categorieId: "plats", nom: "Ravitoto", prix: 12000, enabled: true, photoUrl: "https://i.pinimg.com/1200x/0a/29/af/0a29afa27e98cf15cd4f1c0bc486599b.jpg" },
+  { id: "m2", categorieId: "plats", nom: "Romazava", prix: 14000, enabled: true, photoUrl: "https://i.pinimg.com/1200x/d4/3f/2e/d43f2ede268ba463a675b6d0c0f99877.jpg" },
+  { id: "m3", categorieId: "plats", nom: "Poulet coco", prix: 16000, enabled: false, photoUrl: "https://i.pinimg.com/1200x/27/fb/30/27fb30b61472a6cc47d1e874fa7961d8.jpg" },
+  { id: "m4", categorieId: "plats", nom: "Tagliatelle", prix: 18000, enabled: true, photoUrl: "https://images.unsplash.com/photo-1551183053-bf91a1d81141?w=640&q=80&auto=format" },
+  { id: "m5", categorieId: "plats", nom: "Zébu roti", prix: 20000, enabled: true, photoUrl: "https://images.unsplash.com/photo-1544025162-d76694265947?w=640&q=80&auto=format" },
+  { id: "m6", categorieId: "entrees", nom: "Sambos", prix: 8000, enabled: false, photoUrl: "https://i.pinimg.com/1200x/4a/d0/dc/4ad0dc5e6f49cad821feab9b021c9f5d.jpg" },
+  { id: "m7", categorieId: "entrees", nom: "Salade", prix: 6000, enabled: true, photoUrl: "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=640&q=80&auto=format" },
+  { id: "m8", categorieId: "entrees", nom: "Soupe légume", prix: 7000, enabled: true, photoUrl: "https://i.pinimg.com/1200x/c2/b4/14/c2b414edb9e168a28a3fb89c2fd60742.jpg" },
+  { id: "m9", categorieId: "boissons", nom: "Smoothie", prix: 3000, enabled: false, photoUrl: "https://i.pinimg.com/1200x/13/31/87/133187688edddd1157da263a05ce05df.jpg" },
+  { id: "m10", categorieId: "boissons", nom: "Café", prix: 2500, enabled: true, photoUrl: "https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=640&q=80&auto=format" },
+  { id: "m11", categorieId: "boissons", nom: "Thé glacé", prix: 4000, enabled: true, photoUrl: "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=640&q=80&auto=format" },
+  { id: "m12", categorieId: "desserts", nom: "Koba", prix: 5000, enabled: true, photoUrl: "https://i.pinimg.com/736x/7c/eb/48/7ceb4886d392a715eda5f8d782dd9084.jpg" },
+  { id: "m13", categorieId: "desserts", nom: "Mofo gasy", prix: 3500, enabled: true, photoUrl: "https://i.pinimg.com/1200x/02/05/b9/0205b9f59c5ebb3f494430a95adf1b52.jpg" },
+  { id: "m14", categorieId: "desserts", nom: "Mousse au chocolat", prix: 6000, enabled: true, photoUrl: "https://i.pinimg.com/736x/4e/77/75/4e7775d548b5954bafe04b7c5ef8e190.jpg" },
 ];
 
 export const reservations: Reservation[] = [
@@ -195,11 +195,9 @@ export const reservations: Reservation[] = [
     dateDebut: addHours(startOfToday(), 9).toISOString(),
     heure: "09:15",
     heureDebut: "09:15",
-    heureArrivee: "09:10",
-    heureDepart: "10:30",
     duree: 60,
     nbPersonnes: 2,
-    statut: "terminee",
+    statut: "confirmee",
     gracePeriodMinutes: 15,
   },
   
@@ -212,11 +210,9 @@ export const reservations: Reservation[] = [
     dateDebut: addHours(startOfToday(), 10).toISOString(),
     heure: "10:30",
     heureDebut: "10:30",
-    heureArrivee: "10:25", // Client arrivé
-    // Pas d'heure de départ - encore présent
     duree: 90,
     nbPersonnes: 3,
-    statut: "arrivee",
+    statut: "confirmee",
     gracePeriodMinutes: 15,
   },
   
@@ -229,11 +225,9 @@ export const reservations: Reservation[] = [
     dateDebut: addHours(startOfToday(), 9).toISOString(),
     heure: "09:00",
     heureDebut: "09:00",
-    heureArrivee: "08:55", // Client arrivé
-    // Pas d'heure de départ - dépassement!
     duree: 60,
     nbPersonnes: 4,
-    statut: "arrivee",
+    statut: "confirmee",
     gracePeriodMinutes: 15,
   },
   
@@ -712,59 +706,10 @@ export const stockProduits: StockProduit[] = [
   },
 ];
 
-export const factures: Facture[] = [
-  {
-    id: "f1",
-    numero: "NAS-2025-0001",
-    date: new Date().toISOString(),
-    clientNom: "Rabe Andry",
-    source: "Restaurant",
-    lignes: [{ description: "Déjeuner", qte: 3, pu: 15000 }],
-    totalTTC: 45000,
-    statut: "emise",
-  },
-  {
-    id: "f2",
-    numero: "NAS-2025-0002",
-    date: new Date().toISOString(),
-    clientNom: "Hanitra Solo",
-    source: "Hebergement",
-    lignes: [{ description: "Nuitée", qte: 2, pu: 80000 }],
-    totalTTC: 160000,
-    statut: "payee",
-  },
-  // Factures liées aux événements confirmés
-  {
-    id: "f3",
-    numero: "NAS-2025-0003",
-    date: new Date().toISOString(),
-    clientNom: "Sommelier",
-    source: "Evenement",
-    lignes: [{ description: "Dégustation vins (forfait)", qte: 1, pu: 375000 }],
-    totalTTC: 375000,
-    statut: "emise",
-  },
-  {
-    id: "f4",
-    numero: "NAS-2025-0004",
-    date: new Date().toISOString(),
-    clientNom: "Wedding Planner",
-    source: "Evenement",
-    lignes: [{ description: "Mariage — prestation", qte: 1, pu: 2400000 }],
-    totalTTC: 2400000,
-    statut: "payee",
-  },
-  {
-    id: "f5",
-    numero: "NAS-2025-0005",
-    date: new Date().toISOString(),
-    clientNom: "Organisateur culturel",
-    source: "Evenement",
-    lignes: [{ description: "Concert acoustique — prestation", qte: 1, pu: 750000 }],
-    totalTTC: 750000,
-    statut: "emise",
-  },
-];
+export const factures: Facture[] = [];
+
+// Périodes de maintenance des chambres (hors service)
+export const chambresMaintenance: { chambreId: string; start: string; end: string }[] = [];
 
 export const evenements: Evenement[] = (() => {
   const today = new Date();
@@ -777,7 +722,7 @@ export const evenements: Evenement[] = (() => {
       date: `${y}-${m}-12`,
       heures: "19:00–22:30",
       nb: 40,
-      contact: "Chef de salle",
+      contact: "Client Jazz",
       statut: "planifie",
       type: "musique",
       notes: "Groupes de 4 privilégiés.",
@@ -788,7 +733,7 @@ export const evenements: Evenement[] = (() => {
       date: `${y}-${m}-15`,
       heures: "18:00–21:00",
       nb: 25,
-      contact: "Sommelier",
+      contact: "Client Dégustation",
       statut: "confirme",
       type: "degustation",
     },
@@ -798,7 +743,7 @@ export const evenements: Evenement[] = (() => {
       date: `${y}-${m}-20`,
       heures: "12:00–15:00",
       nb: 30,
-      contact: "R. Andriam",
+      contact: "Famille Ranaivo",
       statut: "planifie",
       type: "anniversaire",
     },
@@ -808,7 +753,7 @@ export const evenements: Evenement[] = (() => {
       date: `${y}-${m}-30`,
       heures: "10:00–12:00",
       nb: 80,
-      contact: "Mairie",
+      contact: "Association Locale",
       statut: "planifie",
       type: "conference",
     },
@@ -818,7 +763,7 @@ export const evenements: Evenement[] = (() => {
       date: `${y}-${m}-25`,
       heures: "14:00–23:00",
       nb: 120,
-      contact: "Wedding Planner",
+      contact: "Couple Rakoto",
       statut: "confirme",
       type: "mariage",
     },
@@ -828,7 +773,7 @@ export const evenements: Evenement[] = (() => {
       date: `${y}-${m}-08`,
       heures: "20:00–23:00",
       nb: 50,
-      contact: "Organisateur culturel",
+      contact: "Client Concert",
       statut: "confirme",
       type: "musique",
     },
@@ -838,7 +783,7 @@ export const evenements: Evenement[] = (() => {
       date: `${y}-${m}-18`,
       heures: "19:00–22:00",
       nb: 30,
-      contact: "Chef cuisinier",
+      contact: "Client Fromages",
       statut: "planifie",
       type: "degustation",
     },

@@ -1,8 +1,6 @@
 import { PropsWithChildren, useState } from "react";
 import {
   AppBar,
-  Avatar,
-  Badge,
   Box,
   Divider,
   Drawer,
@@ -18,7 +16,6 @@ import {
   ListSubheader,
   ListItemIcon,
 } from "@mui/material";
-import NotificationsIcon from "@mui/icons-material/Notifications";
 import LogoutIcon from "@mui/icons-material/Logout";
 import DashboardIcon from "@mui/icons-material/Dashboard";
 import CalendarMonthIcon from "@mui/icons-material/CalendarMonth";
@@ -43,7 +40,7 @@ export function AppLayout({ children }: PropsWithChildren) {
   const { menu, role } = useRBAC();
   const location = useLocation();
   const dispatch = useAppDispatch();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
 
   function iconFor(path: string) {
     if (path.startsWith("/hebergement/gestion"))
@@ -84,12 +81,11 @@ export function AppLayout({ children }: PropsWithChildren) {
             NAS CONNECT
           </Typography>
           <Box sx={{ flex: 1 }} />
-          <IconButton sx={{ ml: 1 }} color="inherit">
-            <Badge color="error" variant="dot">
-              <NotificationsIcon />
-            </Badge>
-          </IconButton>
-          <RoleSwitcher onChange={(r) => dispatch(setRole(r))} value={role} />
+          <Typography sx={{ mr: 2 }} variant="body2" color="text.secondary">Connecté</Typography>
+          <Button variant="text" sx={{ ml: 1 }} disabled>
+            Rôle: {role}
+          </Button>
+          <Typography variant="body2" sx={{ ml: 1 }}>{user?.name || ''}</Typography>
           <IconButton
             onClick={logout}
             color="inherit"
@@ -98,7 +94,6 @@ export function AppLayout({ children }: PropsWithChildren) {
           >
             <LogoutIcon />
           </IconButton>
-          <Avatar sx={{ ml: 2, width: 36, height: 36 }}>NE</Avatar>
         </Toolbar>
       </AppBar>
       <Drawer
@@ -181,7 +176,7 @@ function RoleSwitcher({
       <Button
         variant="text"
         onClick={(e) => setAnchor(e.currentTarget)}
-        sx={{ ml: 1 }}
+        sx={{ ml: 1, display:'none' }}
       >
         Rôle: {value}
       </Button>

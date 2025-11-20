@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import React from "react";
 import {
   Box,
@@ -20,6 +20,7 @@ import {
   Typography,
   Divider,
 } from "@mui/material";
+import Autocomplete from "@mui/material/Autocomplete";
 import SearchIcon from "@mui/icons-material/Search";
 import CloudUploadIcon from "@mui/icons-material/CloudUpload";
 import AddIcon from "@mui/icons-material/Add";
@@ -33,6 +34,7 @@ import {
   useUpdateMenuItem,
   useCreateFacture,
 } from "@/services/api";
+import { useClients, useTodayRestoReservations } from "@/services/api";
 import { MenuItem as Item } from "@shared/api";
 import { exportToPDF } from "@/lib/export";
 import { useNavigate } from "react-router-dom";
@@ -122,10 +124,12 @@ function ItemCard({
   item,
   selected,
   onClick,
+  onToggleEnabled,
 }: {
   item: Item;
   selected: boolean;
   onClick: () => void;
+  onToggleEnabled: (id: string, next: boolean) => void;
 }) {
   const unavailable = !item.enabled;
   return (
@@ -172,6 +176,12 @@ function ItemCard({
             boxShadow: "0 8px 16px rgba(0,0,0,0.15)",
           }}
         />
+        {/* Toggle disponibilité (subtil) */}
+        <Box sx={{ position:'absolute', left: 8, top: 8 }}>
+          <Button size="small" variant="outlined" color={item.enabled? 'success':'inherit'} onClick={(e)=>{ e.stopPropagation(); onToggleEnabled(item.id, !item.enabled); }} sx={{ minWidth: 0, px: 1 }}>
+            {item.enabled? 'On':'Off'}
+          </Button>
+        </Box>
         {/* Prix en cercle sur l'image (côté droit) */}
         <Box
           sx={{
@@ -231,11 +241,18 @@ export default function RestoMenu() {
   const update = useUpdateMenuItem();
   const create = useCreateMenuItem();
   const createFacture = useCreateFacture();
+  const clientsQuery = useClients();
+  const todayRes = useTodayRestoReservations();
   const navigate = useNavigate();
   const [selectedId, setSelectedId] = useState<string | null>(
     data?.[0]?.id ?? null,
   );
   const selected = (data || []).find((i) => i.id === selectedId) || null;
+  const [draftItem, setDraftItem] = useState<Item | null>(null);
+  useEffect(() => {
+    if (selected) setDraftItem({ ...selected });
+    else setDraftItem(null);
+  }, [selectedId, data]);
   const [openFiche, setOpenFiche] = useState(false);
 
   const categories = useMemo(() => {
@@ -287,6 +304,18 @@ export default function RestoMenu() {
   }
   const total = cart.reduce((a, b) => a + b.prix * b.qte, 0);
   const [billClient, setBillClient] = useState<string>("Client comptoir");
+  const clientOptions = useMemo(() => {
+    const ids = new Set<string>();
+    const names: string[] = [];
+    (todayRes.data || []).forEach(r => {
+      if (r.clientId && !ids.has(r.clientId)) {
+        ids.add(r.clientId);
+        const cli = (clientsQuery.data || []).find(c => c.id === r.clientId);
+        names.push(cli?.nom || r.clientId);
+      }
+    });
+    return names.sort((a,b)=>a.localeCompare(b));
+  }, [todayRes.data, clientsQuery.data]);
 
   function handlePrint() {
     const rows = cart.map((c) => ({
@@ -446,6 +475,7 @@ export default function RestoMenu() {
                       addToCart(i);
                     }
                   }}
+                  onToggleEnabled={(id, next)=> update.mutate({ id, enabled: next })}
                 />
               </Grid>
             ))}
@@ -490,12 +520,14 @@ export default function RestoMenu() {
               </Typography>
             </Stack>
             <Stack spacing={1} sx={{ mt: 1 }}>
-              <TextField
-                size="small"
-                label="Client"
-                placeholder="Nom du client"
+              <Autocomplete
+                freeSolo
+                options={clientOptions}
                 value={billClient}
-                onChange={(e) => setBillClient(e.target.value)}
+                onChange={(_e, v) => setBillClient(v || "")}
+                renderInput={(params) => (
+                  <TextField {...params} size="small" label="Client" placeholder="Nom du client" onChange={(e)=>setBillClient(e.target.value)} />
+                )}
               />
               <Stack direction="row" spacing={1}>
                 <Button variant="outlined" onClick={handlePrint}>Imprimer</Button>
@@ -523,31 +555,31 @@ export default function RestoMenu() {
               <Button variant="outlined">Dupliquer</Button>
               <Button
                 variant="contained"
-                onClick={() => selected && update.mutate({ id: selected.id })}
+                onClick={() => draftItem && update.mutate({ id: draftItem.id, nom: draftItem.nom, categorieId: draftItem.categorieId, prix: draftItem.prix, enabled: draftItem.enabled, photoUrl: draftItem.photoUrl })}
               >
                 Enregistrer
               </Button>
             </Stack>
           </Stack>
-          {!selected && (
+          {!draftItem && (
             <Typography color="text.secondary">
               Sélectionnez un article
             </Typography>
           )}
-          {selected && (
+          {draftItem && (
             <Stack spacing={1.2}>
               <TextField
                 size="small"
                 label="Nom"
-                defaultValue={selected.nom}
-                onBlur={(e) => saveField("nom", e.target.value)}
+                value={draftItem.nom}
+                onChange={(e) => setDraftItem({ ...draftItem, nom: e.target.value })}
               />
               <FormControl size="small">
                 <InputLabel>Catégorie</InputLabel>
                 <Select
                   label="Catégorie"
-                  value={selected.categorieId}
-                  onChange={(e) => saveField("categorieId", e.target.value as string)}
+                  value={draftItem.categorieId}
+                  onChange={(e) => setDraftItem({ ...draftItem, categorieId: e.target.value as string })}
                 >
                   <MItem value="entrees">
                     <Stack direction="row" spacing={1} alignItems="center">
@@ -579,24 +611,22 @@ export default function RestoMenu() {
                 size="small"
                 label="Prix (Ar)"
                 type="number"
-                defaultValue={selected.prix}
-                onBlur={(e) =>
-                  saveField("prix", parseInt(e.target.value || "0", 10))
-                }
+                value={draftItem.prix}
+                onChange={(e) => setDraftItem({ ...draftItem, prix: parseInt(e.target.value || "0", 10) })}
               />
               <Stack direction="row" gap={1}>
                 <Chip
-                  label={selected.enabled ? "Disponible" : "Indisponible"}
-                  color={selected.enabled ? "success" : "default"}
-                  onClick={() => saveField("enabled", !selected.enabled)}
+                  label={draftItem.enabled ? "Disponible" : "Indisponible"}
+                  color={draftItem.enabled ? "success" : "default"}
+                  onClick={() => setDraftItem({ ...draftItem, enabled: !draftItem.enabled })}
                 />
               </Stack>
               <TextField
                 size="small"
                 label="URL photo"
                 placeholder="https://..."
-                defaultValue={selected.photoUrl}
-                onBlur={(e) => saveField("photoUrl", e.target.value)}
+                value={draftItem.photoUrl || ""}
+                onChange={(e) => setDraftItem({ ...draftItem, photoUrl: e.target.value })}
               />
               <TextField
                 size="small"

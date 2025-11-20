@@ -13,7 +13,7 @@ import {
 } from "@mui/material";
 import { useMemo, useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { useCreateFacture, useFactures, useClients, useUpdateFactureStatut } from "@/services/api";
+import { useCreateFacture, useFactures, useClients, useUpdateFactureStatut, useUpdateFacture } from "@/services/api";
 import { Facture } from "@shared/api";
 import { exportToCSV, exportToPDF } from "@/lib/export";
 import {
@@ -59,10 +59,12 @@ function CustomTooltip({ active, payload, label }: TooltipProps<number, string>)
   return null;
 }
 
-function statutChip(s: Facture["statut"]) {
-  if (s === "payee") return <Chip size="small" color="success" label="Payée" />;
-  if (s === "annulee")
-    return <Chip size="small" color="default" label="Annulée" />;
+function statutChip(f: Facture) {
+  if (f.statut === "payee") return <Chip size="small" color="success" label="Payée" />;
+  if (f.statut === "annulee") return <Chip size="small" color="default" label="Annulée" />;
+  const now = new Date();
+  const overdue = !!f.dueDate && now > new Date(f.dueDate);
+  if (overdue) return <Chip size="small" color="error" label="En retard" />;
   return <Chip size="small" color="warning" label="Envoyée" />;
 }
 
@@ -73,9 +75,12 @@ export default function Financier() {
   const { data: hebergementAll } = useHebergementReservations();
   const create = useCreateFacture();
   const updateStatut = useUpdateFactureStatut();
+  const updateFacture = useUpdateFacture();
   const [searchParams] = useSearchParams();
 
   const [q, setQ] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "emise" | "payee" | "annulee" | "retard">("all");
+  const [sourceFilter, setSourceFilter] = useState<"all" | "Hebergement" | "Restaurant" | "Evenement">("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showNew, setShowNew] = useState(false);
 
@@ -90,11 +95,22 @@ export default function Financier() {
       const client = (clients || []).find((c) => c.id === clientIdParam);
       if (client) base = base.filter((f) => f.clientNom === client.nom);
     }
+    if (sourceFilter !== "all") base = base.filter((f) => f.source === sourceFilter);
+    if (statusFilter !== "all") {
+      base = base.filter((f) => {
+        const now = new Date();
+        const due = f.dueDate ? new Date(f.dueDate) : null;
+        if (statusFilter === "retard") return f.statut === "emise" && !!due && now > due;
+        if (statusFilter === "emise") return f.statut === "emise" && (!due || now <= due);
+        return f.statut === statusFilter;
+      });
+    }
     return base;
-  }, [factures, q, clientIdParam, clients]);
+  }, [factures, q, clientIdParam, clients, statusFilter, sourceFilter]);
 
   const selected = list.find((f) => f.id === selectedId) || list[0] || null;
   const [selectedStatut, setSelectedStatut] = useState<Facture["statut"]>(selected?.statut || "emise");
+  const [selectedNumero, setSelectedNumero] = useState<string>(selected?.numero || "");
 
   useEffect(() => {
     const fromParam = searchParams.get("factureId");
@@ -102,6 +118,11 @@ export default function Financier() {
       setSelectedId(fromParam);
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    if (selected) setSelectedStatut(selected.statut);
+    if (selected) setSelectedNumero(selected.numero);
+  }, [selected?.id]);
 
   const [draft, setDraft] = useState({
     clientNom: "",
@@ -121,14 +142,18 @@ export default function Financier() {
         { description: draft.description, qte: draft.qte, pu: draft.pu },
       ],
       statut: "emise",
-    });
-    setShowNew(false);
-    setDraft({
-      clientNom: "",
-      source: "Hebergement",
-      description: "Nuitée",
-      qte: 1,
-      pu: 100000,
+    }, {
+      onSuccess: (f) => {
+        setSelectedId(f.id);
+        setShowNew(false);
+        setDraft({
+          clientNom: "",
+          source: "Hebergement",
+          description: "Nuitée",
+          qte: 1,
+          pu: 100000,
+        });
+      }
     });
   }
 
@@ -137,7 +162,10 @@ export default function Financier() {
     .filter((f) => f.statut === "payee")
     .reduce((s, f) => s + f.totalTTC, 0);
   const enRetard = (factures || [])
-    .filter((f) => f.statut === "emise")
+    .filter((f) => {
+      const now = new Date();
+      return f.statut === "emise" && !!f.dueDate && now > new Date(f.dueDate);
+    })
     .reduce((s, f) => s + f.totalTTC, 0);
 
   // Rapports dynamiques
@@ -246,10 +274,17 @@ export default function Financier() {
             onChange={(e) => setQ(e.target.value)}
           />
           <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: "wrap" }}>
-            <Chip size="small" label="Brouillon" variant="outlined" />
-            <Chip size="small" label="Envoyée" variant="outlined" />
-            <Chip size="small" label="Payée" variant="outlined" />
-            <Chip size="small" label="En retard" variant="outlined" />
+            <Chip size="small" label="Tous" onClick={() => setStatusFilter("all")} color={statusFilter === "all" ? "primary" : "default"} variant={statusFilter === "all" ? "filled" : "outlined"} />
+            <Chip size="small" label="Envoyée" onClick={() => setStatusFilter("emise")} color={statusFilter === "emise" ? "primary" : "default"} variant={statusFilter === "emise" ? "filled" : "outlined"} />
+            <Chip size="small" label="Payée" onClick={() => setStatusFilter("payee")} color={statusFilter === "payee" ? "primary" : "default"} variant={statusFilter === "payee" ? "filled" : "outlined"} />
+            <Chip size="small" label="Annulée" onClick={() => setStatusFilter("annulee")} color={statusFilter === "annulee" ? "primary" : "default"} variant={statusFilter === "annulee" ? "filled" : "outlined"} />
+            <Chip size="small" label="En retard" onClick={() => setStatusFilter("retard")} color={statusFilter === "retard" ? "primary" : "default"} variant={statusFilter === "retard" ? "filled" : "outlined"} />
+          </Stack>
+          <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: "wrap" }}>
+            <Chip size="small" label="Tous (source)" onClick={() => setSourceFilter("all")} color={sourceFilter === "all" ? "primary" : "default"} variant={sourceFilter === "all" ? "filled" : "outlined"} />
+            <Chip size="small" label="Hébergement" onClick={() => setSourceFilter("Hebergement")} color={sourceFilter === "Hebergement" ? "primary" : "default"} variant={sourceFilter === "Hebergement" ? "filled" : "outlined"} />
+            <Chip size="small" label="Restaurant" onClick={() => setSourceFilter("Restaurant")} color={sourceFilter === "Restaurant" ? "primary" : "default"} variant={sourceFilter === "Restaurant" ? "filled" : "outlined"} />
+            <Chip size="small" label="Événements" onClick={() => setSourceFilter("Evenement")} color={sourceFilter === "Evenement" ? "primary" : "default"} variant={sourceFilter === "Evenement" ? "filled" : "outlined"} />
           </Stack>
         </Paper>
         <Paper sx={{ p: 2 }}>
@@ -275,12 +310,12 @@ export default function Financier() {
           <Stack direction="row" spacing={1} sx={{ mb: 1, flexWrap: "wrap" }}>
             <Chip label={`Total facturé (30j) ${ttc30.toLocaleString()} Ar`} />
             <Chip label={`Payées ${payees.toLocaleString()} Ar`} color="success" />
-            <Chip label={`En attente ${enRetard.toLocaleString()} Ar`} color="warning" />
+            <Chip label={`En retard ${enRetard.toLocaleString()} Ar`} color="error" />
           </Stack>
           <Box
             sx={{
               display: "grid",
-              gridTemplateColumns: "1fr 160px 140px 120px",
+              gridTemplateColumns: "1fr 160px 160px 140px 120px",
               px: 1,
               py: 1,
               color: "text.secondary",
@@ -289,35 +324,37 @@ export default function Financier() {
           >
             <Box>Facture</Box>
             <Box>Date</Box>
+            <Box>Échéance</Box>
             <Box>Montant</Box>
             <Box>Statut</Box>
           </Box>
           {list.map((f) => (
-            <Box
-              key={f.id}
-              onClick={() => setSelectedId(f.id)}
-              sx={{
-                cursor: "pointer",
-                display: "grid",
-                gridTemplateColumns: "1fr 160px 140px 120px",
-                px: 1,
-                py: 1,
-                borderTop: "1px solid",
-                borderColor: "divider",
-                alignItems: "center",
-                bgcolor: selected?.id === f.id ? "action.hover" : undefined,
-              }}
-            >
-              <Box>
-                <Typography fontWeight={700}>{f.numero}</Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {f.clientNom} · {f.source}
-                </Typography>
+              <Box
+                key={f.id}
+                onClick={() => setSelectedId(f.id)}
+                sx={{
+                  cursor: "pointer",
+                  display: "grid",
+                  gridTemplateColumns: "1fr 160px 160px 140px 120px",
+                  px: 1,
+                  py: 1,
+                  borderTop: "1px solid",
+                  borderColor: "divider",
+                  alignItems: "center",
+                  bgcolor: selected?.id === f.id ? "action.hover" : undefined,
+                }}
+              >
+                <Box>
+                  <Typography fontWeight={700}>{f.numero}</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {f.clientNom} · {f.source}
+                  </Typography>
+                </Box>
+                <Box>{new Date(f.date).toLocaleDateString()}</Box>
+                <Box>{f.dueDate ? new Date(f.dueDate).toLocaleDateString() : "—"}</Box>
+                <Box>{f.totalTTC.toLocaleString()} Ar</Box>
+              <Box>{statutChip(f)}</Box>
               </Box>
-              <Box>{new Date(f.date).toLocaleDateString()}</Box>
-              <Box>{f.totalTTC.toLocaleString()} Ar</Box>
-              <Box>{statutChip(f.statut)}</Box>
-            </Box>
           ))}
         </Paper>
 
@@ -331,7 +368,7 @@ export default function Financier() {
   {selected && (
     <>
       <Stack direction={{ xs: "column", md: "row" }} spacing={2} sx={{ mb: 1 }}>
-        <TextField size="small" label="Numéro" value={selected.numero} InputProps={{ readOnly: true }} />
+        <TextField size="small" label="Numéro" value={selectedNumero} onChange={(e) => setSelectedNumero(e.target.value)} onBlur={() => selected && updateFacture.mutate({ id: selected.id, numero: selectedNumero })} />
         <TextField size="small" label="Date" value={new Date(selected.date).toLocaleDateString()} InputProps={{ readOnly: true }} />
         <TextField size="small" label="Client" value={selected.clientNom} InputProps={{ readOnly: true }} />
         <TextField size="small" label="Source" value={selected.source} InputProps={{ readOnly: true }} />
@@ -344,6 +381,13 @@ export default function Financier() {
           <MenuItem value="payee">Payée</MenuItem>
           <MenuItem value="annulee">Annulée</MenuItem>
         </Select>
+        <TextField
+          size="small"
+          type="date"
+          label="Échéance"
+          value={selected?.dueDate ? format(new Date(selected.dueDate), "yyyy-MM-dd") : ""}
+          onChange={(e) => selected && updateFacture.mutate({ id: selected.id, dueDate: new Date(e.target.value).toISOString() })}
+        />
         <Button
           variant="contained"
           onClick={() => updateStatut.mutate({ id: selected.id, statut: selectedStatut })}

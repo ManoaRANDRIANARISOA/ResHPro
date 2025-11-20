@@ -45,6 +45,7 @@ interface RoomCalendarProps {
   compact?: boolean;
   onCellClick?: (chambreId: string, date: Date) => void;
   chambres?: Chambre[];
+  maintenance?: { chambreId: string; start: string; end: string }[];
 }
 
 export function RoomCalendar({ 
@@ -55,18 +56,25 @@ export function RoomCalendar({
   compact = false,
   onCellClick,
   chambres,
+  maintenance,
 }: RoomCalendarProps) {
   const range = intervalFor(view, dateRef);
 
   const roomsData = chambres ?? chambresData;
 
+  function hasMaintenance(roomId: string, rangeStart: Date, rangeEnd: Date) {
+    return (maintenance || []).some(m => m.chambreId === roomId && new Date(m.start) < rangeEnd && new Date(m.end) > rangeStart);
+  }
+
   function roomDerivedStatus(roomId: string) {
     const room = roomsData.find(c => c.id === roomId)!;
     if (room.statut === "maintenance") return "maintenance" as const;
+    if (hasMaintenance(roomId, range.start, range.end)) return "maintenance" as const;
     const hasOverlap = reservations.some(r => {
       if (r.type !== 'hebergement' || r.chambreId !== roomId) return false;
       const resDebut = new Date(r.dateDebut);
-      const resFin = r.dateFin ? new Date(r.dateFin) : addDays(resDebut, 1);
+      const resFinBase = r.dateFin ? new Date(r.dateFin) : addDays(resDebut, 1);
+      const resFin = addDays(resFinBase, 1);
       const rangeStart = range.start;
       const rangeEnd = range.end;
       return resDebut < rangeEnd && resFin > rangeStart;
@@ -76,7 +84,8 @@ export function RoomCalendar({
       const inStayNow = reservations.some(r => {
         if (r.type !== 'hebergement' || r.chambreId !== roomId) return false;
         const resDebut = new Date(r.dateDebut);
-        const resFin = r.dateFin ? new Date(r.dateFin) : addDays(resDebut, 1);
+        const resFinBase = r.dateFin ? new Date(r.dateFin) : addDays(resDebut, 1);
+        const resFin = addDays(resFinBase, 1);
         return r.statut === 'arrivee' && now >= resDebut && now < resFin;
       });
       return inStayNow ? 'occupee' : 'reservee';
@@ -89,10 +98,13 @@ export function RoomCalendar({
   );
 
   function hasReservation(cId: string, dStart: Date, dEnd: Date) {
+    const inMaint = hasMaintenance(cId, dStart, dEnd);
+    if (inMaint) return { type: "maintenance" } as any;
     const r = reservations.find(rr => {
       if (rr.type !== 'hebergement' || rr.chambreId !== cId) return false;
       const resDebut = new Date(rr.dateDebut);
-      const resFin = rr.dateFin ? new Date(rr.dateFin) : addDays(resDebut, 1);
+      const resFinBase = rr.dateFin ? new Date(rr.dateFin) : addDays(resDebut, 1);
+      const resFin = addDays(resFinBase, 1);
       return resDebut < dEnd && resFin > dStart;
     });
     return r;
@@ -156,7 +168,7 @@ export function RoomCalendar({
                     onClick={() => onCellClick?.(c.id, d)}
                     sx={{ 
                       height: compact ? 20 : 32,
-                      bgcolor: r ? reservationColor(r, d) : roomStatusColor(c.statut),
+                      bgcolor: r ? (r as any).type === 'maintenance' ? '#9E9E9E' : reservationColor(r as Reservation, d) : roomStatusColor(c.statut),
                       border: '1px solid',
                       borderColor: 'divider',
                       '&:hover': { opacity: 0.8, cursor: onCellClick ? 'pointer' : 'default' }

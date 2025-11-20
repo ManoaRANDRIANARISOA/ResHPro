@@ -71,6 +71,37 @@ function CalendarMonth({
   events: Evenement[];
   onSelect: (id: string) => void;
 }) {
+  function EventPill({ ev, onClick }: { ev: Evenement; onClick: () => void }) {
+    const bg = ev.statut === "confirme" ? "success.light" : ev.statut === "annule" ? "grey.300" : "warning.light";
+    const fg = ev.statut === "confirme" ? "success.dark" : ev.statut === "annule" ? "text.secondary" : "warning.dark";
+    return (
+      <Box
+        onClick={onClick}
+        sx={{
+          display: "flex",
+          alignItems: "flex-start",
+          gap: 0.8,
+          px: 1,
+          py: 0.6,
+          borderRadius: 10,
+          bgcolor: bg,
+          color: fg,
+          width: "100%",
+          cursor: "pointer",
+          transition: "background-color .2s ease",
+          '&:hover': { opacity: 0.95 },
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', pt: 0.2 }}>{typeIcon(ev.type)}</Box>
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography sx={{ fontSize: '0.78rem', fontWeight: 700, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            {ev.nom}
+          </Typography>
+          <Typography sx={{ fontSize: '0.72rem', opacity: 0.85 }}>{ev.heures}</Typography>
+        </Box>
+      </Box>
+    );
+  }
   const start = startOfMonth(baseDate);
   const end = endOfMonth(baseDate);
   const days = eachDayOfInterval({ start, end });
@@ -86,32 +117,20 @@ function CalendarMonth({
     <Box>
       <Box sx={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 1, mb: 1 }}>
         {weekdays.map((w, i) => (
-          <Typography key={i} variant="caption" color="text.secondary">
+          <Typography key={i} variant="caption" color="text.secondary" sx={{ textAlign: 'center', fontWeight: 600 }}>
             {w}
           </Typography>
         ))}
       </Box>
       <Box sx={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 1 }}>
         {days.map((d) => (
-          <Paper key={d.toISOString()} sx={{ p: 1.2, minHeight: 120, display: 'flex', flexDirection: 'column' }}>
+          <Paper key={d.toISOString()} sx={{ p: 1.2, height: 140, display: 'flex', flexDirection: 'column' }}>
             <Typography variant="caption" color="text.secondary">
               {format(d, "d")}
             </Typography>
-            <Stack spacing={0.5} sx={{ mt: 0.5, overflowY: 'auto' }}>
+            <Stack spacing={0.6} sx={{ mt: 0.5, overflowY: 'auto', scrollbarWidth: 'none', '&::-webkit-scrollbar': { display: 'none' } }}>
               {eventsFor(d).map((ev) => (
-                <Chip
-                  key={ev.id}
-                  size="small"
-                  label={
-                    <Box sx={{ textAlign: 'left', width: '100%' }}>
-                      <div>{ev.nom}</div>
-                      <div style={{ fontSize: '0.72em', opacity: 0.85 }}>{ev.heures}</div>
-                    </Box>
-                  }
-                  color={ev.statut === "confirme" ? "success" : ev.statut === "annule" ? "default" : "warning"}
-                  onClick={() => onSelect(ev.id)}
-                  sx={{ width: '100%', justifyContent: 'flex-start', '& .MuiChip-label': { whiteSpace: 'normal', lineHeight: 1.2, wordBreak: 'break-word' } }}
-                />
+                <EventPill key={ev.id} ev={ev} onClick={() => onSelect(ev.id)} />
               ))}
             </Stack>
           </Paper>
@@ -181,6 +200,16 @@ export default function RestoEvenements() {
     if (!selected) return;
     const wasConfirmed = selected.statut === "confirme";
     const willBeConfirmed = form.statut === "confirme";
+    if (willBeConfirmed) {
+      const nom = form.nom ?? selected.nom;
+      const date = form.date ?? selected.date;
+      const heures = form.heures ?? selected.heures;
+      const contact = form.contact ?? selected.contact;
+      if (!nom || !date || !heures || !contact) {
+        alert("Veuillez remplir Client, Nom, Date et Heures avant confirmation.");
+        return;
+      }
+    }
     update.mutate({ id: selected.id, ...form } as any, {
       onSuccess: (ev) => {
         if (ev?.date) setMonthRef(startOfMonth(new Date(ev.date)));
@@ -223,7 +252,7 @@ export default function RestoEvenements() {
   function newEvent() {
     const today = format(new Date(), "yyyy-MM-dd");
     create.mutate(
-      { nom: "Nouvel événement", date: today, heures: "19:00–22:00", nb: 0, contact: "", statut: "planifie", type: "musique" },
+      { nom: "Nouvel événement", date: today, heures: "19:00–22:00", nb: 0, contact: "Client Démo", statut: "planifie", type: "musique" },
       { onSuccess: (ev) => { setSelectedId(ev.id); setMonthRef(startOfMonth(new Date(ev.date))); setForm(ev); focusDetails(); } },
     );
   }
@@ -328,7 +357,7 @@ export default function RestoEvenements() {
           <Typography fontWeight={800}>Détails de l'événement</Typography>
           <Stack direction="row" spacing={1}>
             <Button variant="outlined" onClick={onDuplicate} disabled={!selected}>Dupliquer</Button>
-            <Button variant="contained" onClick={onSave} disabled={!selected}>Valider</Button>
+            <Button variant="contained" onClick={onSave} disabled={!selected || !form.nom || !form.date || !form.heures || !form.contact}>Valider</Button>
           </Stack>
         </Stack>
 
@@ -339,9 +368,9 @@ export default function RestoEvenements() {
         )}
         {selected && (
           <Stack spacing={1.2}>
-            <TextField size="small" label="Nom" value={form.nom || ""} onChange={(e) => setForm((f) => ({ ...f, nom: e.target.value }))} inputRef={nameRef} />
-            <TextField size="small" label="Date" type="date" value={form.date || ""} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} />
-            <TextField size="small" label="Heures" value={form.heures || ""} onChange={(e) => setForm((f) => ({ ...f, heures: e.target.value }))} />
+            <TextField size="small" label="Nom" value={form.nom || ""} onChange={(e) => setForm((f) => ({ ...f, nom: e.target.value }))} inputRef={nameRef} required />
+            <TextField size="small" label="Date" type="date" value={form.date || ""} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} required />
+            <TextField size="small" label="Heures" value={form.heures || ""} onChange={(e) => setForm((f) => ({ ...f, heures: e.target.value }))} required />
             <TextField size="small" type="number" label="Capacité" value={String(form.nb ?? 0)} onChange={(e) => setForm((f) => ({ ...f, nb: parseInt(e.target.value || "0", 10) }))} />
             <Stack direction="row" gap={1}>
               <Select size="small" value={form.statut || "planifie"} onChange={(e) => setForm((f) => ({ ...f, statut: e.target.value as any }))}>
@@ -358,7 +387,7 @@ export default function RestoEvenements() {
                 <MenuItem value="autre">Autre</MenuItem>
               </Select>
             </Stack>
-            <TextField size="small" label="Responsable" value={form.contact || ""} onChange={(e) => setForm((f) => ({ ...f, contact: e.target.value }))} />
+            <TextField size="small" label="Client" value={form.contact || ""} onChange={(e) => setForm((f) => ({ ...f, contact: e.target.value }))} required />
             <TextField size="small" label="Notes" value={form.notes || ""} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} multiline minRows={3} />
             <Stack direction="row" gap={1}>
               <Chip label="Aperçu" variant="outlined" />

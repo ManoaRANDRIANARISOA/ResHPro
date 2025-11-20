@@ -36,16 +36,21 @@ export function AuthProvider({ children }: PropsWithChildren) {
     const map: Record<string, import("@/hooks/useRBAC").Role> = {
       admin: "admin",
       reception: "resp_hebergement",
+      "responsable hebergement": "resp_hebergement",
       chef_salle: "resp_resto",
+      "responsable restaurant": "resp_resto",
       serveur: "staff_resto",
       cuisine: "staff_resto",
       bar: "staff_resto",
       comptoir: "staff_resto",
-      economat: "resp_hebergement",
+      economat: "economat",
       comptable: "comptable",
       direction: "admin",
+      staff_restaurant: "staff_resto",
+      saff_restaurant: "staff_resto",
     };
-    dispatch(setRole((map[found.role] || "admin") as any));
+    const r = map[found.role] || "admin";
+    dispatch(setRole(r as any));
     return true;
   };
 
