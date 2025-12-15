@@ -2,7 +2,7 @@ import { Box, Typography } from "@mui/material";
 import { addDays, addHours, eachDayOfInterval, endOfMonth, endOfWeek, format, isWithinInterval, setHours, startOfDay, startOfMonth, startOfWeek } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Fragment } from "react";
-import { chambres as chambresData } from "@/services/mock";
+import { db } from "@/services/local-db";
 import type { Reservation, Chambre } from "@shared/api";
 
 type View = "month" | "week" | "day";
@@ -60,7 +60,7 @@ export function RoomCalendar({
 }: RoomCalendarProps) {
   const range = intervalFor(view, dateRef);
 
-  const roomsData = chambres ?? chambresData;
+  const roomsData = chambres ?? db.chambres;
 
   function hasMaintenance(roomId: string, rangeStart: Date, rangeEnd: Date) {
     return (maintenance || []).some(m => m.chambreId === roomId && new Date(m.start) < rangeEnd && new Date(m.end) > rangeStart);

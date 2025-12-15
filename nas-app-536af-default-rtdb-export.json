@@ -1,0 +1,1169 @@
+{
+  "chambres": [
+    {
+      "capacite": 2,
+      "categorie": "standard",
+      "id": "ch1",
+      "numero": "CH-1",
+      "statut": "libre",
+      "tarif_base": 80000
+    },
+    {
+      "capacite": 3,
+      "categorie": "suite",
+      "id": "ch2",
+      "numero": "CH-2",
+      "statut": "libre",
+      "tarif_base": 150000
+    },
+    {
+      "capacite": 4,
+      "categorie": "familiale",
+      "id": "ch3",
+      "numero": "CH-3",
+      "statut": "maintenance",
+      "tarif_base": 120000
+    },
+    {
+      "capacite": 2,
+      "categorie": "standard",
+      "id": "ch4",
+      "numero": "CH-4",
+      "statut": "occupee",
+      "tarif_base": 80000
+    }
+  ],
+  "clients": [
+    {
+      "adresse": "Lot II A 34 Antananarivo",
+      "email": "rabe.andry@gmail.com",
+      "id": "c1",
+      "nom": "Rabe Andry",
+      "pays": "Madagascar",
+      "reference": "CLI-00842",
+      "tags": "VIP, Régulier",
+      "telephone": "032 11 111 11",
+      "type": "Particulier"
+    },
+    {
+      "adresse": "67 Avenue de l'Indépendance, Tana",
+      "email": "hanitra.solo@yahoo.fr",
+      "id": "c2",
+      "nom": "Hanitra Solo",
+      "pays": "Madagascar",
+      "reference": "CLI-00915",
+      "tags": "Direct",
+      "telephone": "033 22 222 22",
+      "type": "Particulier"
+    },
+    {
+      "adresse": "Immeuble Tana Water Front, Ankorondrano",
+      "email": "j.rakoto@outlook.com",
+      "id": "c3",
+      "nom": "Rakoto Jean",
+      "pays": "Madagascar",
+      "reference": "CLI-01024",
+      "tags": "Entreprise, VIP",
+      "telephone": "034 55 666 77",
+      "type": "Société"
+    },
+    {
+      "adresse": "Villa 12B Ivandry",
+      "email": "marie.raso@hotmail.com",
+      "id": "c4",
+      "nom": "Marie Rasoanaivo",
+      "pays": "Madagascar",
+      "reference": "CLI-00567",
+      "tags": "Régulier",
+      "telephone": "032 88 999 00",
+      "type": "Particulier"
+    },
+    {
+      "adresse": "Lot VB 45 Ambohijatovo",
+      "email": "hery.ravalo@gmail.com",
+      "id": "c5",
+      "nom": "Ravalomanana Hery",
+      "pays": "Madagascar",
+      "reference": "CLI-01156",
+      "tags": "Direct",
+      "telephone": "033 44 555 66",
+      "type": "Particulier"
+    },
+    {
+      "adresse": "Zone Industrielle Forello, Tana",
+      "email": "contact@tiko.mg",
+      "id": "c6",
+      "nom": "Société SARL TIKO",
+      "pays": "Madagascar",
+      "reference": "CLI-00234",
+      "tags": "Entreprise, Contrat annuel",
+      "telephone": "020 22 333 44",
+      "type": "Société"
+    }
+  ],
+  "commandes": [
+    {
+      "createdAt": "2025-12-15T10:01:44.047Z",
+      "id": "o1",
+      "menuItemId": "m1",
+      "quantite": 2,
+      "reservationId": "r1",
+      "statut": "envoyee"
+    },
+    {
+      "createdAt": "2025-12-15T10:01:44.047Z",
+      "id": "o2",
+      "menuItemId": "m2",
+      "quantite": 1,
+      "reservationId": "r1",
+      "statut": "servie"
+    }
+  ],
+  "evenements": [
+    {
+      "contact": "Client Jazz",
+      "date": "2025-12-12",
+      "heures": "19:00–22:30",
+      "id": "e1",
+      "nb": 40,
+      "nom": "Jazz du vendredi",
+      "notes": "Groupes de 4 privilégiés.",
+      "statut": "planifie",
+      "type": "musique"
+    },
+    {
+      "contact": "Client Dégustation",
+      "date": "2025-12-15",
+      "heures": "18:00–21:00",
+      "id": "e2",
+      "nb": 25,
+      "nom": "Dégustation vins",
+      "statut": "confirme",
+      "type": "degustation"
+    },
+    {
+      "contact": "Famille Ranaivo",
+      "date": "2025-12-20",
+      "heures": "12:00–15:00",
+      "id": "e3",
+      "nb": 30,
+      "nom": "Anniversaire — Famille Ranaivo",
+      "statut": "planifie",
+      "type": "anniversaire"
+    },
+    {
+      "contact": "Association Locale",
+      "date": "2025-12-30",
+      "heures": "10:00–12:00",
+      "id": "e4",
+      "nb": 80,
+      "nom": "Conférence locale",
+      "statut": "planifie",
+      "type": "conference"
+    },
+    {
+      "contact": "Couple Rakoto",
+      "date": "2025-12-25",
+      "heures": "14:00–23:00",
+      "id": "e5",
+      "nb": 120,
+      "nom": "Mariage — Couple Rakoto",
+      "statut": "confirme",
+      "type": "mariage"
+    },
+    {
+      "contact": "Client Concert",
+      "date": "2025-12-08",
+      "heures": "20:00–23:00",
+      "id": "e6",
+      "nb": 50,
+      "nom": "Concert acoustique",
+      "statut": "confirme",
+      "type": "musique"
+    },
+    {
+      "contact": "Client Fromages",
+      "date": "2025-12-18",
+      "heures": "19:00–22:00",
+      "id": "e7",
+      "nb": 30,
+      "nom": "Soirée dégustation fromages",
+      "statut": "planifie",
+      "type": "degustation"
+    }
+  ],
+  "factures": [
+    {
+      "clientNom": "Client Jazz",
+      "date": "2025-12-15T08:53:51.651Z",
+      "dueDate": "2025-12-30T08:53:51.651Z",
+      "id": "f-ev-e1",
+      "lignes": [
+        {
+          "description": "Événement Jazz du vendredi",
+          "pu": 15000,
+          "qte": 40
+        }
+      ],
+      "numero": "NAS-2025-EVE1",
+      "source": "Evenement",
+      "statut": "emise",
+      "totalTTC": 600000
+    },
+    {
+      "clientNom": "Client Dégustation",
+      "date": "2025-12-15T08:53:51.651Z",
+      "dueDate": "2025-12-30T08:53:51.651Z",
+      "id": "f-ev-e2",
+      "lignes": [
+        {
+          "description": "Événement Dégustation vins",
+          "pu": 15000,
+          "qte": 25
+        }
+      ],
+      "numero": "NAS-2025-EVE2",
+      "source": "Evenement",
+      "statut": "payee",
+      "totalTTC": 375000
+    },
+    {
+      "clientNom": "Famille Ranaivo",
+      "date": "2025-12-15T08:53:51.651Z",
+      "dueDate": "2025-12-30T08:53:51.651Z",
+      "id": "f-ev-e3",
+      "lignes": [
+        {
+          "description": "Événement Anniversaire — Famille Ranaivo",
+          "pu": 15000,
+          "qte": 30
+        }
+      ],
+      "numero": "NAS-2025-EVE3",
+      "source": "Evenement",
+      "statut": "emise",
+      "totalTTC": 450000
+    },
+    {
+      "clientNom": "Association Locale",
+      "date": "2025-12-15T08:53:51.651Z",
+      "dueDate": "2025-12-30T08:53:51.651Z",
+      "id": "f-ev-e4",
+      "lignes": [
+        {
+          "description": "Événement Conférence locale",
+          "pu": 15000,
+          "qte": 80
+        }
+      ],
+      "numero": "NAS-2025-EVE4",
+      "source": "Evenement",
+      "statut": "emise",
+      "totalTTC": 1200000
+    },
+    {
+      "clientNom": "Couple Rakoto",
+      "date": "2025-12-15T08:53:51.652Z",
+      "dueDate": "2025-12-30T08:53:51.652Z",
+      "id": "f-ev-e5",
+      "lignes": [
+        {
+          "description": "Événement Mariage — Couple Rakoto",
+          "pu": 15000,
+          "qte": 120
+        }
+      ],
+      "numero": "NAS-2025-EVE5",
+      "source": "Evenement",
+      "statut": "payee",
+      "totalTTC": 1800000
+    },
+    {
+      "clientNom": "Client Concert",
+      "date": "2025-12-15T08:53:51.652Z",
+      "dueDate": "2025-12-30T08:53:51.652Z",
+      "id": "f-ev-e6",
+      "lignes": [
+        {
+          "description": "Événement Concert acoustique",
+          "pu": 15000,
+          "qte": 50
+        }
+      ],
+      "numero": "NAS-2025-EVE6",
+      "source": "Evenement",
+      "statut": "payee",
+      "totalTTC": 750000
+    },
+    {
+      "clientNom": "Client Fromages",
+      "date": "2025-12-15T08:53:51.652Z",
+      "dueDate": "2025-12-30T08:53:51.652Z",
+      "id": "f-ev-e7",
+      "lignes": [
+        {
+          "description": "Événement Soirée dégustation fromages",
+          "pu": 15000,
+          "qte": 30
+        }
+      ],
+      "numero": "NAS-2025-EVE7",
+      "source": "Evenement",
+      "statut": "emise",
+      "totalTTC": 450000
+    },
+    {
+      "clientNom": "Hanitra Solo",
+      "date": "2025-12-15T08:53:51.665Z",
+      "dueDate": "2025-12-30T21:00:00.000Z",
+      "id": "f-res-h1",
+      "lignes": [
+        {
+          "description": "Nuitée CH-2 (12/16/2025 – 12/18/2025)",
+          "pu": 150000,
+          "qte": 3
+        }
+      ],
+      "numero": "NAS-2025-HEBH1",
+      "reservationId": "h1",
+      "source": "Hebergement",
+      "statut": "emise",
+      "totalTTC": 450000
+    },
+    {
+      "clientNom": "Rabe Andry",
+      "date": "2025-12-15T08:53:51.666Z",
+      "dueDate": "2025-12-27T21:00:00.000Z",
+      "id": "f-res-h2",
+      "lignes": [
+        {
+          "description": "Nuitée CH-1 (12/13/2025 – 12/17/2025)",
+          "pu": 80000,
+          "qte": 5
+        }
+      ],
+      "numero": "NAS-2025-HEBH2",
+      "reservationId": "h2",
+      "source": "Hebergement",
+      "statut": "emise",
+      "totalTTC": 400000
+    },
+    {
+      "clientNom": "Hanitra Solo",
+      "date": "2025-12-15T08:53:51.666Z",
+      "dueDate": "2026-01-03T21:00:00.000Z",
+      "id": "f-res-h3",
+      "lignes": [
+        {
+          "description": "Nuitée CH-4 (12/20/2025 – 12/23/2025)",
+          "pu": 80000,
+          "qte": 4
+        }
+      ],
+      "numero": "NAS-2025-HEBH3",
+      "reservationId": "h3",
+      "source": "Hebergement",
+      "statut": "emise",
+      "totalTTC": 320000
+    },
+    {
+      "clientNom": "Rabe Andry",
+      "date": "2025-12-15T08:53:51.666Z",
+      "dueDate": "2026-01-08T21:00:00.000Z",
+      "id": "f-res-h4",
+      "lignes": [
+        {
+          "description": "Nuitée CH-2 (12/25/2025 – 12/27/2025)",
+          "pu": 150000,
+          "qte": 3
+        }
+      ],
+      "numero": "NAS-2025-HEBH4",
+      "reservationId": "h4",
+      "source": "Hebergement",
+      "statut": "emise",
+      "totalTTC": 450000
+    },
+    {
+      "clientNom": "Hanitra Solo",
+      "date": "2025-12-15T08:53:51.666Z",
+      "dueDate": "2026-01-13T21:00:00.000Z",
+      "id": "f-res-h5",
+      "lignes": [
+        {
+          "description": "Nuitée CH-1 (12/30/2025 – 1/4/2026)",
+          "pu": 80000,
+          "qte": 6
+        }
+      ],
+      "numero": "NAS-2025-HEBH5",
+      "reservationId": "h5",
+      "source": "Hebergement",
+      "statut": "emise",
+      "totalTTC": 480000
+    },
+    {
+      "clientNom": "Rabe Andry",
+      "date": "2025-12-15T08:53:51.666Z",
+      "dueDate": "2026-01-16T21:00:00.000Z",
+      "id": "f-res-h6",
+      "lignes": [
+        {
+          "description": "Nuitée CH-4 (1/2/2026 – 1/5/2026)",
+          "pu": 80000,
+          "qte": 4
+        }
+      ],
+      "numero": "NAS-2025-HEBH6",
+      "reservationId": "h6",
+      "source": "Hebergement",
+      "statut": "emise",
+      "totalTTC": 320000
+    },
+    {
+      "clientNom": "Hanitra Solo",
+      "date": "2025-12-15T08:53:51.666Z",
+      "dueDate": "2026-01-20T21:00:00.000Z",
+      "id": "f-res-h7",
+      "lignes": [
+        {
+          "description": "Nuitée CH-2 (1/6/2026 – 1/9/2026)",
+          "pu": 150000,
+          "qte": 4
+        }
+      ],
+      "numero": "NAS-2025-HEBH7",
+      "reservationId": "h7",
+      "source": "Hebergement",
+      "statut": "emise",
+      "totalTTC": 600000
+    }
+  ],
+  "menu": [
+    {
+      "categorieId": "plats",
+      "enabled": true,
+      "id": "m1",
+      "nom": "Ravitoto",
+      "photoUrl": "https://i.pinimg.com/1200x/0a/29/af/0a29afa27e98cf15cd4f1c0bc486599b.jpg",
+      "prix": 12000
+    },
+    {
+      "categorieId": "plats",
+      "enabled": true,
+      "id": "m2",
+      "nom": "Romazava",
+      "photoUrl": "https://i.pinimg.com/1200x/d4/3f/2e/d43f2ede268ba463a675b6d0c0f99877.jpg",
+      "prix": 14000
+    },
+    {
+      "categorieId": "plats",
+      "enabled": false,
+      "id": "m3",
+      "nom": "Poulet coco",
+      "photoUrl": "https://i.pinimg.com/1200x/27/fb/30/27fb30b61472a6cc47d1e874fa7961d8.jpg",
+      "prix": 16000
+    },
+    {
+      "categorieId": "plats",
+      "enabled": true,
+      "id": "m4",
+      "nom": "Tagliatelle",
+      "photoUrl": "https://images.unsplash.com/photo-1551183053-bf91a1d81141?w=640&q=80&auto=format",
+      "prix": 18000
+    },
+    {
+      "categorieId": "plats",
+      "enabled": true,
+      "id": "m5",
+      "nom": "Zébu roti",
+      "photoUrl": "https://images.unsplash.com/photo-1544025162-d76694265947?w=640&q=80&auto=format",
+      "prix": 20000
+    },
+    {
+      "categorieId": "entrees",
+      "enabled": false,
+      "id": "m6",
+      "nom": "Sambos",
+      "photoUrl": "https://i.pinimg.com/1200x/4a/d0/dc/4ad0dc5e6f49cad821feab9b021c9f5d.jpg",
+      "prix": 8000
+    },
+    {
+      "categorieId": "entrees",
+      "enabled": true,
+      "id": "m7",
+      "nom": "Salade",
+      "photoUrl": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=640&q=80&auto=format",
+      "prix": 6000
+    },
+    {
+      "categorieId": "entrees",
+      "enabled": true,
+      "id": "m8",
+      "nom": "Soupe légume",
+      "photoUrl": "https://i.pinimg.com/1200x/c2/b4/14/c2b414edb9e168a28a3fb89c2fd60742.jpg",
+      "prix": 7000
+    },
+    {
+      "categorieId": "boissons",
+      "enabled": false,
+      "id": "m9",
+      "nom": "Smoothie",
+      "photoUrl": "https://i.pinimg.com/1200x/13/31/87/133187688edddd1157da263a05ce05df.jpg",
+      "prix": 3000
+    },
+    {
+      "categorieId": "boissons",
+      "enabled": true,
+      "id": "m10",
+      "nom": "Café",
+      "photoUrl": "https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=640&q=80&auto=format",
+      "prix": 2500
+    },
+    {
+      "categorieId": "boissons",
+      "enabled": true,
+      "id": "m11",
+      "nom": "Thé glacé",
+      "photoUrl": "https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?w=640&q=80&auto=format",
+      "prix": 4000
+    },
+    {
+      "categorieId": "desserts",
+      "enabled": true,
+      "id": "m12",
+      "nom": "Koba",
+      "photoUrl": "https://i.pinimg.com/736x/7c/eb/48/7ceb4886d392a715eda5f8d782dd9084.jpg",
+      "prix": 5000
+    },
+    {
+      "categorieId": "desserts",
+      "enabled": true,
+      "id": "m13",
+      "nom": "Mofo gasy",
+      "photoUrl": "https://i.pinimg.com/1200x/02/05/b9/0205b9f59c5ebb3f494430a95adf1b52.jpg",
+      "prix": 3500
+    },
+    {
+      "categorieId": "desserts",
+      "enabled": true,
+      "id": "m14",
+      "nom": "Mousse au chocolat",
+      "photoUrl": "https://i.pinimg.com/736x/4e/77/75/4e7775d548b5954bafe04b7c5ef8e190.jpg",
+      "prix": 6000
+    }
+  ],
+  "reservations": [
+    {
+      "clientId": "c1",
+      "dateDebut": "2025-12-15T06:00:00.000Z",
+      "duree": 60,
+      "gracePeriodMinutes": 15,
+      "heure": "09:15",
+      "heureDebut": "09:15",
+      "id": "r_passee",
+      "nbPersonnes": 2,
+      "statut": "confirmee",
+      "tableId": "t1",
+      "type": "restaurant"
+    },
+    {
+      "clientId": "c2",
+      "dateDebut": "2025-12-15T07:00:00.000Z",
+      "duree": 90,
+      "gracePeriodMinutes": 15,
+      "heure": "10:30",
+      "heureDebut": "10:30",
+      "id": "r_encours",
+      "nbPersonnes": 3,
+      "statut": "confirmee",
+      "tableId": "t2",
+      "type": "restaurant"
+    },
+    {
+      "clientId": "c3",
+      "dateDebut": "2025-12-15T06:00:00.000Z",
+      "duree": 60,
+      "gracePeriodMinutes": 15,
+      "heure": "09:00",
+      "heureDebut": "09:00",
+      "id": "r_retard",
+      "nbPersonnes": 4,
+      "statut": "confirmee",
+      "tableId": "t3",
+      "type": "restaurant"
+    },
+    {
+      "clientId": "c4",
+      "dateDebut": "2025-12-15T09:00:00.000Z",
+      "duree": 75,
+      "gracePeriodMinutes": 15,
+      "heure": "12:15",
+      "heureDebut": "12:15",
+      "id": "r_future1",
+      "nbPersonnes": 2,
+      "statut": "confirmee",
+      "tableId": "t4",
+      "type": "restaurant"
+    },
+    {
+      "clientId": "c5",
+      "dateDebut": "2025-12-15T10:00:00.000Z",
+      "duree": 60,
+      "gracePeriodMinutes": 15,
+      "heure": "13:00",
+      "heureDebut": "13:00",
+      "id": "r_future_avance",
+      "nbPersonnes": 2,
+      "statut": "confirmee",
+      "tableId": "t5",
+      "type": "restaurant"
+    },
+    {
+      "clientId": "c6",
+      "dateDebut": "2025-12-15T16:00:00.000Z",
+      "duree": 120,
+      "gracePeriodMinutes": 15,
+      "heure": "19:30",
+      "heureDebut": "19:30",
+      "id": "r_soir",
+      "nbPersonnes": 6,
+      "statut": "confirmee",
+      "tableId": "t6",
+      "type": "restaurant"
+    },
+    {
+      "clientId": "c1",
+      "dateDebut": "2025-12-15T11:00:00.000Z",
+      "duree": 90,
+      "gracePeriodMinutes": 15,
+      "heure": "14:00",
+      "heureDebut": "14:00",
+      "id": "r_annulee",
+      "nbPersonnes": 2,
+      "statut": "annulee",
+      "tableId": "t7",
+      "type": "restaurant"
+    },
+    {
+      "chambreId": "ch2",
+      "clientId": "c2",
+      "dateDebut": "2025-12-15T21:00:00.000Z",
+      "dateFin": "2025-12-17T21:00:00.000Z",
+      "gracePeriodMinutes": 0,
+      "id": "h1",
+      "statut": "confirmee",
+      "type": "hebergement"
+    },
+    {
+      "chambreId": "ch1",
+      "clientId": "c1",
+      "dateDebut": "2025-12-12T21:00:00.000Z",
+      "dateFin": "2025-12-16T21:00:00.000Z",
+      "gracePeriodMinutes": 0,
+      "id": "h2",
+      "statut": "arrivee",
+      "type": "hebergement"
+    },
+    {
+      "chambreId": "ch4",
+      "clientId": "c2",
+      "dateDebut": "2025-12-19T21:00:00.000Z",
+      "dateFin": "2025-12-22T21:00:00.000Z",
+      "gracePeriodMinutes": 0,
+      "id": "h3",
+      "statut": "confirmee",
+      "type": "hebergement"
+    },
+    {
+      "chambreId": "ch2",
+      "clientId": "c1",
+      "dateDebut": "2025-12-24T21:00:00.000Z",
+      "dateFin": "2025-12-26T21:00:00.000Z",
+      "gracePeriodMinutes": 0,
+      "id": "h4",
+      "statut": "en_attente",
+      "type": "hebergement"
+    },
+    {
+      "chambreId": "ch1",
+      "clientId": "c2",
+      "dateDebut": "2025-12-29T21:00:00.000Z",
+      "dateFin": "2026-01-03T21:00:00.000Z",
+      "gracePeriodMinutes": 0,
+      "id": "h5",
+      "statut": "confirmee",
+      "type": "hebergement"
+    },
+    {
+      "chambreId": "ch4",
+      "clientId": "c1",
+      "dateDebut": "2026-01-01T21:00:00.000Z",
+      "dateFin": "2026-01-04T21:00:00.000Z",
+      "gracePeriodMinutes": 0,
+      "id": "h6",
+      "statut": "confirmee",
+      "type": "hebergement"
+    },
+    {
+      "chambreId": "ch2",
+      "clientId": "c2",
+      "dateDebut": "2026-01-05T21:00:00.000Z",
+      "dateFin": "2026-01-08T21:00:00.000Z",
+      "gracePeriodMinutes": 0,
+      "id": "h7",
+      "statut": "arrivee",
+      "type": "hebergement"
+    }
+  ],
+  "stockProduits": [
+    {
+      "famille": "Restaurant",
+      "id": "r1",
+      "nom": "Riz",
+      "seuilMin": 50,
+      "sousCategorie": "cuisine",
+      "stock": 25,
+      "unite": "kg"
+    },
+    {
+      "famille": "Restaurant",
+      "id": "r2",
+      "nom": "Huile",
+      "seuilMin": 10,
+      "sousCategorie": "cuisine",
+      "stock": 0,
+      "unite": "L"
+    },
+    {
+      "famille": "Restaurant",
+      "id": "r3",
+      "nom": "Sel",
+      "seuilMin": 5,
+      "sousCategorie": "cuisine",
+      "stock": 8,
+      "unite": "kg"
+    },
+    {
+      "famille": "Restaurant",
+      "id": "r4",
+      "nom": "Poivre",
+      "seuilMin": 3,
+      "sousCategorie": "cuisine",
+      "stock": 2,
+      "unite": "kg"
+    },
+    {
+      "famille": "Restaurant",
+      "id": "r5",
+      "nom": "Farine",
+      "seuilMin": 20,
+      "sousCategorie": "cuisine",
+      "stock": 0,
+      "unite": "kg"
+    },
+    {
+      "famille": "Restaurant",
+      "id": "r6",
+      "nom": "Sucre",
+      "seuilMin": 10,
+      "sousCategorie": "cuisine",
+      "stock": 15,
+      "unite": "kg"
+    },
+    {
+      "famille": "Restaurant",
+      "id": "r7",
+      "nom": "Tomates",
+      "seuilMin": 15,
+      "sousCategorie": "cuisine",
+      "stock": 5,
+      "unite": "kg"
+    },
+    {
+      "famille": "Restaurant",
+      "id": "r8",
+      "nom": "Oignons",
+      "seuilMin": 10,
+      "sousCategorie": "cuisine",
+      "stock": 12,
+      "unite": "kg"
+    },
+    {
+      "famille": "Restaurant",
+      "id": "r9",
+      "nom": "Ail",
+      "seuilMin": 5,
+      "sousCategorie": "cuisine",
+      "stock": 3,
+      "unite": "kg"
+    },
+    {
+      "famille": "Restaurant",
+      "id": "r10",
+      "nom": "Poulet (viande)",
+      "seuilMin": 20,
+      "sousCategorie": "cuisine",
+      "stock": 8,
+      "unite": "kg"
+    },
+    {
+      "famille": "Restaurant",
+      "id": "r11",
+      "nom": "Zébu (viande)",
+      "seuilMin": 15,
+      "sousCategorie": "cuisine",
+      "stock": 0,
+      "unite": "kg"
+    },
+    {
+      "famille": "Restaurant",
+      "id": "r12",
+      "nom": "Poisson",
+      "seuilMin": 10,
+      "sousCategorie": "cuisine",
+      "stock": 6,
+      "unite": "kg"
+    },
+    {
+      "famille": "Restaurant",
+      "id": "r13",
+      "nom": "Eau minérale",
+      "seuilMin": 100,
+      "sousCategorie": "entretien",
+      "stock": 0,
+      "unite": "L"
+    },
+    {
+      "famille": "Restaurant",
+      "id": "r14",
+      "nom": "Serviettes papier",
+      "seuilMin": 20,
+      "sousCategorie": "entretien",
+      "stock": 8,
+      "unite": "paquet"
+    },
+    {
+      "famille": "Restaurant",
+      "id": "r15",
+      "nom": "Détergent vaisselle",
+      "seuilMin": 10,
+      "sousCategorie": "entretien",
+      "stock": 3,
+      "unite": "L"
+    },
+    {
+      "famille": "Hebergement",
+      "id": "s1",
+      "nom": "Draps",
+      "seuilMin": 20,
+      "sousCategorie": "linge_lit",
+      "stock": 30,
+      "unite": "u"
+    },
+    {
+      "famille": "Hebergement",
+      "id": "s2",
+      "nom": "Taies d'oreiller",
+      "seuilMin": 15,
+      "sousCategorie": "linge_lit",
+      "stock": 5,
+      "unite": "u"
+    },
+    {
+      "famille": "Hebergement",
+      "id": "s3",
+      "nom": "Couvertures",
+      "seuilMin": 12,
+      "sousCategorie": "linge_lit",
+      "stock": 18,
+      "unite": "u"
+    },
+    {
+      "famille": "Hebergement",
+      "id": "s4",
+      "nom": "Housses de couette",
+      "seuilMin": 10,
+      "sousCategorie": "linge_lit",
+      "stock": 0,
+      "unite": "u"
+    },
+    {
+      "famille": "Hebergement",
+      "id": "s5",
+      "nom": "Serviettes de bain",
+      "seuilMin": 30,
+      "sousCategorie": "linge_salle",
+      "stock": 25,
+      "unite": "u"
+    },
+    {
+      "famille": "Hebergement",
+      "id": "s6",
+      "nom": "Serviettes de toilette",
+      "seuilMin": 20,
+      "sousCategorie": "linge_salle",
+      "stock": 8,
+      "unite": "u"
+    },
+    {
+      "famille": "Hebergement",
+      "id": "s7",
+      "nom": "Tapis de bain",
+      "seuilMin": 8,
+      "sousCategorie": "linge_salle",
+      "stock": 0,
+      "unite": "u"
+    },
+    {
+      "famille": "Hebergement",
+      "id": "s8",
+      "nom": "Savon",
+      "seuilMin": 15,
+      "sousCategorie": "entretien",
+      "stock": 10,
+      "unite": "u"
+    },
+    {
+      "famille": "Hebergement",
+      "id": "s9",
+      "nom": "Shampoing",
+      "seuilMin": 12,
+      "sousCategorie": "entretien",
+      "stock": 3,
+      "unite": "u"
+    },
+    {
+      "famille": "Hebergement",
+      "id": "s10",
+      "nom": "Gel douche",
+      "seuilMin": 5,
+      "sousCategorie": "entretien",
+      "stock": 0,
+      "unite": "L"
+    },
+    {
+      "famille": "Hebergement",
+      "id": "s11",
+      "nom": "Détergent",
+      "seuilMin": 8,
+      "sousCategorie": "entretien",
+      "stock": 4,
+      "unite": "L"
+    },
+    {
+      "famille": "Hebergement",
+      "id": "s12",
+      "nom": "Café",
+      "seuilMin": 5,
+      "sousCategorie": "petit_dejeuner",
+      "stock": 2,
+      "unite": "kg"
+    },
+    {
+      "famille": "Hebergement",
+      "id": "s13",
+      "nom": "Thé",
+      "seuilMin": 10,
+      "sousCategorie": "petit_dejeuner",
+      "stock": 8,
+      "unite": "paquet"
+    },
+    {
+      "famille": "Hebergement",
+      "id": "s14",
+      "nom": "Lait",
+      "seuilMin": 15,
+      "sousCategorie": "petit_dejeuner",
+      "stock": 12,
+      "unite": "L"
+    },
+    {
+      "famille": "Hebergement",
+      "id": "s15",
+      "nom": "Pain",
+      "seuilMin": 20,
+      "sousCategorie": "petit_dejeuner",
+      "stock": 0,
+      "unite": "u"
+    },
+    {
+      "famille": "Hebergement",
+      "id": "s16",
+      "nom": "Confiture",
+      "seuilMin": 12,
+      "sousCategorie": "petit_dejeuner",
+      "stock": 6,
+      "unite": "u"
+    },
+    {
+      "famille": "Hebergement",
+      "id": "s17",
+      "nom": "Beurre",
+      "seuilMin": 3,
+      "sousCategorie": "petit_dejeuner",
+      "stock": 1,
+      "unite": "kg"
+    }
+  ],
+  "tables": [
+    {
+      "assignedReservationId": "r_passee",
+      "capacite": 2,
+      "emplacement": "Intérieur",
+      "id": "t1",
+      "numero": "T1",
+      "statut": "reservee"
+    },
+    {
+      "assignedReservationId": "r_encours",
+      "capacite": 4,
+      "emplacement": "Terrasse",
+      "id": "t2",
+      "numero": "T2",
+      "statut": "reservee"
+    },
+    {
+      "assignedReservationId": "r_retard",
+      "capacite": 4,
+      "emplacement": "Intérieur",
+      "id": "t3",
+      "numero": "T3",
+      "statut": "reservee"
+    },
+    {
+      "assignedReservationId": "r_future1",
+      "capacite": 6,
+      "emplacement": "Terrasse",
+      "id": "t4",
+      "numero": "T4",
+      "statut": "reservee"
+    },
+    {
+      "assignedReservationId": "r_future_avance",
+      "capacite": 2,
+      "emplacement": "Intérieur",
+      "id": "t5",
+      "numero": "T5",
+      "statut": "reservee"
+    },
+    {
+      "assignedReservationId": "r_soir",
+      "capacite": 6,
+      "emplacement": "Terrasse",
+      "id": "t6",
+      "numero": "T6",
+      "statut": "reservee"
+    },
+    {
+      "assignedReservationId": "r_annulee",
+      "capacite": 3,
+      "emplacement": "Intérieur",
+      "id": "t7",
+      "numero": "T7",
+      "statut": "libre"
+    },
+    {
+      "capacite": 4,
+      "emplacement": "Terrasse",
+      "id": "t8",
+      "numero": "T8",
+      "statut": "libre"
+    },
+    {
+      "capacite": 2,
+      "emplacement": "Intérieur",
+      "id": "t9",
+      "numero": "T9",
+      "statut": "libre"
+    },
+    {
+      "capacite": 4,
+      "emplacement": "Terrasse",
+      "id": "t10",
+      "numero": "T10",
+      "statut": "libre"
+    },
+    {
+      "capacite": 2,
+      "emplacement": "Intérieur",
+      "id": "t11",
+      "numero": "T11",
+      "statut": "libre"
+    },
+    {
+      "capacite": 4,
+      "emplacement": "Terrasse",
+      "id": "t12",
+      "numero": "T12",
+      "statut": "libre"
+    }
+  ],
+  "test_connection": {
+    "message": "Hello from Trae verification script",
+    "status": "ok",
+    "timestamp": 1765792505650
+  },
+  "utilisateurs": [
+    {
+      "id": "u-admin",
+      "login": "admin@nas.local",
+      "nom": "Administrateur",
+      "role": "admin"
+    },
+    {
+      "id": "u-reception",
+      "login": "reception@nas.local",
+      "nom": "Réception",
+      "role": "responsable hebergement"
+    },
+    {
+      "id": "u-chef",
+      "login": "chef.salle@nas.local",
+      "nom": "Chef de salle",
+      "role": "responsable restaurant"
+    },
+    {
+      "id": "u-serveur",
+      "login": "serveur@nas.local",
+      "nom": "Serveur",
+      "role": "saff_restaurant"
+    },
+    {
+      "id": "u-cuisine",
+      "login": "cuisine@nas.local",
+      "nom": "Cuisine",
+      "role": "staff_restaurant"
+    },
+    {
+      "id": "u-bar",
+      "login": "bar@nas.local",
+      "nom": "Bar",
+      "role": "staff_restaurant"
+    },
+    {
+      "id": "u-comptoir",
+      "login": "comptoir@nas.local",
+      "nom": "Comptoir",
+      "role": "staff_restaurant"
+    },
+    {
+      "id": "u-economat",
+      "login": "economat@nas.local",
+      "nom": "Économat",
+      "role": "economat"
+    },
+    {
+      "id": "u-comptable",
+      "login": "comptable@nas.local",
+      "nom": "Comptable",
+      "role": "comptable"
+    },
+    {
+      "id": "u-direction",
+      "login": "direction@nas.local",
+      "nom": "Direction",
+      "role": "admin"
+    }
+  ]
+}

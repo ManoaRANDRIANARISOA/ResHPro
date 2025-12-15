@@ -91,10 +91,7 @@ export default function RestoPlan() {
   // Synchroniser l'état local avec les données du serveur - SOLUTION DÉFINITIVE
   useEffect(() => {
     if (enrichedReservations.length > 0) {
-      // Seulement à l'initialisation ou quand nécessaire
-      if (localEnrichedReservations.length === 0) {
-        setLocalEnrichedReservations(enrichedReservations);
-      }
+      setLocalEnrichedReservations(enrichedReservations);
     }
   }, [enrichedReservations]);
 

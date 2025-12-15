@@ -28,6 +28,8 @@ import { Link } from "react-router-dom";
 import { RoomCalendar } from "@/components/RoomCalendar";
 import { Fragment, useState } from "react";
 import { exportToCSV, exportToPDF } from "@/lib/export";
+import { useSearchParams } from "react-router-dom";
+import { Alert } from "@mui/material";
 
 function formatAr(n: number) {
   return `${n.toLocaleString("fr-FR")} Ar`;
@@ -42,6 +44,10 @@ export default function Dashboard() {
   const pendingList = (factures || []).filter((f) => f.statut === "emise");
   const lowList = (stock || []).filter((p) => p.stock <= p.seuilMin);
   const zeroList = (stock || []).filter((p) => p.stock === 0);
+  
+  // Hook pour récupérer les paramètres URL
+  const [sp] = useSearchParams();
+  const notice = sp.get("notice");
   
   // État pour le calendrier des chambres
   const [roomView, setRoomView] = useState<"month" | "week" | "day">("week");
@@ -86,6 +92,7 @@ export default function Dashboard() {
     }));
   // Filtres secondaires pour le stock
   const [stockFamilleFilter, setStockFamilleFilter] = useState<"all" | "Restaurant" | "Hebergement">("all");
+
   const filteredLow = (stock || [])
     .filter((p) => p.stock <= p.seuilMin)
     .filter((p) => stockFamilleFilter === "all" ? true : p.famille === stockFamilleFilter)
@@ -140,6 +147,11 @@ export default function Dashboard() {
 
   return (
     <Box>
+      {/* Alerte pour les administrateurs */}
+      {notice === "admin-only" && (
+        <Alert severity="info" sx={{ mb: 2 }}>Accès réservé aux administrateurs</Alert>
+      )}
+      
       <Typography variant="h4" fontWeight={800} mb={3}>
         Tableau de bord
       </Typography>
@@ -539,11 +551,6 @@ function LegendDot({ color, label }: { color: string; label: string }) {
   );
 }
 
-import { useSearchParams } from "react-router-dom";
-import { Alert } from "@mui/material";
-  const [sp] = useSearchParams();
-  const notice = sp.get("notice");
-      {notice === "admin-only" && (
-        <Alert severity="info" sx={{ mb: 2 }}>Accès réservé aux administrateurs</Alert>
-      )}
+// Déplacer l'import et le hook useSearchParams dans le composant principal
+// et corriger la logique d'affichage de l'alerte}
 

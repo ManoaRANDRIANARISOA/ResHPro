@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, PropsWithChildren } from "react";
-import { utilisateurs, userAuth } from "@/services/mock";
+import { db } from "@/services/local-db";
 import { useAppDispatch, setRole } from "@/store";
 
 interface User {
@@ -26,9 +26,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
     await new Promise((resolve) => setTimeout(resolve, 500));
 
     // Recherche du compte par login (email)
-    const found = utilisateurs.find((u) => u.login.toLowerCase() === email.toLowerCase());
+    const found = db.utilisateurs.find((u) => u.login.toLowerCase() === email.toLowerCase());
     if (!found) return false;
-    const ok = userAuth[found.login] && userAuth[found.login] === password;
+    const auth = db.userAuth;
+    const ok = auth[found.login] && auth[found.login] === password;
     if (!ok) return false;
 
     // Mettre à jour le contexte et le store (RBAC)

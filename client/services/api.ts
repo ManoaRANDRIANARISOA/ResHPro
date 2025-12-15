@@ -1,18 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  commandes,
-  endOfService,
-  factures,
-  menu,
-  reservations,
-  stockProduits,
-  tables,
-  evenements,
-  clients,
-  utilisateurs,
-  userAuth,
-  chambres,
-} from "./mock";
+import { db } from "./local-db";
 import {
   Commande,
   MenuItem,
@@ -23,6 +10,120 @@ import {
   Chambre,
 } from "@shared/api";
 import { eachDayOfInterval, addDays } from "date-fns";
+import { syncToFirebase, readFromFirebase } from "./firebase";
+
+// Helper to ensure we hydrate from cloud in production or when explicitly requested
+let cloudSyncPromise: Promise<void> | null = null;
+export async function ensureCloudSync(forceSeed = false) {
+  // Always allow sync if we are in production OR if we want to ensure consistency
+  // Ideally, we want to hydrate if we have internet.
+  // if (import.meta.env.DEV) return; // Removed restriction to allow sync in Dev too if needed
+
+  if (!cloudSyncPromise || forceSeed) {
+    cloudSyncPromise = (async () => {
+      console.log("Starting Cloud Sync Check...", forceSeed ? "(FORCED)" : "");
+      try {
+        const mappings = [
+          { key: "stockProduits", col: "stockProduits" },
+          { key: "evenements", col: "evenements" },
+          { key: "reservations", col: "reservations" },
+          { key: "factures", col: "factures" },
+          { key: "utilisateurs", col: "utilisateurs" },
+          { key: "clients", col: "clients" },
+          { key: "commandes", col: "commandes" },
+          { key: "menu", col: "menu" },
+          { key: "chambres", col: "chambres" },
+          { key: "tables", col: "tables" },
+          { key: "chambresMaintenance", col: "chambresMaintenance" },
+        ];
+
+        let hasDataInCloud = false;
+
+        // Si forceSeed est vrai, on saute la lecture et on considère que le cloud est vide (pour écraser)
+        // OU on lit quand même pour être sûr de la connexion, mais on force l'écriture après.
+        // Pour être sûr, on lit d'abord (hydratation), sauf si on veut vraiment écraser.
+        // L'utilisateur veut "envoyer ses données".
+        
+        if (!forceSeed) {
+            for (const m of mappings) {
+              const data = await readFromFirebase(m.col);
+              if (data) {
+                hasDataInCloud = true;
+                // @ts-ignore
+                db[m.key] = data;
+              }
+            }
+            
+            // Special case for auth
+            const authData = await readFromFirebase("userAuth");
+            if (authData) {
+               hasDataInCloud = true;
+               const current = db.userAuth;
+               Object.assign(current, authData);
+               db.save("nas_user_auth", current);
+            }
+        }
+
+        // SEEDING LOGIC: If cloud is empty OR forced, push local data to cloud
+        if (!hasDataInCloud || forceSeed) {
+            console.log("Seeding cloud with local data...");
+            for (const m of mappings) {
+                // @ts-ignore
+                const localData = db[m.key];
+                if (localData) {
+                    await syncToFirebase(m.col, localData);
+                }
+            }
+            await syncToFirebase("userAuth", db.userAuth);
+            console.log("Cloud Seeding Complete.");
+        }
+
+        console.log("Cloud Sync Complete");
+      } catch (e) {
+        console.error("Cloud Sync Failed", e);
+      }
+    })();
+  }
+  return cloudSyncPromise;
+}
+
+// Re-sync on online event
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => {
+    console.log("Online detected. Re-syncing...");
+    cloudSyncPromise = null; // Reset promise to allow re-run
+    ensureCloudSync();
+  });
+  
+  // Also trigger once on load
+  ensureCloudSync();
+}
+
+async function syncToMock(collection: string, data: any) {
+  try {
+    // 1. Always save to LocalDB (already done by setter, but good to be sure logic is here if needed)
+    // Actually, syncToMock is called AFTER db.setter.
+    
+    // 2. Try local dev server (works only if running locally)
+    if (import.meta.env.DEV) {
+      // Don't await this if we want to be optimistic, but for safety let's catch error
+      fetch("/api/update-mock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ collection, data }),
+      }).catch(e => console.warn("Dev server sync failed (offline?)", e));
+    }
+    
+    // 3. Always try Cloud Sync (Firebase) if configured
+    // This supports the "Offline -> Online" flow: if this fails, we just log it.
+    // The "ensureCloudSync" on 'online' event will handle full re-hydration,
+    // but ideally we should queue writes. For now, we rely on "Last Write Wins" from active client.
+    await syncToFirebase(collection, data);
+    
+  } catch (e) {
+    console.error("Failed to sync to mock/cloud", e);
+  }
+}
 
 // Helper function pour détecter les chevauchements d'horaires
 function timeToMinutes(timeString: string): number {
@@ -57,7 +158,7 @@ export const keys = {
 export function useStockProduits() {
   return useQuery({
     queryKey: keys.stock,
-    queryFn: async () => stockProduits,
+    queryFn: async () => db.stockProduits,
   });
 }
 
@@ -71,7 +172,10 @@ export function useCreateStockProduit() {
         id: `s-${Date.now()}`,
         ...payload,
       } as import("@shared/api").StockProduit;
-      (await import("./mock")).stockProduits.push(created);
+      const list = db.stockProduits;
+      list.push(created);
+      db.stockProduits = list;
+      await syncToMock("stockProduits", list);
       return created;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: keys.stock }),
@@ -84,11 +188,15 @@ export function useUpdateStockProduit() {
     mutationFn: async (
       payload: Partial<import("@shared/api").StockProduit> & { id: string },
     ) => {
-      const list = (await import("./mock"))
-        .stockProduits as any as import("@shared/api").StockProduit[];
+      const list = db.stockProduits;
       const i = list.findIndex((p) => p.id === payload.id);
-      if (i >= 0) list[i] = { ...list[i], ...payload };
-      return list[i];
+      if (i >= 0) {
+        list[i] = { ...list[i], ...payload };
+        db.stockProduits = list;
+        await syncToMock("stockProduits", list);
+        return list[i];
+      }
+      throw new Error("Produit non trouvé");
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: keys.stock }),
   });
@@ -98,11 +206,15 @@ export function useDeleteStockProduit() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id }: { id: string }) => {
-      const list = (await import("./mock"))
-        .stockProduits as any as import("@shared/api").StockProduit[];
+      const list = db.stockProduits;
       const i = list.findIndex((p) => p.id === id);
-      if (i >= 0) list.splice(i, 1);
-      return true;
+      if (i >= 0) {
+        list.splice(i, 1);
+        db.stockProduits = list;
+        await syncToMock("stockProduits", list);
+        return true;
+      }
+      return false;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: keys.stock }),
   });
@@ -111,7 +223,7 @@ export function useDeleteStockProduit() {
 export function useEvenements() {
   return useQuery({
     queryKey: keys.events,
-    queryFn: async (): Promise<Evenement[]> => evenements,
+    queryFn: async (): Promise<Evenement[]> => db.evenements,
   });
 }
 
@@ -120,7 +232,10 @@ export function useCreateEvenement() {
   return useMutation({
     mutationFn: async (payload: Omit<Evenement, "id">) => {
       const ev: Evenement = { id: `ev-${Date.now()}`, ...payload };
-      (await import("./mock")).evenements.push(ev as any);
+      const list = db.evenements;
+      list.push(ev);
+      db.evenements = list;
+      await syncToMock("evenements", list);
       return ev;
     },
     onSuccess: () => {
@@ -134,10 +249,15 @@ export function useUpdateEvenement() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (payload: Partial<Evenement> & { id: string }) => {
-      const list = (await import("./mock")).evenements as any as Evenement[];
+      const list = db.evenements;
       const i = list.findIndex((e) => e.id === payload.id);
-      if (i >= 0) list[i] = { ...list[i], ...payload };
-      return list[i];
+      if (i >= 0) {
+        list[i] = { ...list[i], ...payload };
+        db.evenements = list;
+        await syncToMock("evenements", list);
+        return list[i];
+      }
+      throw new Error("Event not found");
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: keys.events });
@@ -147,20 +267,20 @@ export function useUpdateEvenement() {
 }
 
 export function useTables() {
-  return useQuery({ queryKey: keys.tables, queryFn: async () => tables });
+  return useQuery({ queryKey: keys.tables, queryFn: async () => db.tables });
 }
 
 export function useRestoReservations() {
   return useQuery({
     queryKey: keys.reservations,
-    queryFn: async () => reservations.filter((r) => r.type === "restaurant"),
+    queryFn: async () => db.reservations.filter((r) => r.type === "restaurant"),
   });
 }
 
 export function useHebergementReservations() {
   return useQuery({
     queryKey: [...keys.reservations, "hebergement"],
-    queryFn: async () => reservations.filter((r) => r.type === "hebergement"),
+    queryFn: async () => db.reservations.filter((r) => r.type === "hebergement"),
   });
 }
 
@@ -168,23 +288,35 @@ export function useUpdateHebergementReservation() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (payload: Partial<Reservation> & { id: string }) => {
-      const mod = await import("./mock");
-      const list = mod.reservations as any as Reservation[];
+      const list = db.reservations;
       const i = list.findIndex((e) => e.id === payload.id);
       if (i >= 0) {
         const prev = { ...list[i] };
         list[i] = { ...list[i], ...payload };
+        
+        // Auto-generate invoice logic
         if (
           prev.type === "hebergement" &&
           !["confirmee", "arrivee"].includes(prev.statut as any) &&
           ["confirmee", "arrivee"].includes(list[i].statut as any)
         ) {
-          const ch = chambres.find((c) => c.id === list[i].chambreId);
-          const cli = clients.find((c) => c.id === list[i].clientId);
+          const ch = db.chambres.find((c) => c.id === list[i].chambreId);
+          const cli = db.clients.find((c) => c.id === list[i].clientId);
           const dStart = new Date(list[i].dateDebut);
           const dEnd = new Date(list[i].dateFin || list[i].dateDebut);
           const nights = eachDayOfInterval({ start: dStart, end: dEnd }).length;
-          const total = (ch?.tarif_base ?? 0) * nights;
+          
+          const hasBreakfast = (list[i].notes?.toLowerCase().includes("pdj inclus") || list[i].notes?.toLowerCase().includes("petit déj"));
+          const breakfastPrice = 15000;
+          const breakfastTotal = hasBreakfast ? (breakfastPrice * nights * (list[i].nbPersonnes || 1)) : 0;
+          
+          const total = (ch?.tarif_base ?? 0) * nights + breakfastTotal;
+          
+          const lignes = [{ description: `Nuitée ${ch?.numero ?? list[i].chambreId} (${dStart.toLocaleDateString()} – ${dEnd.toLocaleDateString()})`, qte: nights, pu: ch?.tarif_base ?? 0 }];
+          if (hasBreakfast) {
+            lignes.push({ description: "Petit Déjeuner Inclus", qte: nights * (list[i].nbPersonnes || 1), pu: breakfastPrice });
+          }
+
           const created: import("@shared/api").Facture = {
             id: `f-${Date.now()}`,
             numero: `NAS-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, "0")}`,
@@ -193,14 +325,21 @@ export function useUpdateHebergementReservation() {
             reservationId: list[i].id,
             clientNom: cli?.nom ?? list[i].clientId,
             source: "Hebergement",
-            lignes: [{ description: `Nuitée ${ch?.numero ?? list[i].chambreId} (${dStart.toLocaleDateString()} – ${dEnd.toLocaleDateString()})`, qte: nights, pu: ch?.tarif_base ?? 0 }],
+            lignes,
             totalTTC: total,
             statut: "emise",
           };
-          mod.factures.push(created as any);
+          
+          const factures = db.factures;
+          factures.push(created);
+          db.factures = factures;
+          await syncToMock("factures", factures);
         }
+        
+        db.reservations = list; // Save changes
+        await syncToMock("reservations", list);
+        return list[i];
       }
-      return list[i];
     },
     onSuccess: () => {
       // Ne pas invalider le cache pour préserver les modifications locales
@@ -225,15 +364,28 @@ export function useCreateHebergementReservation() {
         gracePeriodMinutes: 0,
         ...payload,
       } as Reservation;
-      const mod = await import("./mock");
-      mod.reservations.push(r);
+      
+      const list = db.reservations;
+      list.push(r);
+      
       if (["confirmee", "arrivee"].includes(r.statut as any)) {
-        const ch = chambres.find((c) => c.id === r.chambreId);
-        const cli = clients.find((c) => c.id === r.clientId);
+        const ch = db.chambres.find((c) => c.id === r.chambreId);
+        const cli = db.clients.find((c) => c.id === r.clientId);
         const dStart = new Date(r.dateDebut);
         const dEnd = new Date(r.dateFin || r.dateDebut);
         const nights = eachDayOfInterval({ start: dStart, end: dEnd }).length;
-        const total = (ch?.tarif_base ?? 0) * nights;
+        
+        const hasBreakfast = (r.notes?.toLowerCase().includes("pdj inclus") || r.notes?.toLowerCase().includes("petit déj"));
+        const breakfastPrice = 15000;
+        const breakfastTotal = hasBreakfast ? (breakfastPrice * nights * (r.nbPersonnes || 1)) : 0;
+        
+        const total = (ch?.tarif_base ?? 0) * nights + breakfastTotal;
+        
+        const lignes = [{ description: `Nuitée ${ch?.numero ?? r.chambreId} (${dStart.toLocaleDateString()} – ${dEnd.toLocaleDateString()})`, qte: nights, pu: ch?.tarif_base ?? 0 }];
+        if (hasBreakfast) {
+          lignes.push({ description: "Petit Déjeuner Inclus", qte: nights * (r.nbPersonnes || 1), pu: breakfastPrice });
+        }
+
         const created: import("@shared/api").Facture = {
           id: `f-${Date.now()}`,
           numero: `NAS-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, "0")}`,
@@ -242,12 +394,19 @@ export function useCreateHebergementReservation() {
           reservationId: r.id,
           clientNom: cli?.nom ?? r.clientId,
           source: "Hebergement",
-          lignes: [{ description: `Nuitée ${ch?.numero ?? r.chambreId} (${dStart.toLocaleDateString()} – ${dEnd.toLocaleDateString()})`, qte: nights, pu: ch?.tarif_base ?? 0 }],
+          lignes,
           totalTTC: total,
           statut: "emise",
         };
-        mod.factures.push(created as any);
+        
+        const factures = db.factures;
+        factures.push(created);
+        db.factures = factures;
+        await syncToMock("factures", factures);
       }
+      
+      db.reservations = list;
+      await syncToMock("reservations", list);
       return r;
     },
     onSuccess: () => {
@@ -265,7 +424,7 @@ export function useTodayRestoReservations() {
   return useQuery({
     queryKey: [...keys.reservations, "today"],
     queryFn: async () =>
-      reservations.filter(
+      db.reservations.filter(
         (r) =>
           r.type === "restaurant" &&
           new Date(r.dateDebut).setHours(0, 0, 0, 0) === today.getTime(),
@@ -276,7 +435,7 @@ export function useTodayRestoReservations() {
 export function useClients() {
   return useQuery({
     queryKey: keys.clients,
-    queryFn: async () => clients,
+    queryFn: async () => db.clients,
   });
 }
 
@@ -286,7 +445,7 @@ export function useClients() {
 export function useUsers() {
   return useQuery({
     queryKey: keys.users,
-    queryFn: async (): Promise<Utilisateur[]> => utilisateurs,
+    queryFn: async (): Promise<Utilisateur[]> => db.utilisateurs,
   });
 }
 
@@ -297,9 +456,17 @@ export function useCreateUser() {
       payload: Omit<Utilisateur, "id"> & { password?: string },
     ) => {
       const user: Utilisateur = { id: `u-${Date.now()}`, ...payload };
-      (await import("./mock")).utilisateurs.push(user as any);
+      
+      const users = db.utilisateurs;
+      users.push(user);
+      db.utilisateurs = users; // Calls setter which saves to LS
+      await syncToMock("utilisateurs", users);
+
       if (payload.password && payload.login) {
-        (await import("./mock")).userAuth[payload.login] = payload.password;
+        const auth = db.userAuth;
+        auth[payload.login] = payload.password;
+        db.save("nas_user_auth", auth); // Manually save auth map
+        await syncToMock("userAuth", auth);
       }
       return user;
     },
@@ -316,17 +483,24 @@ export function useUpdateUser() {
     mutationFn: async (
       payload: Partial<Utilisateur> & { id: string; password?: string },
     ) => {
-      const list = (await import("./mock")).utilisateurs as any as Utilisateur[];
+      const list = db.utilisateurs;
       const i = list.findIndex((u) => u.id === payload.id);
       if (i >= 0) {
         const prevLogin = list[i].login;
         list[i] = { ...list[i], ...payload };
+        db.utilisateurs = list;
+        await syncToMock("utilisateurs", list);
+        
         if (payload.password) {
           const loginKey = payload.login ?? prevLogin;
-          (await import("./mock")).userAuth[loginKey] = payload.password;
+          const auth = db.userAuth;
+          auth[loginKey] = payload.password;
+          db.save("nas_user_auth", auth);
+          await syncToMock("userAuth", auth);
         }
+        return list[i];
       }
-      return list[i];
+      throw new Error("User not found");
     },
     onSuccess: (updated) => {
       qc.setQueryData(keys.users, (old: any) => (old ? old.map((u: any) => (u.id === updated.id ? updated : u)) : [updated]));
@@ -339,14 +513,21 @@ export function useDeleteUser() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id }: { id: string }) => {
-      const list = (await import("./mock")).utilisateurs as any as Utilisateur[];
+      const list = db.utilisateurs;
       const i = list.findIndex((u) => u.id === id);
       if (i >= 0) {
         const loginKey = list[i].login;
         list.splice(i, 1);
-        delete (await import("./mock")).userAuth[loginKey];
+        db.utilisateurs = list;
+        await syncToMock("utilisateurs", list);
+        
+        const auth = db.userAuth;
+        delete auth[loginKey];
+        db.save("nas_user_auth", auth);
+        await syncToMock("userAuth", auth);
+        return true;
       }
-      return true;
+      return false;
     },
     onSuccess: (_ok, vars) => {
       qc.setQueryData(keys.users, (old: any) => (old ? old.filter((u: any) => u.id !== vars.id) : []));
@@ -367,7 +548,10 @@ export function useCreateClient() {
     }) => {
       const id = `c-${Date.now()}`; // in-memory
       const c = { id, nom, telephone } as any;
-      (await import("./mock")).clients.push(c);
+      const clients = db.clients;
+      clients.push(c);
+      db.clients = clients;
+      await syncToMock("clients", clients);
       return c;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: keys.clients }),
@@ -391,14 +575,17 @@ export function useCreateRestoReservation() {
         gracePeriodMinutes: 15,
         ...payload,
       } as Reservation;
+      
+      const reservations = db.reservations;
       reservations.push(r);
-      if (r.tableId) {
-        const t = tables.find((t) => t.id === r.tableId);
-        if (t) {
-          t.assignedReservationId = r.id;
-          t.statut = "reservee";
-        }
-      }
+      db.reservations = reservations; // This will trigger table sync in LocalDB setter
+      await syncToMock("reservations", reservations);
+      await syncToMock("tables", db.tables);
+
+      // We don't need manual table update here because LocalDB.reservations setter does it.
+      // But let's verify if we need to explicitly save tables?
+      // LocalDB.syncTablesWithReservations saves tables if changed.
+      
       return r;
     },
     onSuccess: (newReservation) => {
@@ -417,36 +604,13 @@ export function useUpdateRestoReservation() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (payload: Partial<Reservation> & { id: string }) => {
+      const reservations = db.reservations;
       const i = reservations.findIndex((r) => r.id === payload.id);
       if (i >= 0) {
-        const oldTableId = reservations[i].tableId;
         reservations[i] = { ...reservations[i], ...payload };
-        
-        // Mettre à jour le cache React Query
-        qc.setQueryData([...keys.reservations, "today"], (old: any) => {
-          if (!old) return [reservations[i]];
-          return old.map((r: Reservation) => r.id === payload.id ? reservations[i] : r);
-        });
-        
-        // Mettre à jour les tables si nécessaire
-        if (oldTableId !== payload.tableId) {
-          // Libérer l'ancienne table
-          if (oldTableId) {
-            const oldTable = tables.find((t) => t.id === oldTableId);
-            if (oldTable) {
-              oldTable.assignedReservationId = undefined;
-              oldTable.statut = "libre";
-            }
-          }
-          // Assigner la nouvelle table
-          if (payload.tableId) {
-            const newTable = tables.find((t) => t.id === payload.tableId);
-            if (newTable) {
-              newTable.assignedReservationId = payload.id;
-              newTable.statut = reservations[i].statut === "arrivee" ? "occupee" : "reservee";
-            }
-          }
-        }
+        db.reservations = reservations; // Triggers sync
+        await syncToMock("reservations", reservations);
+        await syncToMock("tables", db.tables);
         return reservations[i];
       }
       return null;
@@ -462,26 +626,16 @@ export function useDeleteRestoReservation() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id }: { id: string }) => {
+      const reservations = db.reservations;
       const i = reservations.findIndex((r) => r.id === id);
       if (i >= 0) {
-        const reservation = reservations[i];
-        // Libérer la table associée
-        if (reservation.tableId) {
-          const table = tables.find((t) => t.id === reservation.tableId);
-          if (table) {
-            table.assignedReservationId = undefined;
-            table.statut = "libre";
-          }
-        }
         reservations.splice(i, 1);
-        
-        // Mettre à jour le cache React Query
-        qc.setQueryData([...keys.reservations, "today"], (old: any) => {
-          if (!old) return [];
-          return old.filter((r: Reservation) => r.id !== id);
-        });
+        db.reservations = reservations; // Triggers sync (will likely free the table)
+        await syncToMock("reservations", reservations);
+        await syncToMock("tables", db.tables);
+        return true;
       }
-      return true;
+      return false;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: keys.tables });
@@ -494,7 +648,7 @@ export function useReservationCommandes(reservationId: string) {
   return useQuery({
     queryKey: [...keys.commandes, reservationId],
     queryFn: async () =>
-      commandes.filter((c) => c.reservationId === reservationId),
+      db.commandes.filter((c) => c.reservationId === reservationId),
     enabled: !!reservationId,
   });
 }
@@ -502,7 +656,7 @@ export function useReservationCommandes(reservationId: string) {
 export function useMenuItems() {
   return useQuery({
     queryKey: keys.menu,
-    queryFn: async (): Promise<MenuItem[]> => menu,
+    queryFn: async (): Promise<MenuItem[]> => db.menu,
   });
 }
 
@@ -510,9 +664,15 @@ export function useUpdateMenuItem() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (payload: Partial<MenuItem> & { id: string }) => {
+      const menu = db.menu;
       const idx = menu.findIndex((m) => m.id === payload.id);
-      if (idx >= 0) menu[idx] = { ...menu[idx], ...payload } as MenuItem;
-      return menu[idx];
+      if (idx >= 0) {
+        menu[idx] = { ...menu[idx], ...payload } as MenuItem;
+        db.menu = menu;
+        await syncToMock("menu", menu);
+        return menu[idx];
+      }
+      throw new Error("Menu item not found");
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: keys.menu }),
   });
@@ -530,7 +690,10 @@ export function useCreateMenuItem() {
         enabled: true,
         ...payload,
       } as MenuItem;
-      (await import("./mock")).menu.push(it as any);
+      const menu = db.menu;
+      menu.push(it);
+      db.menu = menu;
+      await syncToMock("menu", menu);
       return it;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: keys.menu }),
@@ -549,7 +712,10 @@ export function useAddCommande() {
         statut: "saisie",
         ...payload,
       };
+      const commandes = db.commandes;
       commandes.push(created);
+      db.commandes = commandes;
+      await syncToMock("commandes", commandes);
       return created;
     },
     onSuccess: (_d, v) =>
@@ -561,11 +727,18 @@ export function useSendBatch() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ reservationId }: { reservationId: string }) => {
-      commandes
-        .filter(
-          (c) => c.reservationId === reservationId && c.statut === "saisie",
-        )
-        .forEach((c) => (c.statut = "envoyee"));
+      const commandes = db.commandes;
+      let changed = false;
+      commandes.forEach(c => {
+        if (c.reservationId === reservationId && c.statut === "saisie") {
+          c.statut = "envoyee";
+          changed = true;
+        }
+      });
+      if (changed) {
+        db.commandes = commandes;
+        await syncToMock("commandes", commandes);
+      }
     },
     onSuccess: (_r, v) =>
       qc.invalidateQueries({ queryKey: [...keys.commandes, v.reservationId] }),
@@ -576,32 +749,53 @@ export function useMarkServed() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ reservationId }: { reservationId: string }) => {
-      commandes
-        .filter(
-          (c) => c.reservationId === reservationId && c.statut === "envoyee",
-        )
-        .forEach((c) => (c.statut = "servie"));
-      const res = reservations.find((r) => r.id === reservationId);
-      const lines = commandes
-        .filter((c) => c.reservationId === reservationId && c.statut === "servie")
-        .map((c) => {
-          const it = menu.find((m) => m.id === c.menuItemId);
-          return { description: it?.nom || c.menuItemId, qte: c.quantite, pu: it?.prix || 0 };
-        });
-      const total = lines.reduce((s, l) => s + l.qte * l.pu, 0);
-      if (res && lines.length && total > 0) {
-        const cli = clients.find((c) => c.id === res.clientId);
-        const created: import("@shared/api").Facture = {
-          id: `f-${Date.now()}`,
-          numero: `NAS-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, "0")}`,
-          date: new Date().toISOString(),
-          clientNom: cli?.nom || res.clientId,
-          source: "Restaurant",
-          lignes: lines,
-          totalTTC: total,
-          statut: "emise",
-        };
-        (await import("./mock")).factures.push(created as any);
+      const commandes = db.commandes;
+      let changed = false;
+      
+      // Update commands
+      commandes.forEach(c => {
+        if (c.reservationId === reservationId && c.statut === "envoyee") {
+          c.statut = "servie";
+          changed = true;
+        }
+      });
+      
+      if (changed) {
+        db.commandes = commandes;
+        await syncToMock("commandes", commandes);
+        
+        // Generate invoice
+        const reservations = db.reservations;
+        const res = reservations.find((r) => r.id === reservationId);
+        
+        // We use the UPDATED commandes list here
+        const lines = db.commandes
+          .filter((c) => c.reservationId === reservationId && c.statut === "servie")
+          .map((c) => {
+            const it = db.menu.find((m) => m.id === c.menuItemId);
+            return { description: it?.nom || c.menuItemId, qte: c.quantite, pu: it?.prix || 0 };
+          });
+          
+        const total = lines.reduce((s, l) => s + l.qte * l.pu, 0);
+        
+        if (res && lines.length && total > 0) {
+          const cli = db.clients.find((c) => c.id === res.clientId);
+          const created: import("@shared/api").Facture = {
+            id: `f-${Date.now()}`,
+            numero: `NAS-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, "0")}`,
+            date: new Date().toISOString(),
+            clientNom: cli?.nom || res.clientId,
+            source: "Restaurant",
+            lignes: lines,
+            totalTTC: total,
+            statut: "emise",
+          };
+          
+          const factures = db.factures;
+          factures.push(created);
+          db.factures = factures;
+          await syncToMock("factures", factures);
+        }
       }
     },
     onSuccess: (_r, v) => {
@@ -615,10 +809,13 @@ export function useCancelCommande() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, motif }: { id: string; motif?: string }) => {
+      const commandes = db.commandes;
       const c = commandes.find((c) => c.id === id);
       if (c) {
         c.statut = "annulee";
         c.motifAnnulation = motif;
+        db.commandes = commandes;
+        await syncToMock("commandes", commandes);
       }
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: keys.commandes }),
@@ -629,12 +826,19 @@ export function useCancelPendingCommandesForReservation() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ reservationId, motif }: { reservationId: string; motif?: string }) => {
-      commandes
-        .filter((c) => c.reservationId === reservationId && (c.statut === "saisie" || c.statut === "envoyee"))
-        .forEach((c) => {
+      const commandes = db.commandes;
+      let changed = false;
+      commandes.forEach(c => {
+        if (c.reservationId === reservationId && (c.statut === "saisie" || c.statut === "envoyee")) {
           c.statut = "annulee";
           c.motifAnnulation = motif ?? "Annulé (non arrivé)";
-        });
+          changed = true;
+        }
+      });
+      if (changed) {
+        db.commandes = commandes;
+        await syncToMock("commandes", commandes);
+      }
     },
     onSuccess: (_r, v) => qc.invalidateQueries({ queryKey: [...keys.commandes, v.reservationId] }),
   });
@@ -643,7 +847,7 @@ export function useCancelPendingCommandesForReservation() {
 export function useEndOfService() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async () => endOfService(),
+    mutationFn: async () => db.endOfService(),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: keys.commandes });
       qc.invalidateQueries({ queryKey: keys.stock });
@@ -687,7 +891,7 @@ export function checkTableAvailability(
   const startMinutes = timeToMinutes(startTime);
   const endMinutes = startMinutes + duration;
   
-  const conflictingReservations = reservations.filter(r => {
+  const conflictingReservations = db.reservations.filter(r => {
     if (r.tableId !== tableId) return false;
     if (excludeReservationId && r.id === excludeReservationId) return false;
     
@@ -709,6 +913,7 @@ export function useAssignTable() {
   return useMutation({
     mutationFn: async (payload: { tableId: string; reservationId: string }) => {
       // Détection de collision complète (chevauchement d'horaires)
+      const reservations = db.reservations;
       const r = reservations.find((r) => r.id === payload.reservationId);
       if (!r) throw new Error("Réservation non trouvée");
       
@@ -724,11 +929,23 @@ export function useAssignTable() {
         throw new Error(`Collision de table pour ce créneau. Conflit avec: ${availability.conflictingReservations?.map(cr => cr.clientId || 'Réservation').join(', ')}`);
       }
       
+      // Update Table
+      const tables = db.tables;
       const t = tables.find((t) => t.id === payload.tableId);
-      if (t)
-        ((t.assignedReservationId = payload.reservationId),
-          (t.statut = "reservee"));
-      if (r) r.tableId = payload.tableId;
+      if (t) {
+        t.assignedReservationId = payload.reservationId;
+        t.statut = "reservee";
+        db.tables = tables;
+        await syncToMock("tables", tables);
+      }
+      
+      // Update Reservation
+      if (r) {
+        r.tableId = payload.tableId;
+        db.reservations = reservations;
+        await syncToMock("reservations", reservations);
+      }
+      
       return t as TableResto;
     },
     onSuccess: () => {
@@ -743,15 +960,19 @@ export function useFactures() {
   return useQuery({
     queryKey: keys.factures,
     queryFn: async () => {
-      const mod = await import("./mock");
-      const events = mod.evenements as any as Evenement[];
-      const reservationsAll = mod.reservations as any as Reservation[];
-      const chambresAll = mod.chambres as any as Chambre[];
-      const clientsAll = mod.clients as any as any[];
-      const baseRaw = mod.factures as any as import("@shared/api").Facture[];
+      const events = db.evenements;
+      const reservationsAll = db.reservations;
+      const chambresAll = db.chambres;
+      const clientsAll = db.clients;
+      const baseRaw = db.factures;
+      
       const base = Array.from(new Map(baseRaw.map((f) => [f.id, f])).values());
       const RATE_AR = 15000;
       const augmented = [...base];
+      
+      let newFacturesAdded = false;
+      const facturesToSave = [...baseRaw];
+      
       for (const ev of events || []) {
         const hasExisting = augmented.some(
           (f) =>
@@ -774,7 +995,8 @@ export function useFactures() {
             statut: ev.statut === "confirme" ? "payee" : "emise",
           };
           augmented.push(created as any);
-          (mod.factures as any as import("@shared/api").Facture[]).push(created as any);
+          facturesToSave.push(created as any);
+          newFacturesAdded = true;
         }
       }
 
@@ -788,7 +1010,18 @@ export function useFactures() {
           const dStart = new Date(r.dateDebut);
           const dEnd = new Date(r.dateFin || r.dateDebut);
           const nights = eachDayOfInterval({ start: dStart, end: dEnd }).length;
-          const total = (ch?.tarif_base ?? 0) * nights;
+          
+          const hasBreakfast = (r.notes?.toLowerCase().includes("pdj inclus") || r.notes?.toLowerCase().includes("petit déj"));
+          const breakfastPrice = 15000;
+          const breakfastTotal = hasBreakfast ? (breakfastPrice * nights * (r.nbPersonnes || 1)) : 0;
+          
+          const total = (ch?.tarif_base ?? 0) * nights + breakfastTotal;
+          
+          const lignes = [{ description: `Nuitée ${ch?.numero ?? r.chambreId} (${dStart.toLocaleDateString()} – ${dEnd.toLocaleDateString()})`, qte: nights, pu: ch?.tarif_base ?? 0 }];
+          if (hasBreakfast) {
+            lignes.push({ description: "Petit Déjeuner Inclus", qte: nights * (r.nbPersonnes || 1), pu: breakfastPrice });
+          }
+
           const created: import("@shared/api").Facture = {
             id: `f-res-${r.id}`,
             numero: `NAS-${new Date().getFullYear()}-HEB${String(r.id).replace(/[^0-9a-zA-Z]/g, "").toUpperCase()}`,
@@ -797,14 +1030,21 @@ export function useFactures() {
             reservationId: r.id,
             clientNom: cli?.nom ?? r.clientId,
             source: "Hebergement",
-            lignes: [{ description: `Nuitée ${ch?.numero ?? r.chambreId} (${dStart.toLocaleDateString()} – ${dEnd.toLocaleDateString()})`, qte: nights, pu: ch?.tarif_base ?? 0 }],
+            lignes,
             totalTTC: total,
             statut: "emise",
           };
           augmented.push(created as any);
-          (mod.factures as any as import("@shared/api").Facture[]).push(created as any);
+          facturesToSave.push(created as any);
+          newFacturesAdded = true;
         }
       }
+      
+      if (newFacturesAdded) {
+        db.factures = facturesToSave;
+        await syncToMock("factures", facturesToSave);
+      }
+      
       return augmented;
     },
   });
@@ -830,7 +1070,10 @@ export function useCreateFacture() {
         dueDate: payload.dueDate ?? defaultDue,
         ...payload,
       };
-      (await import("./mock")).factures.push(created);
+      const factures = db.factures;
+      factures.push(created);
+      db.factures = factures;
+      await syncToMock("factures", factures);
       return created;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: keys.factures }),
@@ -841,10 +1084,15 @@ export function useUpdateFactureStatut() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, statut }: { id: string; statut: import("@shared/api").Facture["statut"] }) => {
-      const list = (await import("./mock")).factures as any as import("@shared/api").Facture[];
+      const list = db.factures;
       const i = list.findIndex((f) => f.id === id);
-      if (i >= 0) list[i] = { ...list[i], statut };
-      return list[i];
+      if (i >= 0) {
+        list[i] = { ...list[i], statut };
+        db.factures = list;
+        await syncToMock("factures", list);
+        return list[i];
+      }
+      throw new Error("Facture non trouvée");
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: keys.factures }),
   });
@@ -854,10 +1102,15 @@ export function useUpdateFacture() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (payload: Partial<import("@shared/api").Facture> & { id: string }) => {
-      const list = (await import("./mock")).factures as any as import("@shared/api").Facture[];
+      const list = db.factures;
       const i = list.findIndex((f) => f.id === payload.id);
-      if (i >= 0) list[i] = { ...list[i], ...payload } as any;
-      return list[i];
+      if (i >= 0) {
+        list[i] = { ...list[i], ...payload } as any;
+        db.factures = list;
+        await syncToMock("factures", list);
+        return list[i];
+      }
+      throw new Error("Facture non trouvée");
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: keys.factures }),
   });
@@ -869,20 +1122,23 @@ export function useUpdateFacture() {
 export function useChambres() {
   return useQuery({
     queryKey: keys.chambres,
-    queryFn: async (): Promise<Chambre[]> => chambres,
+    queryFn: async (): Promise<Chambre[]> => db.chambres,
   });
 }
 
 // Gestion des périodes de maintenance (hors service) des chambres
 export function useRoomMaintenance() {
-  return useQuery({ queryKey: [...keys.chambres, "maintenance"], queryFn: async () => (await import("./mock")).chambresMaintenance });
+  return useQuery({ queryKey: [...keys.chambres, "maintenance"], queryFn: async () => db.get("nas_chambres_maintenance") });
 }
 
 export function useAddRoomMaintenance() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (payload: { chambreId: string; start: string; end: string }) => {
-      (await import("./mock")).chambresMaintenance.push(payload);
+      const list = db.get<any[]>("nas_chambres_maintenance");
+      list.push(payload);
+      db.save("nas_chambres_maintenance", list);
+      await syncToMock("chambresMaintenance", list);
       return payload;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: [...keys.chambres, "maintenance"] }),
@@ -893,13 +1149,15 @@ export function useRemoveRoomMaintenance() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (payload: { chambreId: string; start?: string; end?: string }) => {
-      const list = (await import("./mock")).chambresMaintenance;
+      const list = db.get<any[]>("nas_chambres_maintenance");
       const idxs = list
         .map((m, i) => ({ m, i }))
         .filter(({ m }) => m.chambreId === payload.chambreId && (!payload.start || !payload.end || (new Date(m.start) <= new Date(payload.end!) && new Date(m.end) >= new Date(payload.start!))))
         .map(({ i }) => i)
         .reverse();
       for (const i of idxs) list.splice(i, 1);
+      db.save("nas_chambres_maintenance", list);
+      await syncToMock("chambresMaintenance", list);
       return true;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: [...keys.chambres, "maintenance"] }),
@@ -913,7 +1171,10 @@ export function useCreateChambre() {
       payload: Omit<Chambre, "id">,
     ) => {
       const created: Chambre = { id: `ch-${Date.now()}`, ...payload } as Chambre;
-      (await import("./mock")).chambres.push(created as any);
+      const list = db.chambres;
+      list.push(created);
+      db.chambres = list;
+      await syncToMock("chambres", list);
       return created;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: keys.chambres }),
@@ -926,10 +1187,15 @@ export function useUpdateChambre() {
     mutationFn: async (
       payload: Partial<Chambre> & { id: string },
     ) => {
-      const list = (await import("./mock")).chambres as any as Chambre[];
+      const list = db.chambres;
       const i = list.findIndex((c) => c.id === payload.id);
-      if (i >= 0) list[i] = { ...list[i], ...payload };
-      return list[i];
+      if (i >= 0) {
+        list[i] = { ...list[i], ...payload };
+        db.chambres = list;
+        await syncToMock("chambres", list);
+        return list[i];
+      }
+      throw new Error("Chambre non trouvée");
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: keys.chambres }),
   });
@@ -939,10 +1205,15 @@ export function useDeleteChambre() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id }: { id: string }) => {
-      const list = (await import("./mock")).chambres as any as Chambre[];
+      const list = db.chambres;
       const i = list.findIndex((c) => c.id === id);
-      if (i >= 0) list.splice(i, 1);
-      return true;
+      if (i >= 0) {
+        list.splice(i, 1);
+        db.chambres = list;
+        await syncToMock("chambres", list);
+        return true;
+      }
+      return false;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: keys.chambres }),
   });
