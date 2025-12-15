@@ -14,7 +14,7 @@ import {
   MenuItem,
 } from "@mui/material";
 import { ResponsiveContainer, BarChart, Bar, XAxis, Tooltip } from "recharts";
-import { useFactures, useEvenements, useStockProduits, useChambres, useHebergementReservations } from "@/services/api";
+import { useFactures, useEvenements, useStockProduits, useChambres, useHebergementReservations, useRoomMaintenance } from "@/services/api";
 import {
   addDays,
   format,
@@ -41,6 +41,7 @@ export default function Dashboard() {
   const { data: stock } = useStockProduits();
   const { data: events } = useEvenements();
   const { data: rooms } = useChambres();
+  const { data: maintenance } = useRoomMaintenance(); // Ajout du hook maintenance
   const pendingList = (factures || []).filter((f) => f.statut === "emise");
   const lowList = (stock || []).filter((p) => p.stock <= p.seuilMin);
   const zeroList = (stock || []).filter((p) => p.stock === 0);
@@ -83,13 +84,21 @@ export default function Dashboard() {
   }
 
   // Alerts data (stock + housekeeping)
-  const chambreAlerts = (rooms || [])
-    .filter((c) => c.statut === "maintenance")
-    .map((c) => ({
+  const currentMaintenances = (maintenance || []).filter((m: any) => {
+    const d = new Date();
+    const start = new Date(m.start);
+    const end = new Date(m.end);
+    return d >= start && d <= end;
+  });
+
+  const chambreAlerts = currentMaintenances.map((m: any) => {
+    const room = (rooms || []).find((r) => r.id === m.chambreId);
+    return {
       type: "chambre" as const,
-      text: `${c.numero} en maintenance`,
+      text: `${room?.numero || m.chambreId} en maintenance`,
       badge: "En nettoyage",
-    }));
+    };
+  });
   // Filtres secondaires pour le stock
   const [stockFamilleFilter, setStockFamilleFilter] = useState<"all" | "Restaurant" | "Hebergement">("all");
 
@@ -472,6 +481,7 @@ export default function Dashboard() {
                 statusFilter="all"
                 reservations={reservations || []}
                 chambres={rooms || []}
+                maintenance={maintenance || []} // Injection des données maintenance
                 compact={true}
               />
             </Box>

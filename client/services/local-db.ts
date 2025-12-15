@@ -10,6 +10,8 @@ import {
   TableResto,
   Evenement,
   Utilisateur,
+  ChambreMaintenance,
+  Parametres,
 } from "@shared/api";
 import * as mock from "./mock";
 
@@ -26,6 +28,7 @@ const KEYS = {
   FACTURES: "nas_factures",
   EVENTS: "nas_events",
   MAINTENANCE: "nas_chambres_maintenance",
+  PARAMETRES: "nas_parametres",
 };
 
 class LocalDB {
@@ -62,6 +65,7 @@ class LocalDB {
     this.memory[KEYS.FACTURES] = loadFromCache(KEYS.FACTURES, [...mock.factures]);
     this.memory[KEYS.EVENTS] = loadFromCache(KEYS.EVENTS, [...mock.evenements]);
     this.memory[KEYS.MAINTENANCE] = loadFromCache(KEYS.MAINTENANCE, [...mock.chambresMaintenance]);
+    this.memory[KEYS.PARAMETRES] = loadFromCache(KEYS.PARAMETRES, { ...mock.parametres });
     
     // Initial sync of tables
     this.syncTablesWithReservations();
@@ -127,8 +131,11 @@ class LocalDB {
   get evenements(): Evenement[] { return this.get(KEYS.EVENTS); }
   set evenements(v: Evenement[]) { this.save(KEYS.EVENTS, v); }
 
-  get chambresMaintenance(): any[] { return this.get(KEYS.MAINTENANCE); }
-  set chambresMaintenance(v: any[]) { this.save(KEYS.MAINTENANCE, v); }
+  get chambresMaintenance(): ChambreMaintenance[] { return this.get(KEYS.MAINTENANCE); }
+  set chambresMaintenance(v: ChambreMaintenance[]) { this.save(KEYS.MAINTENANCE, v); }
+
+  get parametres(): Parametres { return this.get(KEYS.PARAMETRES); }
+  set parametres(v: Parametres) { this.save(KEYS.PARAMETRES, v); }
 
   // Logic
   private syncTablesWithReservations() {

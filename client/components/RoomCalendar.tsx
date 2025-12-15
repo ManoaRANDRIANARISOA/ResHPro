@@ -3,7 +3,7 @@ import { addDays, addHours, eachDayOfInterval, endOfMonth, endOfWeek, format, is
 import { fr } from "date-fns/locale";
 import { Fragment } from "react";
 import { db } from "@/services/local-db";
-import type { Reservation, Chambre } from "@shared/api";
+import type { Reservation, Chambre, ChambreMaintenance } from "@shared/api";
 
 type View = "month" | "week" | "day";
 
@@ -45,7 +45,7 @@ interface RoomCalendarProps {
   compact?: boolean;
   onCellClick?: (chambreId: string, date: Date) => void;
   chambres?: Chambre[];
-  maintenance?: { chambreId: string; start: string; end: string }[];
+  maintenance?: ChambreMaintenance[];
 }
 
 export function RoomCalendar({ 

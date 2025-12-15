@@ -22,6 +22,20 @@ export interface Chambre {
   statut: "libre" | "occupee" | "maintenance";
 }
 
+export interface ChambreMaintenance {
+  id: string;
+  chambreId: string;
+  start: string; // ISO date
+  end: string; // ISO date
+}
+
+export interface TableResto {
+  id: string;
+  chambreId: string;
+  start: string; // ISO date
+  end: string; // ISO date
+}
+
 export interface TableResto {
   id: string;
   numero: string;

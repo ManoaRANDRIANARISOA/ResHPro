@@ -7,15 +7,16 @@ import {
 } from "date-fns";
 import {
   Chambre,
+  ChambreMaintenance,
   Client,
   Commande,
+  Evenement,
   Facture,
   MenuItem,
   MouvementStock,
   Reservation,
   StockProduit,
   TableResto,
-  Evenement,
   Utilisateur,
 } from "@shared/api";
 
@@ -709,7 +710,15 @@ export const stockProduits: StockProduit[] = [
 export const factures: Facture[] = [];
 
 // Périodes de maintenance des chambres (hors service)
-export const chambresMaintenance: { chambreId: string; start: string; end: string }[] = [];
+export const chambresMaintenance: ChambreMaintenance[] = [
+  {
+    id: "mt1",
+    chambreId: "ch3",
+    dateDebut: addDays(startOfToday(), -2).toISOString(),
+    dateFin: addDays(startOfToday(), 3).toISOString(),
+    motif: "Travaux de rénovation",
+  },
+];
 
 export const evenements: Evenement[] = (() => {
   const today = new Date();

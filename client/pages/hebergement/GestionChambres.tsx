@@ -3,8 +3,10 @@ import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import { addDays, format, getISOWeek, startOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, endOfMonth } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useMemo, useState, useEffect, Fragment } from "react";
-import { useHebergementReservations, useUpdateHebergementReservation, useCreateHebergementReservation, useClients, useCreateClient, useChambres, useFactures, useCreateFacture, useRoomMaintenance, useAddRoomMaintenance, useRemoveRoomMaintenance, useUpdateChambre } from "@/services/api";
-import { Reservation, Chambre } from "@shared/api";
+import { useHebergementReservations, useUpdateHebergementReservation, useCreateHebergementReservation, useClients, useCreateClient, useChambres, useFactures, useCreateFacture, useRoomMaintenance, useAddRoomMaintenance, useRemoveRoomMaintenance,
+  useUpdateChambre,
+} from "@/services/api";
+import { Reservation, Chambre, ChambreMaintenance } from "@shared/api";
 import { RoomCalendar } from "@/components/RoomCalendar";
 import { exportToCSV, exportToPDF } from "@/lib/export";
 import { useSearchParams } from "react-router-dom";
@@ -32,7 +34,7 @@ export default function GestionChambres() {
   const { data: list } = useHebergementReservations();
   const { data: factures } = useFactures();
   const createFacture = useCreateFacture();
-  const maintenance = useRoomMaintenance();
+  const { data: maintenance } = useRoomMaintenance();
   const addMaint = useAddRoomMaintenance();
   const removeMaint = useRemoveRoomMaintenance();
   const updateRoom = useUpdateChambre();
@@ -200,7 +202,7 @@ export default function GestionChambres() {
             statusFilter={'all'}
             reservations={list || []}
             chambres={rooms || []}
-            maintenance={maintenance.data || []}
+            maintenance={maintenance || []}
           />
             <Stack direction="row" spacing={2} sx={{ mt: 2, pt: 2, borderTop: '1px solid', borderColor: 'divider' }}>
               <Legend color="#FFFFFF" label="Libre" />
@@ -309,7 +311,7 @@ export default function GestionChambres() {
               r={open} 
               reservations={list || []}
               rooms={rooms || []}
-              maintenance={maintenance.data || []}
+              maintenance={maintenance || []}
               onClose={()=> setOpen(null)} 
               onSave={(p)=> update.mutate(p as any, { onSuccess: ()=> setOpen(null) })} 
             />
@@ -324,7 +326,7 @@ export default function GestionChambres() {
           <CreateReservationForm 
             reservations={list || []}
             rooms={rooms || []}
-            maintenance={maintenance.data || []}
+            maintenance={maintenance || []}
             onClose={() => setCreateModalOpen(false)}
             initialClientId={searchParams.get('clientId') || undefined}
             onCreate={(payload) => {
@@ -353,7 +355,7 @@ function CreateReservationForm({
 }: { 
   reservations: Reservation[];
   rooms: Chambre[];
-  maintenance: { chambreId: string; start: string; end: string }[];
+  maintenance: ChambreMaintenance[];
   onClose: () => void;
   onCreate: (payload: any) => void;
   initialClientId?: string;
@@ -676,7 +678,7 @@ function CreateReservationForm({
   );
 }
 
-function EditReservation({ r, reservations, rooms, maintenance, onSave, onClose }: { r: Reservation; reservations: Reservation[]; rooms: Chambre[]; maintenance: { chambreId: string; start: string; end: string }[]; onSave: (p: Partial<Reservation> & { id: string }) => void; onClose: ()=>void }) {
+function EditReservation({ r, reservations, rooms, maintenance, onSave, onClose }: { r: Reservation; reservations: Reservation[]; rooms: Chambre[]; maintenance: ChambreMaintenance[]; onSave: (p: Partial<Reservation> & { id: string }) => void; onClose: ()=>void }) {
   const { data: clients } = useClients();
   const { data: factures } = useFactures();
   const [form, setForm] = useState({
