@@ -31,13 +31,6 @@ export interface ChambreMaintenance {
 
 export interface TableResto {
   id: string;
-  chambreId: string;
-  start: string; // ISO date
-  end: string; // ISO date
-}
-
-export interface TableResto {
-  id: string;
   numero: string;
   capacite: number;
   emplacement?: string;

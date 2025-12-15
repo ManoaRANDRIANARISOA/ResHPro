@@ -18,6 +18,7 @@ import {
   StockProduit,
   TableResto,
   Utilisateur,
+  Parametres,
 } from "@shared/api";
 
 export const clients: Client[] = [
@@ -714,11 +715,19 @@ export const chambresMaintenance: ChambreMaintenance[] = [
   {
     id: "mt1",
     chambreId: "ch3",
-    dateDebut: addDays(startOfToday(), -2).toISOString(),
-    dateFin: addDays(startOfToday(), 3).toISOString(),
-    motif: "Travaux de rénovation",
+    start: addDays(startOfToday(), -2).toISOString(),
+    end: addDays(startOfToday(), 3).toISOString(),
   },
 ];
+
+export const parametres: Parametres = {
+  checkInHour: "14:00",
+  checkOutHour: "11:00",
+  restoSlotDefaultHours: 1.5,
+  enableTariffGrids: false,
+  invoiceNumberFormat: "NAS-YYYY-####",
+  currency: "MGA",
+};
 
 export const evenements: Evenement[] = (() => {
   const today = new Date();
