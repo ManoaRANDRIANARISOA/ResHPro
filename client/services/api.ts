@@ -54,14 +54,14 @@ export async function ensureCloudSync(forceSeed = false) {
               }
             }
             
-            // Special case for auth
-            const authData = await readFromFirebase("userAuth");
-            if (authData) {
-               hasDataInCloud = true;
-               const current = db.userAuth;
-               Object.assign(current, authData);
-               db.save("nas_user_auth", current);
-            }
+            // Special case for auth - REMOVED from Cloud Sync to prevent session sharing conflicts
+            // const authData = await readFromFirebase("userAuth");
+            // if (authData) {
+            //    hasDataInCloud = true;
+            //    const current = db.userAuth;
+            //    Object.assign(current, authData);
+            //    db.save("nas_user_auth", current);
+            // }
         }
 
         // SEEDING LOGIC: If cloud is empty OR forced, push local data to cloud
@@ -74,7 +74,7 @@ export async function ensureCloudSync(forceSeed = false) {
                     await syncToFirebase(m.col, localData);
                 }
             }
-            await syncToFirebase("userAuth", db.userAuth);
+            // await syncToFirebase("userAuth", db.userAuth); // Disabled for session safety
             console.log("Cloud Seeding Complete.");
         }
 
