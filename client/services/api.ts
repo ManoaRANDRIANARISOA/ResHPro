@@ -100,10 +100,10 @@ if (typeof window !== 'undefined') {
   ensureCloudSync();
 }
 
-async function syncToMock(collection: string, data: any) {
+async function syncData(collection: string, data: any) {
   try {
     // 1. Always save to LocalDB (already done by setter, but good to be sure logic is here if needed)
-    // Actually, syncToMock is called AFTER db.setter.
+    // Actually, syncData is called AFTER db.setter.
     
     // 2. Try local dev server (works only if running locally)
     /* 
@@ -125,7 +125,7 @@ async function syncToMock(collection: string, data: any) {
     await syncToFirebase(collection, data);
     
   } catch (e) {
-    console.error("Failed to sync to mock/cloud", e);
+    console.error("Failed to sync to cloud", e);
   }
 }
 
@@ -181,7 +181,7 @@ export function useCreateStockProduit() {
       list.push(created);
       db.stockProduits = list;
       // Fire and forget cloud sync for instant UI update
-      syncToMock("stockProduits", list).catch(console.error);
+      syncData("stockProduits", list).catch(console.error);
       return created;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: keys.stock }),
@@ -200,7 +200,7 @@ export function useUpdateStockProduit() {
         list[i] = { ...list[i], ...payload };
         db.stockProduits = list;
         // Fire and forget cloud sync for instant UI update
-        syncToMock("stockProduits", list).catch(console.error);
+        syncData("stockProduits", list).catch(console.error);
         return list[i];
       }
       throw new Error("Produit non trouvé");
@@ -219,7 +219,7 @@ export function useDeleteStockProduit() {
         list.splice(i, 1);
         db.stockProduits = list;
         // Fire and forget cloud sync for instant UI update
-        syncToMock("stockProduits", list).catch(console.error);
+        syncData("stockProduits", list).catch(console.error);
         return true;
       }
       return false;
@@ -244,7 +244,7 @@ export function useCreateEvenement() {
       list.push(ev);
       db.evenements = list;
       // Fire and forget cloud sync for instant UI update
-      syncToMock("evenements", list).catch(console.error);
+      syncData("evenements", list).catch(console.error);
       return ev;
     },
     onSuccess: () => {
@@ -264,7 +264,7 @@ export function useUpdateEvenement() {
         list[i] = { ...list[i], ...payload };
         db.evenements = list;
         // Fire and forget cloud sync for instant UI update
-        syncToMock("evenements", list).catch(console.error);
+        syncData("evenements", list).catch(console.error);
         return list[i];
       }
       throw new Error("Event not found");
@@ -344,12 +344,12 @@ export function useUpdateHebergementReservation() {
           factures.push(created);
           db.factures = factures;
           // Fire and forget cloud sync for instant UI update
-          syncToMock("factures", factures).catch(console.error);
+          syncData("factures", factures).catch(console.error);
         }
         
         db.reservations = list; // Save changes
         // Fire and forget cloud sync for instant UI update
-        syncToMock("reservations", list).catch(console.error);
+        syncData("reservations", list).catch(console.error);
         return list[i];
       }
     },
@@ -414,12 +414,12 @@ export function useCreateHebergementReservation() {
         factures.push(created);
         db.factures = factures;
         // Fire and forget cloud sync for instant UI update
-        syncToMock("factures", factures).catch(console.error);
+        syncData("factures", factures).catch(console.error);
       }
       
       db.reservations = list;
       // Fire and forget cloud sync for instant UI update
-      syncToMock("reservations", list).catch(console.error);
+      syncData("reservations", list).catch(console.error);
       return r;
     },
     onSuccess: () => {
@@ -474,14 +474,14 @@ export function useCreateUser() {
       users.push(user);
       db.utilisateurs = users; // Calls setter which saves to LS
       // Fire and forget cloud sync for instant UI update
-      syncToMock("utilisateurs", users).catch(console.error);
+      syncData("utilisateurs", users).catch(console.error);
 
       if (payload.password && payload.login) {
         const auth = { ...db.userAuth };
         auth[payload.login] = payload.password;
         db.save("nas_user_auth", auth); // Manually save auth map
         // Fire and forget cloud sync for instant UI update
-        syncToMock("userAuth", auth).catch(console.error);
+        syncData("userAuth", auth).catch(console.error);
       }
       return user;
     },
@@ -505,7 +505,7 @@ export function useUpdateUser() {
         list[i] = { ...list[i], ...payload };
         db.utilisateurs = list;
         // Fire and forget cloud sync for instant UI update
-        syncToMock("utilisateurs", list).catch(console.error);
+        syncData("utilisateurs", list).catch(console.error);
         
         if (payload.password) {
           const loginKey = payload.login ?? prevLogin;
@@ -513,7 +513,7 @@ export function useUpdateUser() {
           auth[loginKey] = payload.password;
           db.save("nas_user_auth", auth);
           // Fire and forget cloud sync for instant UI update
-          syncToMock("userAuth", auth).catch(console.error);
+          syncData("userAuth", auth).catch(console.error);
         }
         return list[i];
       }
@@ -537,13 +537,13 @@ export function useDeleteUser() {
         list.splice(i, 1);
         db.utilisateurs = list;
         // Fire and forget cloud sync for instant UI update
-        syncToMock("utilisateurs", list).catch(console.error);
+        syncData("utilisateurs", list).catch(console.error);
         
         const auth = { ...db.userAuth };
         delete auth[loginKey];
         db.save("nas_user_auth", auth);
         // Fire and forget cloud sync for instant UI update
-        syncToMock("userAuth", auth).catch(console.error);
+        syncData("userAuth", auth).catch(console.error);
         return true;
       }
       return false;
@@ -571,7 +571,7 @@ export function useCreateClient() {
       clients.push(c);
       db.clients = clients;
       // Fire and forget cloud sync for instant UI update
-      syncToMock("clients", clients).catch(console.error);
+      syncData("clients", clients).catch(console.error);
       return c;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: keys.clients }),
@@ -600,8 +600,8 @@ export function useCreateRestoReservation() {
       reservations.push(r);
       db.reservations = reservations; // This will trigger table sync in LocalDB setter
       // Fire and forget cloud sync for instant UI update
-      syncToMock("reservations", reservations).catch(console.error);
-      syncToMock("tables", db.tables).catch(console.error);
+      syncData("reservations", reservations).catch(console.error);
+      syncData("tables", db.tables).catch(console.error);
 
       // We don't need manual table update here because LocalDB.reservations setter does it.
       // But let's verify if we need to explicitly save tables?
@@ -633,7 +633,7 @@ export function useUpdateRestoReservation() {
         list[i] = { ...list[i], ...payload };
         db.reservations = list;
         // Fire and forget cloud sync for instant UI update
-        syncToMock("reservations", list).catch(console.error);
+        syncData("reservations", list).catch(console.error);
         return list[i];
       }
       throw new Error("Réservation non trouvée");
@@ -652,8 +652,8 @@ export function useDeleteRestoReservation() {
         reservations.splice(i, 1);
         db.reservations = reservations; // Triggers sync (will likely free the table)
         // Fire and forget cloud sync for instant UI update
-        syncToMock("reservations", reservations).catch(console.error);
-        syncToMock("tables", db.tables).catch(console.error);
+        syncData("reservations", reservations).catch(console.error);
+        syncData("tables", db.tables).catch(console.error);
         return true;
       }
       return false;
@@ -1123,7 +1123,7 @@ export function useUpdateFactureStatut() {
         list[i] = { ...list[i], statut };
         db.factures = list;
         // Fire and forget cloud sync for instant UI update
-        syncToMock("factures", list).catch(console.error);
+        syncData("factures", list).catch(console.error);
         return list[i];
       }
       throw new Error("Facture non trouvée");
@@ -1142,7 +1142,7 @@ export function useUpdateFacture() {
         list[i] = { ...list[i], ...payload };
         db.factures = list;
         // Fire and forget cloud sync for instant UI update
-        syncToMock("factures", list).catch(console.error);
+        syncData("factures", list).catch(console.error);
         return list[i];
       }
       throw new Error("Facture non trouvée");
@@ -1178,7 +1178,7 @@ export function useAddRoomMaintenance() {
       list.push(newMaintenance);
       db.chambresMaintenance = list;
       // Fire and forget cloud sync for instant UI update
-      syncToMock("chambresMaintenance", list).catch(console.error);
+      syncData("chambresMaintenance", list).catch(console.error);
       return newMaintenance;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: keys.roomMaintenance }),
@@ -1197,7 +1197,7 @@ export function useRemoveRoomMaintenance() {
         if (index >= 0) {
           list.splice(index, 1);
           db.chambresMaintenance = list;
-          syncToMock("chambresMaintenance", list).catch(console.error);
+          syncData("chambresMaintenance", list).catch(console.error);
           return true;
         }
         return false;
@@ -1212,7 +1212,7 @@ export function useRemoveRoomMaintenance() {
         if (idxs.length > 0) {
           for (const i of idxs) list.splice(i, 1);
           db.chambresMaintenance = list;
-          syncToMock("chambresMaintenance", list).catch(console.error);
+          syncData("chambresMaintenance", list).catch(console.error);
           return true;
         }
         return false;
@@ -1233,7 +1233,7 @@ export function useCreateChambre() {
       list.push(created);
       db.chambres = list;
       // Fire and forget cloud sync for instant UI update
-      syncToMock("chambres", list).catch(console.error);
+      syncData("chambres", list).catch(console.error);
       return created;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: keys.chambres }),
@@ -1252,7 +1252,7 @@ export function useUpdateChambre() {
         list[i] = { ...list[i], ...payload };
         db.chambres = list;
         // Fire and forget cloud sync for instant UI update
-        syncToMock("chambres", list).catch(console.error);
+        syncData("chambres", list).catch(console.error);
         return list[i];
       }
       throw new Error("Chambre non trouvée");
@@ -1271,7 +1271,7 @@ export function useDeleteChambre() {
         list.splice(i, 1);
         db.chambres = list;
         // Fire and forget cloud sync for instant UI update
-        syncToMock("chambres", list).catch(console.error);
+        syncData("chambres", list).catch(console.error);
         return true;
       }
       return false;

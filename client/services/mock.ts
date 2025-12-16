@@ -21,6 +21,18 @@ import {
   Parametres,
 } from "@shared/api";
 
+// ==================================================================================
+// INITIAL SEED DATA (READ ONLY)
+// ==================================================================================
+// This file serves as the "Factory Default" state.
+// It is used ONLY when:
+// 1. The application starts for the very first time (empty localStorage).
+// 2. AND there is no connection to Firebase (or Firebase is empty).
+//
+// Once the app is running, data is read/written to LocalStorage (Offline) and Firebase (Online).
+// This file should NOT be modified by the application at runtime.
+// ==================================================================================
+
 export const clients: Client[] = [
   {
     id: "c1",
