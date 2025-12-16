@@ -106,14 +106,17 @@ async function syncToMock(collection: string, data: any) {
     // Actually, syncToMock is called AFTER db.setter.
     
     // 2. Try local dev server (works only if running locally)
+    /* 
+    // Disabled to prevent full page reload on file change. 
+    // Local persistence is handled by localStorage (LocalDB).
     if (import.meta.env.DEV) {
-      // Don't await this if we want to be optimistic, but for safety let's catch error
       fetch("/api/update-mock", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ collection, data }),
       }).catch(e => console.warn("Dev server sync failed (offline?)", e));
     }
+    */
     
     // 3. Always try Cloud Sync (Firebase) if configured
     // This supports the "Offline -> Online" flow: if this fails, we just log it.

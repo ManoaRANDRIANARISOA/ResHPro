@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, PropsWithChildren } from "react";
+import { createContext, useContext, useState, PropsWithChildren, useEffect } from "react";
 import { db } from "@/services/local-db";
 import { useAppDispatch, setRole } from "@/store";
 
@@ -17,9 +17,43 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+const ROLE_MAP: Record<string, import("@/hooks/useRBAC").Role> = {
+  admin: "admin",
+  reception: "resp_hebergement",
+  "responsable hebergement": "resp_hebergement",
+  chef_salle: "resp_resto",
+  "responsable restaurant": "resp_resto",
+  serveur: "staff_resto",
+  cuisine: "staff_resto",
+  bar: "staff_resto",
+  comptoir: "staff_resto",
+  economat: "economat",
+  comptable: "comptable",
+  direction: "admin",
+  staff_restaurant: "staff_resto",
+  saff_restaurant: "staff_resto",
+};
+
 export function AuthProvider({ children }: PropsWithChildren) {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(() => {
+    try {
+      const stored = localStorage.getItem("nas_session_user");
+      return stored ? JSON.parse(stored) : null;
+    } catch (e) {
+      console.warn("Failed to restore session", e);
+      return null;
+    }
+  });
+  
   const dispatch = useAppDispatch();
+
+  // Sync role on mount and when user changes
+  useEffect(() => {
+    if (user) {
+      const r = ROLE_MAP[user.role] || "admin";
+      dispatch(setRole(r as any));
+    }
+  }, [user, dispatch]);
 
   const login = async (email: string, password: string): Promise<boolean> => {
     // Simulation de latence
@@ -33,30 +67,16 @@ export function AuthProvider({ children }: PropsWithChildren) {
     if (!ok) return false;
 
     // Mettre à jour le contexte et le store (RBAC)
-    setUser({ email: found.login, name: found.nom, role: found.role });
-    const map: Record<string, import("@/hooks/useRBAC").Role> = {
-      admin: "admin",
-      reception: "resp_hebergement",
-      "responsable hebergement": "resp_hebergement",
-      chef_salle: "resp_resto",
-      "responsable restaurant": "resp_resto",
-      serveur: "staff_resto",
-      cuisine: "staff_resto",
-      bar: "staff_resto",
-      comptoir: "staff_resto",
-      economat: "economat",
-      comptable: "comptable",
-      direction: "admin",
-      staff_restaurant: "staff_resto",
-      saff_restaurant: "staff_resto",
-    };
-    const r = map[found.role] || "admin";
-    dispatch(setRole(r as any));
+    const newUser = { email: found.login, name: found.nom, role: found.role };
+    setUser(newUser);
+    localStorage.setItem("nas_session_user", JSON.stringify(newUser));
+    
     return true;
   };
 
   const logout = () => {
     setUser(null);
+    localStorage.removeItem("nas_session_user");
     // Optionnel: réinitialiser le rôle (on conserve le rôle actuel pour éviter le flicker du menu)
   };
 

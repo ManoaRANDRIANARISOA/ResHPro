@@ -108,7 +108,7 @@ export default function Dashboard() {
     .map((p) => p);
   const stockAlerts = filteredLow.map((p) => ({
     type: "stock" as const,
-    text: `${p.nom} sous seuil`,
+    text: `${p.nom}`,
     badge: "Rupture",
   }));
   const alertsAll = [...stockAlerts, ...chambreAlerts];

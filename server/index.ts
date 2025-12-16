@@ -35,7 +35,7 @@ export function createServer() {
         return res.status(400).json({ success: false, error: "Invalid collection" });
       }
 
-      const mockPath = path.resolve(__dirname, '../../client/services/mock.ts');
+      const mockPath = path.resolve(__dirname, '../client/services/mock.ts');
       
       // Read current content
       let mockContent = await fs.readFile(mockPath, 'utf8');

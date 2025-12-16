@@ -408,307 +408,561 @@ export const commandes: Commande[] = [
 ];
 
 export const stockProduits: StockProduit[] = [
-  // ========== RESTAURANT ==========
-  // Cuisine
   {
-    id: "r1",
-    nom: "Riz",
-    famille: "Restaurant",
-    sousCategorie: "cuisine",
-    unite: "kg",
-    stock: 25,
-    seuilMin: 50,
+    "famille": "Restaurant",
+    "id": "r1",
+    "nom": "Riz",
+    "seuilMin": 50,
+    "sousCategorie": "cuisine",
+    "stock": 25,
+    "unite": "kg"
   },
   {
-    id: "r2",
-    nom: "Huile",
-    famille: "Restaurant",
-    sousCategorie: "cuisine",
-    unite: "L",
-    stock: 0,
-    seuilMin: 10,
+    "famille": "Restaurant",
+    "id": "r2",
+    "nom": "Huile",
+    "seuilMin": 10,
+    "sousCategorie": "cuisine",
+    "stock": 0,
+    "unite": "L"
   },
   {
-    id: "r3",
-    nom: "Sel",
-    famille: "Restaurant",
-    sousCategorie: "cuisine",
-    unite: "kg",
-    stock: 8,
-    seuilMin: 5,
+    "famille": "Restaurant",
+    "id": "r3",
+    "nom": "Sel",
+    "seuilMin": 5,
+    "sousCategorie": "cuisine",
+    "stock": 8,
+    "unite": "kg"
   },
   {
-    id: "r4",
-    nom: "Poivre",
-    famille: "Restaurant",
-    sousCategorie: "cuisine",
-    unite: "kg",
-    stock: 2,
-    seuilMin: 3,
+    "famille": "Restaurant",
+    "id": "r4",
+    "nom": "Poivre",
+    "seuilMin": 3,
+    "sousCategorie": "cuisine",
+    "stock": 2,
+    "unite": "kg"
   },
   {
-    id: "r5",
-    nom: "Farine",
-    famille: "Restaurant",
-    sousCategorie: "cuisine",
-    unite: "kg",
-    stock: 0,
-    seuilMin: 20,
+    "famille": "Restaurant",
+    "id": "r5",
+    "nom": "Farine",
+    "seuilMin": 20,
+    "sousCategorie": "cuisine",
+    "stock": 0,
+    "unite": "kg"
   },
   {
-    id: "r6",
-    nom: "Sucre",
-    famille: "Restaurant",
-    sousCategorie: "cuisine",
-    unite: "kg",
-    stock: 15,
-    seuilMin: 10,
+    "famille": "Restaurant",
+    "id": "r6",
+    "nom": "Sucre",
+    "seuilMin": 10,
+    "sousCategorie": "cuisine",
+    "stock": 15,
+    "unite": "kg"
   },
   {
-    id: "r7",
-    nom: "Tomates",
-    famille: "Restaurant",
-    sousCategorie: "cuisine",
-    unite: "kg",
-    stock: 5,
-    seuilMin: 15,
+    "famille": "Restaurant",
+    "id": "r7",
+    "nom": "Tomates",
+    "seuilMin": 15,
+    "sousCategorie": "cuisine",
+    "stock": 5,
+    "unite": "kg"
   },
   {
-    id: "r8",
-    nom: "Oignons",
-    famille: "Restaurant",
-    sousCategorie: "cuisine",
-    unite: "kg",
-    stock: 12,
-    seuilMin: 10,
+    "famille": "Restaurant",
+    "id": "r8",
+    "nom": "Oignons",
+    "seuilMin": 10,
+    "sousCategorie": "cuisine",
+    "stock": 12,
+    "unite": "kg"
   },
   {
-    id: "r9",
-    nom: "Ail",
-    famille: "Restaurant",
-    sousCategorie: "cuisine",
-    unite: "kg",
-    stock: 3,
-    seuilMin: 5,
+    "famille": "Restaurant",
+    "id": "r9",
+    "nom": "Ail",
+    "seuilMin": 5,
+    "sousCategorie": "cuisine",
+    "stock": 3,
+    "unite": "kg"
   },
   {
-    id: "r10",
-    nom: "Poulet (viande)",
-    famille: "Restaurant",
-    sousCategorie: "cuisine",
-    unite: "kg",
-    stock: 8,
-    seuilMin: 20,
+    "famille": "Restaurant",
+    "id": "r10",
+    "nom": "Poulet (viande)",
+    "seuilMin": 20,
+    "sousCategorie": "cuisine",
+    "stock": 8,
+    "unite": "kg"
   },
   {
-    id: "r11",
-    nom: "Zébu (viande)",
-    famille: "Restaurant",
-    sousCategorie: "cuisine",
-    unite: "kg",
-    stock: 0,
-    seuilMin: 15,
+    "famille": "Restaurant",
+    "id": "r11",
+    "nom": "Zébu (viande)",
+    "seuilMin": 15,
+    "sousCategorie": "cuisine",
+    "stock": 0,
+    "unite": "kg"
   },
   {
-    id: "r12",
-    nom: "Poisson",
-    famille: "Restaurant",
-    sousCategorie: "cuisine",
-    unite: "kg",
-    stock: 6,
-    seuilMin: 10,
-  },
-  
-  // Produits restaurant (hors cuisine - boissons, condiments, etc.)
-  {
-    id: "r13",
-    nom: "Eau minérale",
-    famille: "Restaurant",
-    sousCategorie: "entretien",
-    unite: "L",
-    stock: 0,
-    seuilMin: 100,
+    "famille": "Restaurant",
+    "id": "r12",
+    "nom": "Poisson",
+    "seuilMin": 10,
+    "sousCategorie": "cuisine",
+    "stock": 6,
+    "unite": "kg"
   },
   {
-    id: "r14",
-    nom: "Serviettes papier",
-    famille: "Restaurant",
-    sousCategorie: "entretien",
-    unite: "paquet",
-    stock: 8,
-    seuilMin: 20,
+    "famille": "Restaurant",
+    "id": "r13",
+    "nom": "Eau minérale",
+    "seuilMin": 100,
+    "sousCategorie": "entretien",
+    "stock": 0,
+    "unite": "L"
   },
   {
-    id: "r15",
-    nom: "Détergent vaisselle",
-    famille: "Restaurant",
-    sousCategorie: "entretien",
-    unite: "L",
-    stock: 3,
-    seuilMin: 10,
-  },
-  
-  // ========== HÉBERGEMENT ==========
-  // Linge de lit
-  {
-    id: "s1",
-    nom: "Draps",
-    famille: "Hebergement",
-    sousCategorie: "linge_lit",
-    unite: "u",
-    stock: 30,
-    seuilMin: 20,
+    "famille": "Restaurant",
+    "id": "r14",
+    "nom": "Serviettes papier",
+    "seuilMin": 20,
+    "sousCategorie": "entretien",
+    "stock": 8,
+    "unite": "paquet"
   },
   {
-    id: "s2",
-    nom: "Taies d'oreiller",
-    famille: "Hebergement",
-    sousCategorie: "linge_lit",
-    unite: "u",
-    stock: 5,
-    seuilMin: 15,
+    "famille": "Restaurant",
+    "id": "r15",
+    "nom": "Détergent vaisselle",
+    "seuilMin": 10,
+    "sousCategorie": "entretien",
+    "stock": 3,
+    "unite": "L"
   },
   {
-    id: "s3",
-    nom: "Couvertures",
-    famille: "Hebergement",
-    sousCategorie: "linge_lit",
-    unite: "u",
-    stock: 18,
-    seuilMin: 12,
+    "famille": "Hebergement",
+    "id": "s1",
+    "nom": "Draps",
+    "seuilMin": 20,
+    "sousCategorie": "linge_lit",
+    "stock": 30,
+    "unite": "u"
   },
   {
-    id: "s4",
-    nom: "Housses de couette",
-    famille: "Hebergement",
-    sousCategorie: "linge_lit",
-    unite: "u",
-    stock: 0,
-    seuilMin: 10,
-  },
-  // Linge de salle
-  {
-    id: "s5",
-    nom: "Serviettes de bain",
-    famille: "Hebergement",
-    sousCategorie: "linge_salle",
-    unite: "u",
-    stock: 25,
-    seuilMin: 30,
+    "famille": "Hebergement",
+    "id": "s2",
+    "nom": "Taies d'oreiller",
+    "seuilMin": 15,
+    "sousCategorie": "linge_lit",
+    "stock": 5,
+    "unite": "u"
   },
   {
-    id: "s6",
-    nom: "Serviettes de toilette",
-    famille: "Hebergement",
-    sousCategorie: "linge_salle",
-    unite: "u",
-    stock: 8,
-    seuilMin: 20,
+    "famille": "Hebergement",
+    "id": "s3",
+    "nom": "Couvertures",
+    "seuilMin": 12,
+    "sousCategorie": "linge_lit",
+    "stock": 18,
+    "unite": "u"
   },
   {
-    id: "s7",
-    nom: "Tapis de bain",
-    famille: "Hebergement",
-    sousCategorie: "linge_salle",
-    unite: "u",
-    stock: 0,
-    seuilMin: 8,
-  },
-  // Entretien
-  {
-    id: "s8",
-    nom: "Savon",
-    famille: "Hebergement",
-    sousCategorie: "entretien",
-    unite: "u",
-    stock: 10,
-    seuilMin: 15,
+    "famille": "Hebergement",
+    "id": "s4",
+    "nom": "Housses de couette",
+    "seuilMin": 10,
+    "sousCategorie": "linge_lit",
+    "stock": 0,
+    "unite": "u"
   },
   {
-    id: "s9",
-    nom: "Shampoing",
-    famille: "Hebergement",
-    sousCategorie: "entretien",
-    unite: "u",
-    stock: 3,
-    seuilMin: 12,
+    "famille": "Hebergement",
+    "id": "s5",
+    "nom": "Serviettes de bain",
+    "seuilMin": 30,
+    "sousCategorie": "linge_salle",
+    "stock": 25,
+    "unite": "u"
   },
   {
-    id: "s10",
-    nom: "Gel douche",
-    famille: "Hebergement",
-    sousCategorie: "entretien",
-    unite: "L",
-    stock: 0,
-    seuilMin: 5,
+    "famille": "Hebergement",
+    "id": "s6",
+    "nom": "Serviettes de toilette",
+    "seuilMin": 20,
+    "sousCategorie": "linge_salle",
+    "stock": 8,
+    "unite": "u"
   },
   {
-    id: "s11",
-    nom: "Détergent",
-    famille: "Hebergement",
-    sousCategorie: "entretien",
-    unite: "L",
-    stock: 4,
-    seuilMin: 8,
-  },
-  // Petit déjeuner
-  {
-    id: "s12",
-    nom: "Café",
-    famille: "Hebergement",
-    sousCategorie: "petit_dejeuner",
-    unite: "kg",
-    stock: 2,
-    seuilMin: 5,
+    "famille": "Hebergement",
+    "id": "s7",
+    "nom": "Tapis de bain",
+    "seuilMin": 8,
+    "sousCategorie": "linge_salle",
+    "stock": 0,
+    "unite": "u"
   },
   {
-    id: "s13",
-    nom: "Thé",
-    famille: "Hebergement",
-    sousCategorie: "petit_dejeuner",
-    unite: "paquet",
-    stock: 8,
-    seuilMin: 10,
+    "famille": "Hebergement",
+    "id": "s8",
+    "nom": "Savon",
+    "seuilMin": 15,
+    "sousCategorie": "entretien",
+    "stock": 10,
+    "unite": "u"
   },
   {
-    id: "s14",
-    nom: "Lait",
-    famille: "Hebergement",
-    sousCategorie: "petit_dejeuner",
-    unite: "L",
-    stock: 12,
-    seuilMin: 15,
+    "famille": "Hebergement",
+    "id": "s9",
+    "nom": "Shampoing",
+    "seuilMin": 12,
+    "sousCategorie": "entretien",
+    "stock": 3,
+    "unite": "u"
   },
   {
-    id: "s15",
-    nom: "Pain",
-    famille: "Hebergement",
-    sousCategorie: "petit_dejeuner",
-    unite: "u",
-    stock: 0,
-    seuilMin: 20,
+    "famille": "Hebergement",
+    "id": "s10",
+    "nom": "Gel douche",
+    "seuilMin": 5,
+    "sousCategorie": "entretien",
+    "stock": 0,
+    "unite": "L"
   },
   {
-    id: "s16",
-    nom: "Confiture",
-    famille: "Hebergement",
-    sousCategorie: "petit_dejeuner",
-    unite: "u",
-    stock: 6,
-    seuilMin: 12,
+    "famille": "Hebergement",
+    "id": "s11",
+    "nom": "Détergent",
+    "seuilMin": 8,
+    "sousCategorie": "entretien",
+    "stock": 4,
+    "unite": "L"
   },
   {
-    id: "s17",
-    nom: "Beurre",
-    famille: "Hebergement",
-    sousCategorie: "petit_dejeuner",
-    unite: "kg",
-    stock: 1,
-    seuilMin: 3,
+    "famille": "Hebergement",
+    "id": "s12",
+    "nom": "Café",
+    "seuilMin": 5,
+    "sousCategorie": "petit_dejeuner",
+    "stock": 2,
+    "unite": "kg"
   },
+  {
+    "famille": "Hebergement",
+    "id": "s13",
+    "nom": "Thé",
+    "seuilMin": 10,
+    "sousCategorie": "petit_dejeuner",
+    "stock": 8,
+    "unite": "paquet"
+  },
+  {
+    "famille": "Hebergement",
+    "id": "s14",
+    "nom": "Lait",
+    "seuilMin": 15,
+    "sousCategorie": "petit_dejeuner",
+    "stock": 12,
+    "unite": "L"
+  },
+  {
+    "famille": "Hebergement",
+    "id": "s15",
+    "nom": "Pain",
+    "seuilMin": 20,
+    "sousCategorie": "petit_dejeuner",
+    "stock": 0,
+    "unite": "u"
+  },
+  {
+    "famille": "Hebergement",
+    "id": "s16",
+    "nom": "Confiture",
+    "seuilMin": 12,
+    "sousCategorie": "petit_dejeuner",
+    "stock": 6,
+    "unite": "u"
+  },
+  {
+    "famille": "Hebergement",
+    "id": "s17",
+    "nom": "Beurre",
+    "seuilMin": 3,
+    "sousCategorie": "petit_dejeuner",
+    "stock": 1,
+    "unite": "kg"
+  }
 ];
 
-export const factures: Facture[] = [];
+export const factures: Facture[] = [
+  {
+    "clientNom": "Client Jazz",
+    "date": "2025-12-15T08:53:51.651Z",
+    "dueDate": "2025-12-30T08:53:51.651Z",
+    "id": "f-ev-e1",
+    "lignes": [
+      {
+        "description": "Événement Jazz du vendredi",
+        "pu": 15000,
+        "qte": 40
+      }
+    ],
+    "numero": "NAS-2025-EVE1",
+    "source": "Evenement",
+    "statut": "emise",
+    "totalTTC": 600000
+  },
+  {
+    "clientNom": "Client Dégustation",
+    "date": "2025-12-15T08:53:51.651Z",
+    "dueDate": "2025-12-30T08:53:51.651Z",
+    "id": "f-ev-e2",
+    "lignes": [
+      {
+        "description": "Événement Dégustation vins",
+        "pu": 15000,
+        "qte": 25
+      }
+    ],
+    "numero": "NAS-2025-EVE2",
+    "source": "Evenement",
+    "statut": "payee",
+    "totalTTC": 375000
+  },
+  {
+    "clientNom": "Famille Ranaivo",
+    "date": "2025-12-15T08:53:51.651Z",
+    "dueDate": "2025-12-30T08:53:51.651Z",
+    "id": "f-ev-e3",
+    "lignes": [
+      {
+        "description": "Événement Anniversaire — Famille Ranaivo",
+        "pu": 15000,
+        "qte": 30
+      }
+    ],
+    "numero": "NAS-2025-EVE3",
+    "source": "Evenement",
+    "statut": "emise",
+    "totalTTC": 450000
+  },
+  {
+    "clientNom": "Association Locale",
+    "date": "2025-12-15T08:53:51.651Z",
+    "dueDate": "2025-12-30T08:53:51.651Z",
+    "id": "f-ev-e4",
+    "lignes": [
+      {
+        "description": "Événement Conférence locale",
+        "pu": 15000,
+        "qte": 80
+      }
+    ],
+    "numero": "NAS-2025-EVE4",
+    "source": "Evenement",
+    "statut": "emise",
+    "totalTTC": 1200000
+  },
+  {
+    "clientNom": "Couple Rakoto",
+    "date": "2025-12-15T08:53:51.652Z",
+    "dueDate": "2025-12-30T08:53:51.652Z",
+    "id": "f-ev-e5",
+    "lignes": [
+      {
+        "description": "Événement Mariage — Couple Rakoto",
+        "pu": 15000,
+        "qte": 120
+      }
+    ],
+    "numero": "NAS-2025-EVE5",
+    "source": "Evenement",
+    "statut": "payee",
+    "totalTTC": 1800000
+  },
+  {
+    "clientNom": "Client Concert",
+    "date": "2025-12-15T08:53:51.652Z",
+    "dueDate": "2025-12-30T08:53:51.652Z",
+    "id": "f-ev-e6",
+    "lignes": [
+      {
+        "description": "Événement Concert acoustique",
+        "pu": 15000,
+        "qte": 50
+      }
+    ],
+    "numero": "NAS-2025-EVE6",
+    "source": "Evenement",
+    "statut": "payee",
+    "totalTTC": 750000
+  },
+  {
+    "clientNom": "Client Fromages",
+    "date": "2025-12-15T08:53:51.652Z",
+    "dueDate": "2025-12-30T08:53:51.652Z",
+    "id": "f-ev-e7",
+    "lignes": [
+      {
+        "description": "Événement Soirée dégustation fromages",
+        "pu": 15000,
+        "qte": 30
+      }
+    ],
+    "numero": "NAS-2025-EVE7",
+    "source": "Evenement",
+    "statut": "emise",
+    "totalTTC": 450000
+  },
+  {
+    "clientNom": "Hanitra Solo",
+    "date": "2025-12-15T08:53:51.665Z",
+    "dueDate": "2025-12-30T21:00:00.000Z",
+    "id": "f-res-h1",
+    "lignes": [
+      {
+        "description": "Nuitée CH-2 (12/16/2025 – 12/18/2025)",
+        "pu": 150000,
+        "qte": 3
+      }
+    ],
+    "numero": "NAS-2025-HEBH1",
+    "reservationId": "h1",
+    "source": "Hebergement",
+    "statut": "emise",
+    "totalTTC": 450000
+  },
+  {
+    "clientNom": "Rabe Andry",
+    "date": "2025-12-15T08:53:51.666Z",
+    "dueDate": "2025-12-27T21:00:00.000Z",
+    "id": "f-res-h2",
+    "lignes": [
+      {
+        "description": "Nuitée CH-1 (12/13/2025 – 12/17/2025)",
+        "pu": 80000,
+        "qte": 5
+      }
+    ],
+    "numero": "NAS-2025-HEBH2",
+    "reservationId": "h2",
+    "source": "Hebergement",
+    "statut": "emise",
+    "totalTTC": 400000
+  },
+  {
+    "clientNom": "Hanitra Solo",
+    "date": "2025-12-15T08:53:51.666Z",
+    "dueDate": "2026-01-03T21:00:00.000Z",
+    "id": "f-res-h3",
+    "lignes": [
+      {
+        "description": "Nuitée CH-4 (12/20/2025 – 12/23/2025)",
+        "pu": 80000,
+        "qte": 4
+      }
+    ],
+    "numero": "NAS-2025-HEBH3",
+    "reservationId": "h3",
+    "source": "Hebergement",
+    "statut": "emise",
+    "totalTTC": 320000
+  },
+  {
+    "clientNom": "Rabe Andry",
+    "date": "2025-12-15T08:53:51.666Z",
+    "dueDate": "2026-01-08T21:00:00.000Z",
+    "id": "f-res-h4",
+    "lignes": [
+      {
+        "description": "Nuitée CH-2 (12/25/2025 – 12/27/2025)",
+        "pu": 150000,
+        "qte": 3
+      }
+    ],
+    "numero": "NAS-2025-HEBH4",
+    "reservationId": "h4",
+    "source": "Hebergement",
+    "statut": "emise",
+    "totalTTC": 450000
+  },
+  {
+    "clientNom": "Hanitra Solo",
+    "date": "2025-12-15T08:53:51.666Z",
+    "dueDate": "2026-01-13T21:00:00.000Z",
+    "id": "f-res-h5",
+    "lignes": [
+      {
+        "description": "Nuitée CH-1 (12/30/2025 – 1/4/2026)",
+        "pu": 80000,
+        "qte": 6
+      }
+    ],
+    "numero": "NAS-2025-HEBH5",
+    "reservationId": "h5",
+    "source": "Hebergement",
+    "statut": "emise",
+    "totalTTC": 480000
+  },
+  {
+    "clientNom": "Rabe Andry",
+    "date": "2025-12-15T08:53:51.666Z",
+    "dueDate": "2026-01-16T21:00:00.000Z",
+    "id": "f-res-h6",
+    "lignes": [
+      {
+        "description": "Nuitée CH-4 (1/2/2026 – 1/5/2026)",
+        "pu": 80000,
+        "qte": 4
+      }
+    ],
+    "numero": "NAS-2025-HEBH6",
+    "reservationId": "h6",
+    "source": "Hebergement",
+    "statut": "emise",
+    "totalTTC": 320000
+  },
+  {
+    "clientNom": "Hanitra Solo",
+    "date": "2025-12-15T08:53:51.666Z",
+    "dueDate": "2026-01-20T21:00:00.000Z",
+    "id": "f-res-h7",
+    "lignes": [
+      {
+        "description": "Nuitée CH-2 (1/6/2026 – 1/9/2026)",
+        "pu": 150000,
+        "qte": 4
+      }
+    ],
+    "numero": "NAS-2025-HEBH7",
+    "reservationId": "h7",
+    "source": "Hebergement",
+    "statut": "emise",
+    "totalTTC": 600000
+  },
+  {
+    "id": "f-res-h-1765872806066",
+    "numero": "NAS-2025-HEBH1765872806066",
+    "date": "2025-12-16T08:13:26.104Z",
+    "dueDate": "2026-01-01T21:00:00.000Z",
+    "reservationId": "h-1765872806066",
+    "clientNom": "Marie Rasoanaivo",
+    "source": "Hebergement",
+    "lignes": [
+      {
+        "description": "Nuitée CH-4 (12/18/2025 – 12/19/2025)",
+        "qte": 2,
+        "pu": 80000
+      }
+    ],
+    "totalTTC": 160000,
+    "statut": "emise"
+  }
+];
 
 // Périodes de maintenance des chambres (hors service)
 export const chambresMaintenance: ChambreMaintenance[] = [

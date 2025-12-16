@@ -240,7 +240,7 @@ export function RoomCalendar({
                     onClick={() => onCellClick?.(c.id, d)}
                     sx={{ 
                       height: compact ? 32 : 32,
-                      bgcolor: r ? reservationColor(r, d) : roomStatusColor(c.statut),
+                      bgcolor: r ? (r as any).type === 'maintenance' ? '#9E9E9E' : reservationColor(r, d) : roomStatusColor(c.statut),
                       border: '1px solid',
                       borderColor: 'divider',
                       '&:hover': { opacity: 0.8, cursor: onCellClick ? 'pointer' : 'default' }
@@ -312,7 +312,7 @@ export function RoomCalendar({
                   onClick={() => onCellClick?.(c.id, h)}
                   sx={{ 
                     height: compact ? 24 : 32,
-                    bgcolor: r ? reservationColor(r, h) : roomStatusColor(c.statut),
+                    bgcolor: r ? (r as any).type === 'maintenance' ? '#9E9E9E' : reservationColor(r, h) : roomStatusColor(c.statut),
                     border: '1px solid',
                     borderColor: 'divider',
                     '&:hover': { opacity: 0.8, cursor: onCellClick ? 'pointer' : 'default' }
