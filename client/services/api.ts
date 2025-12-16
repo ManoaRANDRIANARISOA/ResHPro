@@ -691,7 +691,7 @@ export function useUpdateMenuItem() {
         menu[idx] = { ...menu[idx], ...payload } as MenuItem;
         db.menu = menu;
         // Fire and forget cloud sync for instant UI update
-        syncToMock("menu", menu).catch(console.error);
+        syncData("menu", menu).catch(console.error);
         return menu[idx];
       }
       throw new Error("Menu item not found");
@@ -716,7 +716,7 @@ export function useCreateMenuItem() {
       menu.push(it);
       db.menu = menu;
       // Fire and forget cloud sync for instant UI update
-      syncToMock("menu", menu).catch(console.error);
+      syncData("menu", menu).catch(console.error);
       return it;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: keys.menu }),
@@ -739,7 +739,7 @@ export function useAddCommande() {
       commandes.push(created);
       db.commandes = commandes;
       // Fire and forget cloud sync for instant UI update
-      syncToMock("commandes", commandes).catch(console.error);
+      syncData("commandes", commandes).catch(console.error);
       return created;
     },
     onSuccess: (_d, v) =>
@@ -762,7 +762,7 @@ export function useSendBatch() {
       if (changed) {
         db.commandes = commandes;
         // Fire and forget cloud sync for instant UI update
-        syncToMock("commandes", commandes).catch(console.error);
+        syncData("commandes", commandes).catch(console.error);
       }
     },
     onSuccess: (_r, v) =>
@@ -788,7 +788,7 @@ export function useMarkServed() {
       if (changed) {
         db.commandes = commandes;
         // Fire and forget cloud sync for instant UI update
-        syncToMock("commandes", commandes).catch(console.error);
+        syncData("commandes", commandes).catch(console.error);
         
         // Generate invoice
         const reservations = db.reservations;
@@ -821,7 +821,7 @@ export function useMarkServed() {
           factures.push(created);
           db.factures = factures;
           // Fire and forget cloud sync for instant UI update
-          syncToMock("factures", factures).catch(console.error);
+          syncData("factures", factures).catch(console.error);
         }
       }
     },
@@ -843,7 +843,7 @@ export function useCancelCommande() {
         c.motifAnnulation = motif;
         db.commandes = commandes;
         // Fire and forget cloud sync for instant UI update
-        syncToMock("commandes", commandes).catch(console.error);
+        syncData("commandes", commandes).catch(console.error);
       }
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: keys.commandes }),
@@ -866,7 +866,7 @@ export function useCancelPendingCommandesForReservation() {
       if (changed) {
         db.commandes = commandes;
         // Fire and forget cloud sync for instant UI update
-        syncToMock("commandes", commandes).catch(console.error);
+        syncData("commandes", commandes).catch(console.error);
       }
     },
     onSuccess: (_r, v) => qc.invalidateQueries({ queryKey: [...keys.commandes, v.reservationId] }),
@@ -966,7 +966,7 @@ export function useAssignTable() {
         t.statut = "reservee";
         db.tables = tables;
         // Fire and forget cloud sync for instant UI update
-        syncToMock("tables", tables).catch(console.error);
+        syncData("tables", tables).catch(console.error);
       }
       
       // Update Reservation
@@ -974,7 +974,7 @@ export function useAssignTable() {
         r.tableId = payload.tableId;
         db.reservations = reservations;
         // Fire and forget cloud sync for instant UI update
-        syncToMock("reservations", reservations).catch(console.error);
+        syncData("reservations", reservations).catch(console.error);
       }
       
       return t as TableResto;
@@ -1074,7 +1074,7 @@ export function useFactures() {
       if (newFacturesAdded) {
         db.factures = facturesToSave;
         // Fire and forget cloud sync for instant UI update
-        syncToMock("factures", facturesToSave).catch(console.error);
+        syncData("factures", facturesToSave).catch(console.error);
       }
       
       return augmented;
@@ -1106,7 +1106,7 @@ export function useCreateFacture() {
       factures.push(created);
       db.factures = factures;
       // Fire and forget cloud sync for instant UI update
-      syncToMock("factures", factures).catch(console.error);
+      syncData("factures", factures).catch(console.error);
       return created;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: keys.factures }),
