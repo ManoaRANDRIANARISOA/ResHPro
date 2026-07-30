@@ -77,9 +77,12 @@ export function AppLayout({ children }: PropsWithChildren) {
         color="inherit"
       >
         <Toolbar>
-          <Typography variant="h6" fontWeight={800} sx={{ mr: 3 }}>
-            NAS CONNECT
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', mr: 3 }}>
+            <img src="/assets/logo-oka.jpg" alt="Logo Ôka forest lodge" style={{ height: 40, marginRight: 12, borderRadius: 4 }} />
+            <Typography variant="h6" fontWeight={800}>
+              Ôka forest lodge
+            </Typography>
+          </Box>
           <Box sx={{ flex: 1 }} />
           <Typography sx={{ mr: 2 }} variant="body2" color="text.secondary">Connecté</Typography>
           <Button variant="text" sx={{ ml: 1 }} disabled>

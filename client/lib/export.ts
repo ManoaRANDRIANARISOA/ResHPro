@@ -115,7 +115,7 @@ export function exportToPDF(title: string, data: any[], filename: string) {
         </tbody>
       </table>
       <div class="footer">
-        <p>NAS CONNECT - Système de gestion</p>
+        <p>OKA LODGE - Système de gestion</p>
       </div>
     </body>
     </html>

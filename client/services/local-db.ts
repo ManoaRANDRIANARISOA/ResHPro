@@ -16,19 +16,19 @@ import {
 import * as mock from "./mock";
 
 const KEYS = {
-  CLIENTS: "nas_clients",
-  UTILISATEURS: "nas_utilisateurs",
-  USER_AUTH: "nas_user_auth",
-  CHAMBRES: "nas_chambres",
-  TABLES: "nas_tables",
-  MENU: "nas_menu",
-  RESERVATIONS: "nas_reservations",
-  COMMANDES: "nas_commandes",
-  STOCK: "nas_stock",
-  FACTURES: "nas_factures",
-  EVENTS: "nas_events",
-  MAINTENANCE: "nas_chambres_maintenance",
-  PARAMETRES: "nas_parametres",
+  CLIENTS: "okalodge_clients",
+  UTILISATEURS: "okalodge_utilisateurs",
+  USER_AUTH: "okalodge_user_auth",
+  CHAMBRES: "okalodge_chambres",
+  TABLES: "okalodge_tables",
+  MENU: "okalodge_menu",
+  RESERVATIONS: "okalodge_reservations",
+  COMMANDES: "okalodge_commandes",
+  STOCK: "okalodge_stock",
+  FACTURES: "okalodge_factures",
+  EVENTS: "okalodge_events",
+  MAINTENANCE: "okalodge_chambres_maintenance",
+  PARAMETRES: "okalodge_parametres",
 };
 
 class LocalDB {

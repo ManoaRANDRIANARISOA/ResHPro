@@ -2,7 +2,7 @@ Cahier des charges – Application interne de gestion Ny Andrin’ny Soa
 (AS Résidence)
 
 A.	Présentation du projet
-•	Nom du projet : NAS CONNECT
+•	Nom du projet : OKA LODGE
 •	Contexte : Aujourd’hui, la gestion des chambres, réservations et du restaurant est faite de manière manuelle (Excel, cahiers, etc.). L’objectif est de centraliser toutes les informations dans une application sécurisée, accessible uniquement au personnel autorisé et avec une mise à jour possible.
 •	Objectifs :
 	Fluidifier la communication et partager facilement les informations internes entre les équipes (administration, restaurant, hébergement).

@@ -1,4 +1,4 @@
-# Handoff Backend — NAS-1 Frontend
+# Handoff Backend — OKA LODGE Frontend
 
 Ce document résume l’état du frontend (React) et décrit le contrat d’intégration attendu avec le backend. Il sert de guide pour l’implémentation des API, l’authentification et les conventions communes (types, statuts, erreurs).
 

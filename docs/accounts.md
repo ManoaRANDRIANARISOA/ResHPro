@@ -4,18 +4,18 @@ Ce document récapitule les comptes mock disponibles pour la démo et leurs nive
 
 ## Comptes disponibles
 
-Tous les comptes ci‑dessous ont le mot de passe par défaut `nas2025`.
+Tous les comptes ci‑dessous ont le mot de passe par défaut `okalodge2025`.
 
-- Administrateur — login `admin@nas.local`
-- Réception — login `reception@nas.local`
-- Chef de salle — login `chef.salle@nas.local`
-- Serveur — login `serveur@nas.local`
-- Cuisine — login `cuisine@nas.local`
-- Bar — login `bar@nas.local`
-- Comptoir — login `comptoir@nas.local`
-- Économat — login `economat@nas.local`
-- Comptable — login `comptable@nas.local`
-- Direction — login `direction@nas.local`
+- Administrateur — login `admin@okalodge.local`
+- Réception — login `reception@okalodge.local`
+- Chef de salle — login `chef.salle@okalodge.local`
+- Serveur — login `serveur@okalodge.local`
+- Cuisine — login `cuisine@okalodge.local`
+- Bar — login `bar@okalodge.local`
+- Comptoir — login `comptoir@okalodge.local`
+- Économat — login `economat@okalodge.local`
+- Comptable — login `comptable@okalodge.local`
+- Direction — login `direction@okalodge.local`
 
 Source des comptes: `client/services/mock.ts` (`utilisateurs` et `userAuth`).
 

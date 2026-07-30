@@ -37,7 +37,7 @@ const ROLE_MAP: Record<string, import("@/hooks/useRBAC").Role> = {
 export function AuthProvider({ children }: PropsWithChildren) {
   const [user, setUser] = useState<User | null>(() => {
     try {
-      const stored = localStorage.getItem("nas_session_user");
+      const stored = localStorage.getItem("okalodge_session_user");
       return stored ? JSON.parse(stored) : null;
     } catch (e) {
       console.warn("Failed to restore session", e);
@@ -69,14 +69,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
     // Mettre à jour le contexte et le store (RBAC)
     const newUser = { email: found.login, name: found.nom, role: found.role };
     setUser(newUser);
-    localStorage.setItem("nas_session_user", JSON.stringify(newUser));
+    localStorage.setItem("okalodge_session_user", JSON.stringify(newUser));
     
     return true;
   };
 
   const logout = () => {
     setUser(null);
-    localStorage.removeItem("nas_session_user");
+    localStorage.removeItem("okalodge_session_user");
     // Optionnel: réinitialiser le rôle (on conserve le rôle actuel pour éviter le flicker du menu)
   };
 

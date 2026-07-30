@@ -68,8 +68,8 @@ export default function Login() {
             }}
           >
             <img
-              src="/assets/logo-as.png"
-              alt="Ny Andrin'ny Soa Logo"
+              src="/assets/logo-oka.jpg"
+              alt="Ôka forest lodge Logo"
               style={{
                 width: "180px",
                 height: "180px",
@@ -175,7 +175,7 @@ export default function Login() {
             color="text.secondary"
             sx={{ mt: 3, display: "block" }}
           >
-            Ny Andrin'ny Soa - Système de Gestion
+            Ôka forest lodge - Système de Gestion
           </Typography>
         </Paper>
       </Container>

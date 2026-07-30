@@ -1,6 +1,6 @@
 import { createTheme } from "@mui/material/styles";
 
-// Pastel palette tailored for NAS CONNECT
+// Pastel palette tailored for OKA LODGE
 const pastel = {
   primary: { main: "#6E8EF5" }, // pastel blue
   secondary: { main: "#94D3AC" }, // pastel green

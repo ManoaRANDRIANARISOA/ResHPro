@@ -1,4 +1,4 @@
-// Types partagés pour NAS CONNECT
+// Types partagés pour OKA LODGE
 
 export interface Client {
   id: string;
@@ -144,7 +144,7 @@ export interface Parametres {
   checkOutHour: string; // HH:mm
   restoSlotDefaultHours: number;
   enableTariffGrids: boolean;
-  invoiceNumberFormat: "NAS-YYYY-####";
+  invoiceNumberFormat: "OKA-YYYY-####";
   currency: "MGA";
 }
 

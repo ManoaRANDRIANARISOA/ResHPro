@@ -61,7 +61,7 @@ export async function ensureCloudSync(forceSeed = false) {
             //    hasDataInCloud = true;
             //    const current = db.userAuth;
             //    Object.assign(current, authData);
-            //    db.save("nas_user_auth", current);
+            //    db.save("okalodge_user_auth", current);
             // }
         }
 
@@ -479,7 +479,7 @@ export function useCreateUser() {
       if (payload.password && payload.login) {
         const auth = { ...db.userAuth };
         auth[payload.login] = payload.password;
-        db.save("nas_user_auth", auth); // Manually save auth map
+        db.save("okalodge_user_auth", auth); // Manually save auth map
         // Fire and forget cloud sync for instant UI update
         syncData("userAuth", auth).catch(console.error);
       }
@@ -511,7 +511,7 @@ export function useUpdateUser() {
           const loginKey = payload.login ?? prevLogin;
           const auth = { ...db.userAuth };
           auth[loginKey] = payload.password;
-          db.save("nas_user_auth", auth);
+          db.save("okalodge_user_auth", auth);
           // Fire and forget cloud sync for instant UI update
           syncData("userAuth", auth).catch(console.error);
         }
@@ -541,7 +541,7 @@ export function useDeleteUser() {
         
         const auth = { ...db.userAuth };
         delete auth[loginKey];
-        db.save("nas_user_auth", auth);
+        db.save("okalodge_user_auth", auth);
         // Fire and forget cloud sync for instant UI update
         syncData("userAuth", auth).catch(console.error);
         return true;
