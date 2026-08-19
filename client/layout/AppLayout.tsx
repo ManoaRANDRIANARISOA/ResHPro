@@ -31,8 +31,9 @@ import GroupIcon from "@mui/icons-material/Group";
 import SettingsIcon from "@mui/icons-material/Settings";
 import { Link, useLocation } from "react-router-dom";
 import { useRBAC } from "@/hooks/useRBAC";
-import { useAppDispatch, setRole } from "@/store";
+import { useAppDispatch } from "@/store";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTenant } from "@/contexts/TenantContext";
 
 const drawerWidth = 280;
 
@@ -41,6 +42,7 @@ export function AppLayout({ children }: PropsWithChildren) {
   const location = useLocation();
   const dispatch = useAppDispatch();
   const { logout, user } = useAuth();
+  const { publicConfig, tenantId } = useTenant();
 
   function iconFor(path: string) {
     if (path.startsWith("/hebergement/gestion"))
@@ -78,9 +80,13 @@ export function AppLayout({ children }: PropsWithChildren) {
       >
         <Toolbar>
           <Box sx={{ display: 'flex', alignItems: 'center', mr: 3 }}>
-            <img src="/assets/logo-oka.jpg" alt="Logo Ôka forest lodge" style={{ height: 40, marginRight: 12, borderRadius: 4 }} />
+            <img 
+              src={publicConfig?.logoUrl || "/assets/default-logo.jpg"} 
+              alt={`Logo ${publicConfig?.nom || 'Etablissement'}`} 
+              style={{ height: 40, marginRight: 12, borderRadius: 8, objectFit: "cover" }} 
+            />
             <Typography variant="h6" fontWeight={800}>
-              Ôka forest lodge
+              {publicConfig?.nom || "Chargement..."}
             </Typography>
           </Box>
           <Box sx={{ flex: 1 }} />
@@ -88,7 +94,7 @@ export function AppLayout({ children }: PropsWithChildren) {
           <Button variant="text" sx={{ ml: 1 }} disabled>
             Rôle: {role}
           </Button>
-          <Typography variant="body2" sx={{ ml: 1 }}>{user?.name || ''}</Typography>
+          <Typography variant="body2" sx={{ ml: 1 }}>{(user as any)?.name || ''}</Typography>
           <IconButton
             onClick={logout}
             color="inherit"
@@ -114,8 +120,8 @@ export function AppLayout({ children }: PropsWithChildren) {
           <List>
             <ListItemButton
               component={Link}
-              to="/dashboard"
-              selected={location.pathname.startsWith("/dashboard")}
+              to={`/${tenantId}/dashboard`}
+              selected={location.pathname.startsWith(`/${tenantId}/dashboard`) || location.pathname === `/${tenantId}`}
             >
               <ListItemIcon sx={{ minWidth: 36 }}>
                 <DashboardIcon fontSize="small" />
@@ -133,8 +139,8 @@ export function AppLayout({ children }: PropsWithChildren) {
                 <ListItemButton
                   key={item.path}
                   component={Link}
-                  to={item.path}
-                  selected={location.pathname.startsWith(item.path)}
+                  to={`/${tenantId}${item.path}`}
+                  selected={location.pathname.startsWith(`/${tenantId}${item.path}`)}
                 >
                   <ListItemIcon sx={{ minWidth: 36 }}>
                     {iconFor(item.path)}

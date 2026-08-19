@@ -3,9 +3,23 @@ import TrendingUpIcon from "@mui/icons-material/TrendingUp";
 import { addDays, format, getISOWeek, startOfMonth, eachDayOfInterval, startOfWeek, endOfWeek, endOfMonth } from "date-fns";
 import { fr } from "date-fns/locale";
 import { useMemo, useState, useEffect, Fragment } from "react";
-import { useHebergementReservations, useUpdateHebergementReservation, useCreateHebergementReservation, useClients, useCreateClient, useChambres, useFactures, useCreateFacture, useRoomMaintenance, useAddRoomMaintenance, useRemoveRoomMaintenance,
+import {
+  useChambres,
+  useCreateChambre,
+  useDeleteChambre,
+  useHebergementReservations,
+  useUpdateHebergementReservation,
   useUpdateChambre,
+  useAddRoomMaintenance,
+  useRemoveRoomMaintenance,
+  useRoomMaintenance,
+  useCreateFacture,
+  useClients,
+  useCreateClient,
+  useCreateHebergementReservation,
+  useFactures
 } from "@/services/api";
+import { useTenant } from "@/contexts/TenantContext";
 import { Reservation, Chambre, ChambreMaintenance } from "@shared/api";
 import { RoomCalendar } from "@/components/RoomCalendar";
 import { exportToCSV, exportToPDF } from "@/lib/export";
@@ -44,6 +58,7 @@ export default function GestionChambres() {
   const { data: rooms } = useChambres();
   const [open, setOpen] = useState<Reservation | null>(null);
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const { publicConfig } = useTenant();
   const [view, setView] = useState<View>('month');
   const [dateRef, setDateRef] = useState<Date>(startOfMonth(new Date()));
   const [searchParams] = useSearchParams();
@@ -140,7 +155,7 @@ export default function GestionChambres() {
       'Personnes': r.nbPersonnes || '-'
     }));
     
-    exportToPDF('Liste des réservations - Hébergement', exportData, 'reservations_hebergement');
+    exportToPDF('Liste des réservations - Hébergement', exportData, 'reservations_hebergement', publicConfig?.nom);
   }
 
   return (
@@ -236,13 +251,16 @@ export default function GestionChambres() {
                   <TextField size="small" type="date" label="Fin" value={maintEnd} onChange={(e)=> setMaintEnd(e.target.value)} sx={{ minWidth:160 }} />
                   <Button size="small" variant="outlined" onClick={() => {
                     if (!maintRoomId || !maintStart || !maintEnd) return;
-                    removeMaint.mutate({ chambreId: maintRoomId, start: maintStart, end: maintEnd }, {
-                      onSuccess: () => updateRoom.mutate({ id: maintRoomId, statut: 'libre' } as any)
-                    });
+                    const maintToDelete = (maintenance || []).find(m => m.chambreId === maintRoomId && m.dateDebut === maintStart && m.dateFin === maintEnd);
+                    if (maintToDelete) {
+                      removeMaint.mutate(maintToDelete.id, {
+                        onSuccess: () => updateRoom.mutate({ id: maintRoomId, statut: 'libre' } as any)
+                      });
+                    }
                   }}>Réactiver</Button>
                   <Button size="small" variant="text" onClick={() => {
                     if (!maintRoomId || !maintStart || !maintEnd) return;
-                    addMaint.mutate({ chambreId: maintRoomId, start: maintStart, end: maintEnd });
+                    addMaint.mutate({ chambreId: maintRoomId, dateDebut: maintStart, dateFin: maintEnd });
                   }}>Marquer HS</Button>
                 </Box>
               </Stack>
@@ -286,7 +304,6 @@ export default function GestionChambres() {
                           lignes: [{ description: `Nuitée ${(rooms || []).find(c => c.id === r.chambreId)?.numero || r.chambreId} (${dStart.toLocaleDateString()} – ${dEnd.toLocaleDateString()})`, qte: nights, pu: ch?.tarif_base ?? 0 }],
                           totalTTC: total,
                           reservationId: r.id,
-                          statut: 'emise',
                         })}>
                           Créer facture
                         </Button>

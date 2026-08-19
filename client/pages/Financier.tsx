@@ -13,7 +13,7 @@ import {
 } from "@mui/material";
 import { useMemo, useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { useCreateFacture, useFactures, useClients, useUpdateFactureStatut, useUpdateFacture } from "@/services/api";
+import { useCreateFacture, useFactures, useClients, useUpdateFactureStatut, useUpdateFacture, useChambres } from "@/services/api";
 import { Facture } from "@shared/api";
 import { exportToCSV, exportToPDF } from "@/lib/export";
 import {
@@ -30,7 +30,7 @@ import {
   useHebergementReservations,
   useRestoReservations,
 } from "@/services/api";
-import { chambres as chambresData } from "@/services/mock";
+import { useTenant } from "@/contexts/TenantContext";
 import {
   eachDayOfInterval,
   startOfMonth,
@@ -78,6 +78,8 @@ export default function Financier() {
   const updateFacture = useUpdateFacture();
   const [searchParams] = useSearchParams();
 
+  const { publicConfig } = useTenant();
+  const { data: chambresData } = useChambres();
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "emise" | "payee" | "annulee" | "retard">("all");
   const [sourceFilter, setSourceFilter] = useState<"all" | "Hebergement" | "Restaurant" | "Evenement">("all");
@@ -141,7 +143,7 @@ export default function Financier() {
       lignes: [
         { description: draft.description, qte: draft.qte, pu: draft.pu },
       ],
-      statut: "emise",
+      totalTTC: draft.pu * draft.qte,
     }, {
       onSuccess: (f) => {
         setSelectedId(f.id);
@@ -190,7 +192,7 @@ export default function Financier() {
     const mStart = startOfMonth(now);
     const mEnd = endOfMonth(now);
     const totalDays = eachDayOfInterval({ start: mStart, end: mEnd }).length;
-    const firstFourRooms = chambresData.slice(0, 4);
+    const firstFourRooms = (chambresData || []).slice(0, 4);
     const counts: Record<string, number> = Object.fromEntries(
       firstFourRooms.map((ch) => [ch.id, 0]),
     );
@@ -246,7 +248,7 @@ export default function Financier() {
       'Statut': f.statut === 'payee' ? 'Payée' : f.statut === 'annulee' ? 'Annulée' : 'Envoyée'
     }));
     
-    exportToPDF('Liste des factures', exportData, 'factures');
+    exportToPDF('Liste des factures', exportData, 'factures', publicConfig?.nom);
   }
 
   return (

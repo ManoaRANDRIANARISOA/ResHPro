@@ -239,6 +239,7 @@ export default function RestoStock() {
     unite: "kg" as UniteStock,
     seuilMin: 0,
     stock: 0,
+    prixUnitaire: 0,
     sousCategorie: "cuisine" as SousCategorieStock,
   });
   
@@ -247,6 +248,7 @@ export default function RestoStock() {
     unite: UniteStock;
     seuilMin: number;
     stock: number;
+    prixUnitaire: number;
     sousCategorie: SousCategorieStock;
   } | null>(null);
 
@@ -259,6 +261,7 @@ export default function RestoStock() {
       unite: it.unite,
       seuilMin: it.seuilMin,
       stock: it.stock,
+      prixUnitaire: it.prixUnitaire || 0,
       sousCategorie: it.sousCategorie,
     });
   }
@@ -278,6 +281,7 @@ export default function RestoStock() {
       unite: "kg",
       seuilMin: 0,
       stock: 0,
+      prixUnitaire: 0,
       sousCategorie: "cuisine",
     });
     setAdding(false);
@@ -393,7 +397,7 @@ export default function RestoStock() {
           <Box
             sx={{
               display: "grid",
-              gridTemplateColumns: "1fr 140px 100px 120px 100px 160px",
+              gridTemplateColumns: "1fr 140px 80px 80px 100px 100px 120px",
               px: 1,
               py: 1,
               color: "text.secondary",
@@ -404,6 +408,7 @@ export default function RestoStock() {
             <Box>Produit</Box>
             <Box>Catégorie</Box>
             <Box>Unité</Box>
+            <Box>Prix U.</Box>
             <Box>Seuil min</Box>
             <Box>Stock</Box>
             <Box>Actions</Box>
@@ -414,7 +419,7 @@ export default function RestoStock() {
             <Box
               sx={{
                 display: "grid",
-                gridTemplateColumns: "1fr 140px 100px 120px 100px 160px",
+                gridTemplateColumns: "1fr 140px 80px 80px 100px 100px 120px",
                 px: 1,
                 py: 1,
                 borderTop: "1px solid",
@@ -457,6 +462,18 @@ export default function RestoStock() {
               <TextField
                 size="small"
                 type="number"
+                placeholder="Prix"
+                value={draft.prixUnitaire}
+                onChange={(e) =>
+                  setDraft((d) => ({
+                    ...d,
+                    prixUnitaire: parseFloat(e.target.value || "0"),
+                  }))
+                }
+              />
+              <TextField
+                size="small"
+                type="number"
                 value={draft.seuilMin}
                 onChange={(e) =>
                   setDraft((d) => ({
@@ -493,7 +510,7 @@ export default function RestoStock() {
               key={r.id}
               sx={{
                 display: "grid",
-                gridTemplateColumns: "1fr 140px 100px 120px 100px 160px",
+                gridTemplateColumns: "1fr 140px 80px 80px 100px 100px 120px",
                 px: 1,
                 py: 1,
                 borderTop: "1px solid",
@@ -539,6 +556,17 @@ export default function RestoStock() {
                     <MenuItem value="u">u</MenuItem>
                     <MenuItem value="paquet">paquet</MenuItem>
                   </Select>
+                  <TextField
+                    size="small"
+                    type="number"
+                    value={editDraft?.prixUnitaire ?? 0}
+                    onChange={(e) =>
+                      setEditDraft((d) => ({
+                        ...(d as any),
+                        prixUnitaire: parseFloat(e.target.value || "0"),
+                      }))
+                    }
+                  />
                   <TextField
                     size="small"
                     type="number"
@@ -590,6 +618,7 @@ export default function RestoStock() {
                     />
                   </Box>
                   <Box>{r.unite}</Box>
+                  <Box>{(r.prixUnitaire || 0).toLocaleString()} Ar</Box>
                   <Box>{r.seuilMin}</Box>
                   <Box>
                     <Typography 

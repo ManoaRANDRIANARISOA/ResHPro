@@ -6,7 +6,7 @@ interface SessionState {
   role: Role;
   userName: string;
 }
-const initialSession: SessionState = { role: "admin", userName: "admin eqima" };
+const initialSession: SessionState = { role: "admin", userName: "" };
 
 const sessionSlice = createSlice({
   name: "session",

@@ -1,6 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getDatabase, ref, set, get, child } from "firebase/database";
-// import { getAnalytics } from "firebase/analytics"; // Optional, focused on DB for now
+import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -10,51 +9,27 @@ const firebaseConfig = {
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
-  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL
+  // databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL // No longer needed for Firestore
 };
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-// const analytics = getAnalytics(app);
 
-// Initialize Realtime Database and get a reference to the service
-const db = getDatabase(app);
+// Initialize Cloud Firestore and get a reference to the service
+const db = getFirestore(app);
 
-export { db };
-
-/**
- * Syncs a collection to Firebase.
- * @param collection The collection name (e.g., "stock", "reservations")
- * @param data The data to save
- */
-export async function syncToFirebase(collection: string, data: any) {
-  if (!db) return;
-  try {
-    await set(ref(db, collection), data);
-    console.log(`Synced ${collection} to Firebase`);
-  } catch (e) {
-    console.error(`Failed to sync ${collection} to Firebase`, e);
-  }
+// Enable offline persistence
+try {
+  enableIndexedDbPersistence(db)
+    .catch((err) => {
+      if (err.code === 'failed-precondition') {
+        console.warn('Multiple tabs open, persistence can only be enabled in one tab at a a time.');
+      } else if (err.code === 'unimplemented') {
+        console.warn('The current browser does not support all of the features required to enable persistence');
+      }
+    });
+} catch (e) {
+  console.error("Error enabling offline persistence:", e);
 }
 
-/**
- * Reads a collection from Firebase.
- * @param collection The collection name
- * @returns The data or null
- */
-export async function readFromFirebase(collection: string) {
-  if (!db) return null;
-  try {
-    const dbRef = ref(db);
-    const snapshot = await get(child(dbRef, collection));
-    if (snapshot.exists()) {
-      return snapshot.val();
-    } else {
-      console.log(`No data available for ${collection}`);
-      return null;
-    }
-  } catch (e) {
-    console.error(`Failed to read ${collection} from Firebase`, e);
-    return null;
-  }
-}
+export { app, db };

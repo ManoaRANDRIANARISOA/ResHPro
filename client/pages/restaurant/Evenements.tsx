@@ -223,7 +223,7 @@ export default function RestoEvenements() {
               clientNom: (form.contact || ev.contact || "Client"),
               source: "Evenement",
               lignes: [{ description: `Événement ${form.nom || ev.nom}`, qte: qty, pu: RATE_AR }],
-              statut: "emise",
+              totalTTC: qty * RATE_AR,
             },
             {
               onSuccess: (f) => navigate(`/financier?factureId=${f.id}`),

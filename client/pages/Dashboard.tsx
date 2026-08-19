@@ -15,6 +15,7 @@ import {
 } from "@mui/material";
 import { ResponsiveContainer, BarChart, Bar, XAxis, Tooltip } from "recharts";
 import { useFactures, useEvenements, useStockProduits, useChambres, useHebergementReservations, useRoomMaintenance } from "@/services/api";
+import { useTenant } from "@/contexts/TenantContext";
 import {
   addDays,
   format,
@@ -39,6 +40,7 @@ export default function Dashboard() {
   const { data: reservations } = useHebergementReservations();
   const { data: factures } = useFactures();
   const { data: stock } = useStockProduits();
+  const { tenantId, publicConfig } = useTenant();
   const { data: events } = useEvenements();
   const { data: rooms } = useChambres();
   const { data: maintenance } = useRoomMaintenance(); // Ajout du hook maintenance
@@ -80,7 +82,7 @@ export default function Dashboard() {
       'Activité': r.name,
       'Revenus': formatAr(r.value)
     }));
-    exportToPDF('Revenus par activité', exportData, 'revenus_par_activite');
+    exportToPDF('Revenus par activité', exportData, 'revenus_par_activite', publicConfig?.nom);
   }
 
   // Alerts data (stock + housekeeping)

@@ -36,7 +36,7 @@ export function exportToCSV(data: any[], filename: string, headers?: string[]) {
   URL.revokeObjectURL(url);
 }
 
-export function exportToPDF(title: string, data: any[], filename: string) {
+export function exportToPDF(title: string, data: any[], filename: string, tenantName: string = "ResiPro") {
   if (!data || data.length === 0) {
     alert('Aucune donnée à exporter');
     return;
@@ -115,7 +115,7 @@ export function exportToPDF(title: string, data: any[], filename: string) {
         </tbody>
       </table>
       <div class="footer">
-        <p>OKA LODGE - Système de gestion</p>
+        <p>${tenantName} - Système de gestion</p>
       </div>
     </body>
     </html>

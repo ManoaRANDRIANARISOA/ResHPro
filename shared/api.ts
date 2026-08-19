@@ -1,4 +1,4 @@
-// Types partagés pour OKA LODGE
+// Types partagés pour ResiPro (Multi-tenant)
 
 export interface Client {
   id: string;
@@ -16,7 +16,7 @@ export interface Client {
 export interface Chambre {
   id: string;
   numero: string;
-  categorie: "standard" | "suite" | "familiale";
+  categorie: string;
   capacite: number;
   tarif_base: number;
   statut: "libre" | "occupee" | "maintenance";
@@ -36,6 +36,14 @@ export interface TableResto {
   emplacement?: string;
   statut: "libre" | "reservee" | "occupee";
   assignedReservationId?: string;
+}
+
+export interface ChambreMaintenance {
+  id: string;
+  chambreId: string;
+  dateDebut: string; // ISO
+  dateFin: string; // ISO
+  notes?: string;
 }
 
 export interface Reservation {
@@ -71,6 +79,18 @@ export interface MenuItem {
   photoUrl?: string;
   enabled: boolean;
   variants?: { nom: string; priceDelta: number }[];
+  ficheTechniqueId?: string;
+  coutMatiere?: number;
+  margePourcent?: number;
+}
+
+export interface Substitution {
+  removedProduitId: string;
+  addedProduitId: string;
+  removedNom: string;
+  addedNom: string;
+  quantite: number; // Quantité de remplacement à déduire
+  unite: string;
 }
 
 export interface Commande {
@@ -80,17 +100,14 @@ export interface Commande {
   quantite: number;
   statut: "saisie" | "envoyee" | "servie" | "annulee";
   motifAnnulation?: string;
+  noteSpeciale?: string; // Ajouté pour les changements/concessions
+  substitutions?: Substitution[]; // Pour la déduction dynamique de stock
   createdAt: string; // ISO
 }
 
-export type FamilleStock = "Hebergement" | "Restaurant";
-export type SousCategorieStock =
-  | "linge_lit"
-  | "linge_salle"
-  | "cuisine"
-  | "petit_dejeuner"
-  | "entretien";
-export type UniteStock = "u" | "kg" | "L" | "paquet";
+export type FamilleStock = string;
+export type SousCategorieStock = string;
+export type UniteStock = string;
 
 export interface StockProduit {
   id: string;
@@ -98,10 +115,13 @@ export interface StockProduit {
   famille: FamilleStock;
   sousCategorie: SousCategorieStock;
   unite: UniteStock;
-  stock: number;
+  stock: number; // Stock réel (inventaire)
+  stockTheorique?: number; // Stock calculé (achats - ventes)
   seuilMin: number;
   photoUrl?: string;
   dailySummary?: any;
+  prixUnitaire?: number; // Prix moyen d'achat
+  dernierInventaire?: string; // ISO date du dernier inventaire
 }
 
 export interface MouvementStock {
@@ -118,6 +138,9 @@ export interface FactureLigne {
   description: string;
   qte: number;
   pu: number;
+  menuItemId?: string; // Ajouté pour décrémenter le stock
+  noteSpeciale?: string; // Pour l'impression
+  substitutions?: Substitution[]; // Pour la déduction dynamique de stock lors de la facturation/service
 }
 export interface Facture {
   id: string;
@@ -144,8 +167,12 @@ export interface Parametres {
   checkOutHour: string; // HH:mm
   restoSlotDefaultHours: number;
   enableTariffGrids: boolean;
-  invoiceNumberFormat: "OKA-YYYY-####";
-  currency: "MGA";
+  invoiceNumberFormat: string;
+  currency: string;
+  invoicePrefix?: string;
+  currencySymbol?: string;
+  breakfastPrice?: number;
+  eventRatePerPerson?: number;
 }
 
 // Événement (fiche minimale)
@@ -158,13 +185,7 @@ export interface Evenement {
   contact: string;
   notes?: string;
   statut?: "planifie" | "confirme" | "annule";
-  type?:
-    | "musique"
-    | "degustation"
-    | "anniversaire"
-    | "conference"
-    | "mariage"
-    | "autre";
+  type?: string;
 }
 
 // Demo API response used by the starter endpoints

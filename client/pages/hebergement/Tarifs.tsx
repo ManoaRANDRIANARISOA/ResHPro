@@ -2,14 +2,17 @@ import { Box, Button, Paper, Stack, TextField, Typography, Select, MenuItem } fr
 import { useEffect, useState } from "react";
 import { useChambres, useCreateChambre, useUpdateChambre, useDeleteChambre } from "@/services/api";
 import type { Chambre } from "@shared/api";
+import { useTenant } from "@/contexts/TenantContext";
 
 export default function HebergementTarifs() {
   const { data: rooms } = useChambres();
   const createChambre = useCreateChambre();
   const updateChambre = useUpdateChambre();
   const deleteChambre = useDeleteChambre();
+  const { config } = useTenant();
+  const types = config?.hebergementTypes || ["standard", "suite", "familiale"];
 
-  const [rows, setRows] = useState<Array<{ id?: string; numero: string; categorie: Chambre["categorie"]; capacite: number; tarif: number; isNew?: boolean }>>([]);
+  const [rows, setRows] = useState<Array<{ id?: string; numero: string; categorie: string; capacite: number; tarif: number; isNew?: boolean }>>([]);
 
   useEffect(() => {
     setRows((rooms || []).map((c) => ({
@@ -32,7 +35,7 @@ export default function HebergementTarifs() {
   function addRow() {
     setRows((rs) => [
       ...rs,
-      { numero: "", categorie: "standard", capacite: 2, tarif: 0, isNew: true },
+      { numero: "", categorie: types[0] || "standard", capacite: 2, tarif: 0, isNew: true },
     ]);
   }
 
@@ -116,13 +119,13 @@ export default function HebergementTarifs() {
               size="small"
               value={r.categorie}
               onChange={(e) => {
-                const v = e.target.value as Chambre["categorie"];
+                const v = e.target.value as string;
                 if (r.id) update(r.id!, "categorie", v); else updateByIndex(idx, "categorie", v);
               }}
             >
-              <MenuItem value="standard">standard</MenuItem>
-              <MenuItem value="suite">suite</MenuItem>
-              <MenuItem value="familiale">familiale</MenuItem>
+              {types.map(t => (
+                <MenuItem key={t} value={t}>{t}</MenuItem>
+              ))}
             </Select>
             <TextField
               size="small"

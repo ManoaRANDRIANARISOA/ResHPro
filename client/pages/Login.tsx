@@ -1,4 +1,5 @@
 import { useState, FormEvent } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   Box,
   TextField,
@@ -13,14 +14,19 @@ import {
 } from "@mui/material";
 import { Visibility, VisibilityOff } from "@mui/icons-material";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTenant } from "@/contexts/TenantContext";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const { login } = useAuth();
+  const { login, logout } = useAuth();
+  const { tenantId, publicConfig, isLoading: tenantLoading, error: tenantError } = useTenant();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  const [error, setError] = useState(location.state?.error || "");
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -29,7 +35,9 @@ export default function Login() {
 
     try {
       const success = await login(email, password);
-      if (!success) {
+      if (success) {
+        navigate(`/${tenantId}/dashboard`);
+      } else {
         setError("Email ou mot de passe incorrect");
       }
     } catch (err) {
@@ -59,8 +67,20 @@ export default function Login() {
             bgcolor: "white",
           }}
         >
-          {/* Logo */}
-          <Box
+          {tenantError ? (
+            <Box sx={{ py: 4, textAlign: "center" }}>
+              <Typography variant="h5" color="error" gutterBottom fontWeight="bold">
+                Établissement introuvable
+              </Typography>
+              <Typography color="text.secondary">
+                L'URL que vous avez saisie ne correspond à aucun établissement enregistré.
+                Veuillez vérifier l'adresse ou contacter votre administrateur.
+              </Typography>
+            </Box>
+          ) : (
+            <>
+              {/* Logo */}
+              <Box
             sx={{
               mb: 4,
               display: "flex",
@@ -68,12 +88,14 @@ export default function Login() {
             }}
           >
             <img
-              src="/assets/logo-oka.jpg"
-              alt="Ôka forest lodge Logo"
+              src={publicConfig?.logoUrl || "/assets/default-logo.jpg"}
+              alt={`${publicConfig?.nom || 'Etablissement'} Logo`}
               style={{
                 width: "180px",
                 height: "180px",
-                objectFit: "contain",
+                objectFit: "cover",
+                borderRadius: "24px",
+                boxShadow: "0 4px 14px 0 rgba(0,0,0,0.1)",
               }}
             />
           </Box>
@@ -84,13 +106,13 @@ export default function Login() {
             fontWeight={700}
             sx={{
               mb: 1,
-              background: "linear-gradient(135deg, #FFA500 0%, #2D8B44 100%)",
+              background: "linear-gradient(135deg, #6E8EF5 0%, #94D3AC 100%)",
               WebkitBackgroundClip: "text",
               WebkitTextFillColor: "transparent",
               backgroundClip: "text",
             }}
           >
-            Bienvenue
+            {publicConfig?.nom || "Bienvenue"}
           </Typography>
           <Typography
             variant="body2"
@@ -154,11 +176,10 @@ export default function Login() {
                 fontSize: "1rem",
                 fontWeight: 600,
                 textTransform: "none",
-                background: "linear-gradient(135deg, #FFA500 0%, #FF8C00 100%)",
+                bgcolor: "#6E8EF5",
                 "&:hover": {
-                  background: "linear-gradient(135deg, #FF8C00 0%, #FF7800 100%)",
+                  bgcolor: "#5B7CE4",
                 },
-                boxShadow: "0 4px 12px rgba(255, 165, 0, 0.3)",
               }}
             >
               {loading ? (
@@ -175,8 +196,10 @@ export default function Login() {
             color="text.secondary"
             sx={{ mt: 3, display: "block" }}
           >
-            Ôka forest lodge - Système de Gestion
-          </Typography>
+              {publicConfig?.nom || "Système de Gestion"} - ResiPro
+            </Typography>
+            </>
+          )}
         </Paper>
       </Container>
     </Box>

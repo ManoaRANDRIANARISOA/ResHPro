@@ -1,83 +1,56 @@
-import { createContext, useContext, useState, PropsWithChildren, useEffect } from "react";
-import { db } from "@/services/local-db";
+import { createContext, useContext, PropsWithChildren, useEffect } from "react";
+import { useFirebaseAuth, signInWithEmailAndPassword, signOut } from "@/services/firebase-auth";
 import { useAppDispatch, setRole } from "@/store";
+import { Role } from "@/hooks/useRBAC";
 
-interface User {
-  email: string;
-  name: string;
-  role: string;
+interface AuthUser {
+  uid: string;
+  email: string | null;
+  tenantId: string | null;
+  role: Role | null;
+  superAdmin: boolean;
 }
 
 interface AuthContextType {
-  user: User | null;
+  user: AuthUser | null;
   isAuthenticated: boolean;
+  isLoading: boolean;
   login: (email: string, password: string) => Promise<boolean>;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-const ROLE_MAP: Record<string, import("@/hooks/useRBAC").Role> = {
-  admin: "admin",
-  reception: "resp_hebergement",
-  "responsable hebergement": "resp_hebergement",
-  chef_salle: "resp_resto",
-  "responsable restaurant": "resp_resto",
-  serveur: "staff_resto",
-  cuisine: "staff_resto",
-  bar: "staff_resto",
-  comptoir: "staff_resto",
-  economat: "economat",
-  comptable: "comptable",
-  direction: "admin",
-  staff_restaurant: "staff_resto",
-  saff_restaurant: "staff_resto",
-};
-
 export function AuthProvider({ children }: PropsWithChildren) {
-  const [user, setUser] = useState<User | null>(() => {
-    try {
-      const stored = localStorage.getItem("okalodge_session_user");
-      return stored ? JSON.parse(stored) : null;
-    } catch (e) {
-      console.warn("Failed to restore session", e);
-      return null;
-    }
-  });
-  
+  const { user, loading, auth } = useFirebaseAuth();
   const dispatch = useAppDispatch();
 
-  // Sync role on mount and when user changes
+  // Sync role to Redux when user changes
   useEffect(() => {
-    if (user) {
-      const r = ROLE_MAP[user.role] || "admin";
-      dispatch(setRole(r as any));
+    if (user && user.role) {
+      dispatch(setRole(user.role));
+    } else if (user && user.superAdmin) {
+      // Pour le superAdmin, on lui donne un role admin par défaut
+      dispatch(setRole("admin"));
     }
   }, [user, dispatch]);
 
   const login = async (email: string, password: string): Promise<boolean> => {
-    // Simulation de latence
-    await new Promise((resolve) => setTimeout(resolve, 500));
-
-    // Recherche du compte par login (email)
-    const found = db.utilisateurs.find((u) => u.login.toLowerCase() === email.toLowerCase());
-    if (!found) return false;
-    const auth = db.userAuth;
-    const ok = auth[found.login] && auth[found.login] === password;
-    if (!ok) return false;
-
-    // Mettre à jour le contexte et le store (RBAC)
-    const newUser = { email: found.login, name: found.nom, role: found.role };
-    setUser(newUser);
-    localStorage.setItem("okalodge_session_user", JSON.stringify(newUser));
-    
-    return true;
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      return true;
+    } catch (error) {
+      console.error("Login failed", error);
+      return false;
+    }
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem("okalodge_session_user");
-    // Optionnel: réinitialiser le rôle (on conserve le rôle actuel pour éviter le flicker du menu)
+  const logout = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error("Logout failed", error);
+    }
   };
 
   return (
@@ -85,6 +58,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       value={{
         user,
         isAuthenticated: !!user,
+        isLoading: loading,
         login,
         logout,
       }}

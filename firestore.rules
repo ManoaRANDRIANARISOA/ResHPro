@@ -1,0 +1,31 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Config publique lisible sans auth (pour la page login Option B)
+    match /tenants/{tenantId}/publicConfig/{doc} {
+      allow read: if true;
+      allow write: if request.auth != null 
+        && request.auth.token.superAdmin == true;
+    }
+    
+    // Données du tenant — auth requise + isolation
+    match /tenants/{tenantId}/config/{doc} {
+      allow read: if request.auth != null 
+        && request.auth.token.tenantId == tenantId;
+      allow write: if request.auth != null 
+        && request.auth.token.tenantId == tenantId
+        && request.auth.token.role == "admin";
+    }
+    
+    match /tenants/{tenantId}/{collection}/{document=**} {
+      allow read, write: if request.auth != null 
+        && request.auth.token.tenantId == tenantId;
+    }
+    
+    // Super-admin uniquement
+    match /superadmin/{document=**} {
+      allow read, write: if request.auth != null 
+        && request.auth.token.superAdmin == true;
+    }
+  }
+}

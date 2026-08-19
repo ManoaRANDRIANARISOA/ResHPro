@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { useAppSelector } from "@/store";
+import { useTenant } from "@/contexts/TenantContext";
 
 export type Role =
   | "admin"
@@ -18,6 +19,7 @@ export type Role =
 
 export const useRBAC = () => {
   const role = useAppSelector((s) => s.session.role);
+  const { config } = useTenant();
 
   const menu = useMemo(() => {
     const base = [{ label: "Dashboard", path: "/dashboard" }];
@@ -27,16 +29,27 @@ export const useRBAC = () => {
       { label: "Stock", path: "/hebergement/stock" },
       { label: "Tarifs", path: "/hebergement/tarifs" },
     ];
+    
     const resto = [
       { label: "Plan de salle", path: "/resto/plan" },
       { label: "Menu", path: "/resto/menu" },
-      { label: "Stock", path: "/resto/stock" },
-      { label: "Événements", path: "/resto/evenements" },
     ];
+    if (config?.modules?.fichesTechniques) {
+      resto.push({ label: "Fiches Techniques", path: "/resto/fiches-techniques" });
+    }
+    resto.push({ label: "Stock", path: "/resto/stock" });
+    if (config?.modules?.analyseEcarts) {
+      resto.push({ label: "Analyse des Écarts", path: "/resto/ecarts" });
+    }
+    resto.push({ label: "Événements", path: "/resto/evenements" });
+    
     const stock = [
       { label: "Stock Hébergement", path: "/hebergement/stock" },
       { label: "Stock Restaurant", path: "/resto/stock" },
     ];
+    if (config?.modules?.analyseEcarts) {
+      stock.push({ label: "Analyse des Écarts", path: "/resto/ecarts" });
+    }
     const financier = [{ label: "Financier", path: "/financier" }];
     const rapports = [{ label: "Rapports", path: "/rapports" }];
     const admin = [
@@ -75,7 +88,7 @@ export const useRBAC = () => {
     };
 
     return { base, sections: map[role] ?? [] };
-  }, [role]);
+  }, [role, config]);
 
   return { role, menu };
 };

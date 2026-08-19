@@ -33,18 +33,38 @@ import {
   useMenuItems,
   useUpdateMenuItem,
   useCreateFacture,
+  useStockProduits,
+  useFichesTechniques,
+  useFactures,
 } from "@/services/api";
 import { useClients, useTodayRestoReservations } from "@/services/api";
-import { MenuItem as Item } from "@shared/api";
+import { MenuItem as Item, StockProduit, Substitution } from "@shared/api";
+import { FicheTechnique } from "@shared/fiche-technique";
 import { exportToPDF } from "@/lib/export";
 import { useNavigate } from "react-router-dom";
+import { useTenant } from "@/contexts/TenantContext";
 
-const categoryIcons: Record<string, React.ReactNode> = {
-  plats: <RestaurantIcon fontSize="small" />,
-  entrees: <RamenDiningIcon fontSize="small" />,
-  boissons: <LocalCafeIcon fontSize="small" />,
-  desserts: <CakeIcon fontSize="small" />,
+const dynamicIcons: Record<string, React.ReactNode> = {
+  RestaurantIcon: <RestaurantIcon fontSize="small" />,
+  RamenDiningIcon: <RamenDiningIcon fontSize="small" />,
+  LocalCafeIcon: <LocalCafeIcon fontSize="small" />,
+  CakeIcon: <CakeIcon fontSize="small" />,
 };
+
+function getCategoryIcon(catId: string, tenantCategories: any[]) {
+  const cat = tenantCategories?.find((c) => c.id === catId);
+  if (cat?.icon && dynamicIcons[cat.icon]) return dynamicIcons[cat.icon];
+  // Fallback to old mapping or default
+  const legacy: any = { plats: <RestaurantIcon fontSize="small" />, entrees: <RamenDiningIcon fontSize="small" />, boissons: <LocalCafeIcon fontSize="small" />, desserts: <CakeIcon fontSize="small" /> };
+  return legacy[catId] || <RestaurantIcon fontSize="small" />;
+}
+
+function getCategoryLabel(catId: string, tenantCategories: any[]) {
+  const cat = tenantCategories?.find((c) => c.id === catId);
+  if (cat?.label) return cat.label;
+  const legacy: any = { plats: "Plats", entrees: "Entrées", boissons: "Boissons", desserts: "Desserts" };
+  return legacy[catId] || catId;
+}
 
 const categoryLabels: Record<string, string> = {
   plats: "Plats",
@@ -57,10 +77,12 @@ function CategoryChips({
   categories,
   value,
   onChange,
+  tenantCategories,
 }: {
   categories: { id: string; count: number }[];
   value: string;
   onChange: (v: string) => void;
+  tenantCategories: any[];
 }) {
   return (
     <Stack direction="row" spacing={1} flexWrap="wrap">
@@ -73,8 +95,8 @@ function CategoryChips({
       {categories.map((c) => (
         <Chip
           key={c.id}
-          icon={categoryIcons[c.id] as any}
-          label={`${categoryLabels[c.id] || c.id} (${c.count})`}
+          icon={getCategoryIcon(c.id, tenantCategories) as any}
+          label={`${getCategoryLabel(c.id, tenantCategories)} (${c.count})`}
           color={value === c.id ? "primary" : "default"}
           variant={value === c.id ? "filled" : "outlined"}
           onClick={() => onChange(c.id)}
@@ -125,27 +147,53 @@ function ItemCard({
   selected,
   onClick,
   onToggleEnabled,
+  tenantCategories,
+  fiches,
+  stockProduits,
 }: {
   item: Item;
   selected: boolean;
   onClick: () => void;
   onToggleEnabled: (id: string, next: boolean) => void;
+  tenantCategories: any[];
+  fiches: FicheTechnique[] | undefined;
+  stockProduits: StockProduit[] | undefined;
 }) {
-  const unavailable = !item.enabled;
+  const disabled = !item.enabled;
+  
+  const missingIngredients = useMemo(() => {
+    if (!item.ficheTechniqueId || !fiches || !stockProduits) return [];
+    const fiche = fiches.find(f => f.id === item.ficheTechniqueId);
+    if (!fiche) return [];
+    
+    const missing: string[] = [];
+    fiche.ingredients?.forEach(ing => {
+      const p = stockProduits.find(sp => sp.id === ing.produitId);
+      const qtyRequired = ing.quantite / (fiche.portions || 1);
+      const currentStock = p?.stockTheorique ?? p?.stock ?? 0;
+      if (currentStock < qtyRequired) {
+        missing.push(p?.nom || 'Inconnu');
+      }
+    });
+    return missing;
+  }, [item, fiches, stockProduits]);
+
+  const isRupture = missingIngredients.length > 0;
+
   return (
     <Paper
-      onClick={unavailable ? undefined : onClick}
+      onClick={disabled ? undefined : onClick}
       sx={{
         borderRadius: 3,
-        cursor: unavailable ? "not-allowed" : "pointer",
+        cursor: disabled ? "not-allowed" : "pointer",
         border: "2px solid",
         borderColor: selected ? "primary.main" : "divider",
         position: "relative",
         overflow: "visible",
-        bgcolor: unavailable ? "action.disabledBackground" : "background.paper",
-        filter: unavailable ? "grayscale(0.8) opacity(0.6)" : "none",
+        bgcolor: disabled ? "action.disabledBackground" : "background.paper",
+        filter: disabled ? "grayscale(0.8) opacity(0.6)" : "none",
         transition: "all 0.2s",
-        "&:hover": unavailable ? {} : {
+        "&:hover": disabled ? {} : {
           transform: "translateY(-4px)",
           boxShadow: 4,
         },
@@ -221,16 +269,26 @@ function ItemCard({
           {item.nom}
         </Typography>
         
-        {/* Catégorie à la place des étoiles */}
-        <Box sx={{ display: "flex", justifyContent: "center" }}>
+        <Box sx={{ display: "flex", justifyContent: "center", mb: 1 }}>
           <Chip
             size="small"
-            icon={categoryIcons[item.categorieId] as any}
-            label={categoryLabels[item.categorieId] || item.categorieId}
+            icon={getCategoryIcon(item.categorieId, tenantCategories) as any}
+            label={getCategoryLabel(item.categorieId, tenantCategories)}
             variant="outlined"
             sx={{ fontSize: "0.75rem" }}
           />
         </Box>
+        
+        {isRupture && (
+          <Typography 
+            variant="caption" 
+            color="error.main" 
+            fontWeight={700}
+            sx={{ display: 'block', textAlign: 'center', bgcolor: 'error.50', borderRadius: 1, p: 0.5, lineHeight: 1.2 }}
+          >
+            ⚠️ Rupture : {missingIngredients.join(', ')}
+          </Typography>
+        )}
       </Box>
     </Paper>
   );
@@ -241,8 +299,58 @@ export default function RestoMenu() {
   const update = useUpdateMenuItem();
   const create = useCreateMenuItem();
   const createFacture = useCreateFacture();
-  const clientsQuery = useClients();
+  const fichesQuery = useFichesTechniques();
+  const stockQuery = useStockProduits();
   const todayRes = useTodayRestoReservations();
+  const clientsQuery = useClients();
+  const { data: factures } = useFactures();
+  
+  const fiches = fichesQuery.data;
+  const stockProduits = stockQuery.data;
+  
+  const { config, publicConfig } = useTenant();
+  const tenantCategories = config?.menuCategories || [];
+
+  const topDish = useMemo(() => {
+    if (!factures || !data) return null;
+    
+    const stats: Record<string, number> = {};
+    let totalSales = 0;
+    
+    factures.forEach(f => {
+      if (f.source === "Restaurant" && f.statut !== "annulee") {
+        f.lignes.forEach(l => {
+          if (l.menuItemId) {
+            stats[l.menuItemId] = (stats[l.menuItemId] || 0) + l.qte;
+            totalSales += l.qte;
+          }
+        });
+      }
+    });
+
+    if (totalSales === 0) return null;
+
+    let bestId = "";
+    let bestCount = -1;
+    for (const [id, count] of Object.entries(stats)) {
+      if (count > bestCount) {
+        bestCount = count;
+        bestId = id;
+      }
+    }
+
+    if (!bestId) return null;
+    const menuItem = data.find(i => i.id === bestId);
+    if (!menuItem) return null;
+
+    return {
+      nom: menuItem.nom,
+      categorieId: menuItem.categorieId,
+      count: bestCount,
+      percentage: Math.round((bestCount / totalSales) * 100),
+    };
+  }, [factures, data]);
+
   const navigate = useNavigate();
   const [selectedId, setSelectedId] = useState<string | null>(
     data?.[0]?.id ?? null,
@@ -253,7 +361,6 @@ export default function RestoMenu() {
     if (selected) setDraftItem({ ...selected });
     else setDraftItem(null);
   }, [selectedId, data]);
-  const [openFiche, setOpenFiche] = useState(false);
 
   const categories = useMemo(() => {
     const map: Record<string, number> = {};
@@ -279,29 +386,50 @@ export default function RestoMenu() {
     return list;
   }, [data, cat, avail, q]);
 
+  const [substitutionModal, setSubstitutionModal] = useState<{ open: boolean; cartItemId: string | null; menuItemId: string | null }>({ open: false, cartItemId: null, menuItemId: null });
+
   const [cart, setCart] = useState<
-    { id: string; nom: string; prix: number; qte: number }[]
+    { cartItemId: string; id: string; nom: string; prix: number; qte: number; noteSpeciale: string; substitutions: Substitution[] }[]
   >([]);
   function addToCart(it: Item) {
     setCart((c) => {
-      const i = c.findIndex((x) => x.id === it.id);
+      const i = c.findIndex((x) => x.id === it.id && !x.noteSpeciale && x.substitutions.length === 0);
       if (i >= 0) {
         const copy = [...c];
         copy[i] = { ...copy[i], qte: copy[i].qte + 1 };
         return copy;
       }
-      return [...c, { id: it.id, nom: it.nom, prix: it.prix, qte: 1 }];
+      return [...c, { cartItemId: Date.now().toString() + Math.random(), id: it.id, nom: it.nom, prix: it.prix, qte: 1, noteSpeciale: "", substitutions: [] }];
     });
   }
-  function changeQte(id: string, delta: number) {
+  function changeQte(cartItemId: string, delta: number) {
     setCart((c) =>
       c
         .map((x) =>
-          x.id === id ? { ...x, qte: Math.max(0, x.qte + delta) } : x,
+          x.cartItemId === cartItemId ? { ...x, qte: Math.max(0, x.qte + delta) } : x,
         )
         .filter((x) => x.qte > 0),
     );
   }
+  function updateNote(cartItemId: string, text: string) {
+    setCart((c) =>
+      c.map((x) => (x.cartItemId === cartItemId ? { ...x, noteSpeciale: text } : x))
+    );
+  }
+  
+  function addSubstitution(cartItemId: string, sub: Substitution) {
+    setCart((c) =>
+      c.map((x) => {
+        if (x.cartItemId === cartItemId) {
+          const newSubs = [...x.substitutions, sub];
+          const textNote = x.noteSpeciale ? x.noteSpeciale + `, Remplacé ${sub.removedNom} par ${sub.addedNom} (${sub.quantite}${sub.unite})` : `Remplacé ${sub.removedNom} par ${sub.addedNom} (${sub.quantite}${sub.unite})`;
+          return { ...x, substitutions: newSubs, noteSpeciale: textNote };
+        }
+        return x;
+      })
+    );
+  }
+
   const total = cart.reduce((a, b) => a + b.prix * b.qte, 0);
   const [billClient, setBillClient] = useState<string>("Client comptoir");
   const clientOptions = useMemo(() => {
@@ -319,12 +447,12 @@ export default function RestoMenu() {
 
   function handlePrint() {
     const rows = cart.map((c) => ({
-      Article: c.nom,
+      Article: c.nom + (c.noteSpeciale ? ` (${c.noteSpeciale})` : ""),
       Quantité: c.qte,
       "Prix unitaire (Ar)": c.prix.toLocaleString(),
       Total: (c.prix * c.qte).toLocaleString() + " Ar",
     }));
-    exportToPDF("Commande restaurant", rows as any[], "commande");
+    exportToPDF("Commande restaurant", rows as any[], "commande", publicConfig?.nom);
   }
 
   function handleGenerateInvoice() {
@@ -337,8 +465,8 @@ export default function RestoMenu() {
         date: new Date().toISOString(),
         clientNom: billClient || "Client comptoir",
         source: "Restaurant",
-        lignes: cart.map((c) => ({ description: c.nom, qte: c.qte, pu: c.prix })),
-        statut: "emise",
+        lignes: cart.map((c) => ({ description: c.nom + (c.noteSpeciale ? ` (${c.noteSpeciale})` : ""), qte: c.qte, pu: c.prix, menuItemId: c.id, noteSpeciale: c.noteSpeciale, substitutions: c.substitutions })),
+        totalTTC: cart.reduce((sum, c) => sum + c.prix * c.qte, 0),
       },
       {
         onSuccess: (f) => {
@@ -398,31 +526,33 @@ export default function RestoMenu() {
         </Stack>
       </Box>
 
-      {/* Plat le plus pris - déplacé depuis la page Plan */}
-      <Grid container spacing={2} sx={{ mb: 2 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Paper sx={{ p: 2, bgcolor: 'secondary.50', border: '1px solid', borderColor: 'secondary.200' }}>
-            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-              <RestaurantIcon color="secondary" fontSize="small" />
-              <Typography variant="caption" fontWeight={700} color="secondary.main">
-                Plat le plus pris
+      {/* Plat le plus pris dynamique */}
+      {topDish && (
+        <Grid container spacing={2} sx={{ mb: 2 }}>
+          <Grid item xs={12} sm={6} md={3}>
+            <Paper sx={{ p: 2, bgcolor: 'secondary.50', border: '1px solid', borderColor: 'secondary.200' }}>
+              <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
+                <RestaurantIcon color="secondary" fontSize="small" />
+                <Typography variant="caption" fontWeight={700} color="secondary.main">
+                  Plat le plus pris
+                </Typography>
+              </Stack>
+              <Typography variant="h5" fontWeight={800}>
+                {topDish.nom}
               </Typography>
-            </Stack>
-            <Typography variant="h5" fontWeight={800}>
-              Zebu Roti
-            </Typography>
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-              Plat principal
-            </Typography>
-            <Typography variant="body2" fontWeight={700} color="secondary.main" sx={{ mt: 0.5 }}>
-              142 commandes
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              34% du total
-            </Typography>
-          </Paper>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                {getCategoryLabel(topDish.categorieId, tenantCategories)}
+              </Typography>
+              <Typography variant="body2" fontWeight={700} color="secondary.main" sx={{ mt: 0.5 }}>
+                {topDish.count} commande{topDish.count > 1 ? 's' : ''}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {topDish.percentage}% du total
+              </Typography>
+            </Paper>
+          </Grid>
         </Grid>
-      </Grid>
+      )}
 
       {/* Header with categories (left) and filters (right) */}
       <Grid container spacing={2} alignItems="center" sx={{ mb: 2 }}>
@@ -432,6 +562,7 @@ export default function RestoMenu() {
               categories={categories}
               value={cat}
               onChange={setCat}
+              tenantCategories={tenantCategories}
             />
           </Paper>
         </Grid>
@@ -469,6 +600,9 @@ export default function RestoMenu() {
                 <ItemCard
                   item={i}
                   selected={selected?.id === i.id}
+                  tenantCategories={tenantCategories}
+                  fiches={fiches}
+                  stockProduits={stockProduits}
                   onClick={() => {
                     setSelectedId(i.id);
                     if (i.enabled) {
@@ -491,21 +625,44 @@ export default function RestoMenu() {
             )}
             {cart.map((c) => (
               <Stack
-                key={c.id}
-                direction="row"
-                spacing={1}
-                alignItems="center"
-                sx={{ py: 0.5 }}
+                key={c.cartItemId}
+                direction="column"
+                spacing={0.5}
+                sx={{ py: 1, borderBottom: "1px solid", borderColor: "divider" }}
               >
-                <Box sx={{ flex: 1 }}>{c.nom}</Box>
-                <Chip size="small" label={`${c.prix.toLocaleString()} Ar`} />
-                <Button size="small" onClick={() => changeQte(c.id, -1)}>
-                  -
-                </Button>
-                <Typography>{c.qte}</Typography>
-                <Button size="small" onClick={() => changeQte(c.id, 1)}>
-                  +
-                </Button>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Box sx={{ flex: 1, fontWeight: 600 }}>{c.nom}</Box>
+                  <Chip size="small" label={`${c.prix.toLocaleString()} Ar`} />
+                  <Button size="small" onClick={() => changeQte(c.cartItemId, -1)}>
+                    -
+                  </Button>
+                  <Typography>{c.qte}</Typography>
+                  <Button size="small" onClick={() => changeQte(c.cartItemId, 1)}>
+                    +
+                  </Button>
+                </Stack>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <TextField
+                    size="small"
+                    variant="outlined"
+                    placeholder="Note (Ex: Sans oignons)"
+                    value={c.noteSpeciale}
+                    onChange={(e) => updateNote(c.cartItemId, e.target.value)}
+                    InputProps={{ style: { fontSize: "0.8rem", padding: "4px 8px" } }}
+                    sx={{ mt: 0.5, flex: 1 }}
+                  />
+                  {fiches?.find(f => f.id === data?.find(i => i.id === c.id)?.ficheTechniqueId) && (
+                    <Button 
+                      size="small" 
+                      variant="outlined" 
+                      onClick={() => setSubstitutionModal({ open: true, cartItemId: c.cartItemId, menuItemId: c.id })}
+                      sx={{ mt: 0.5, py: 0.25, fontSize: "0.7rem", minWidth: 'auto' }}
+                      title="Substituer des ingrédients"
+                    >
+                      Subst.
+                    </Button>
+                  )}
+                </Stack>
               </Stack>
             ))}
             <Divider sx={{ my: 1 }} />
@@ -551,7 +708,7 @@ export default function RestoMenu() {
           >
             <Typography fontWeight={800}>Détails de l'article</Typography>
             <Stack direction="row" spacing={1}>
-              <Button variant="outlined" onClick={() => setOpenFiche(true)}>Fiche technique</Button>
+              <Button variant="outlined" onClick={() => navigate("/resto/fiches-techniques")}>Fiches techniques</Button>
               <Button variant="outlined">Dupliquer</Button>
               <Button
                 variant="contained"
@@ -581,30 +738,23 @@ export default function RestoMenu() {
                   value={draftItem.categorieId}
                   onChange={(e) => setDraftItem({ ...draftItem, categorieId: e.target.value as string })}
                 >
-                  <MItem value="entrees">
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <RamenDiningIcon fontSize="small" />
-                      <span>Entrées</span>
-                    </Stack>
-                  </MItem>
-                  <MItem value="plats">
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <RestaurantIcon fontSize="small" />
-                      <span>Plats</span>
-                    </Stack>
-                  </MItem>
-                  <MItem value="boissons">
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <LocalCafeIcon fontSize="small" />
-                      <span>Boissons</span>
-                    </Stack>
-                  </MItem>
-                  <MItem value="desserts">
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <CakeIcon fontSize="small" />
-                      <span>Desserts</span>
-                    </Stack>
-                  </MItem>
+                  {tenantCategories.length > 0 ? (
+                    tenantCategories.map((tc) => (
+                      <MItem key={tc.id} value={tc.id}>
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          {getCategoryIcon(tc.id, tenantCategories)}
+                          <span>{tc.label}</span>
+                        </Stack>
+                      </MItem>
+                    ))
+                  ) : (
+                    <>
+                      <MItem value="entrees">Entrées</MItem>
+                      <MItem value="plats">Plats</MItem>
+                      <MItem value="boissons">Boissons</MItem>
+                      <MItem value="desserts">Desserts</MItem>
+                    </>
+                  )}
                 </Select>
               </FormControl>
               <TextField
@@ -642,12 +792,12 @@ export default function RestoMenu() {
               </Stack>
               <Box sx={{ mt: 1 }}>
                 <Chip
-                  label={`Coût matière: 5 200 Ar`}
+                  label={`Coût matière: ${draftItem.coutMatiere ? draftItem.coutMatiere.toLocaleString() + ' Ar' : 'N/A'}`}
                   variant="outlined"
                   sx={{ mr: 1 }}
                 />
-                <Chip label={`Marge: 58%`} variant="outlined" sx={{ mr: 1 }} />
-                <Chip label={`SKU: ENT-001`} variant="outlined" />
+                <Chip label={`Marge: ${draftItem.margePourcent ? draftItem.margePourcent.toFixed(1) + '%' : 'N/A'}`} variant="outlined" sx={{ mr: 1 }} />
+                <Chip label={draftItem.ficheTechniqueId ? "Fiche OK" : "Sans Fiche"} color={draftItem.ficheTechniqueId ? "success" : "warning"} variant="outlined" />
               </Box>
             </Stack>
           )}
@@ -655,39 +805,6 @@ export default function RestoMenu() {
       </Box>
 
       {/* Modal new article */}
-      {/* Fiche technique (dialog simple) */}
-      <Dialog open={openFiche} onClose={() => setOpenFiche(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Fiche technique — {selected?.nom || "Article"}</DialogTitle>
-        <DialogContent>
-          {!selected && (
-            <Typography color="text.secondary">Sélectionnez un article pour afficher sa fiche.</Typography>
-          )}
-          {selected && (
-            <Stack spacing={1.5} sx={{ mt: 1 }}>
-              <Stack direction="row" spacing={1} alignItems="center">
-                <Chip size="small" icon={categoryIcons[selected.categorieId] as any} label={categoryLabels[selected.categorieId] || selected.categorieId} />
-                <Chip size="small" label={selected.enabled ? "Disponible" : "Indisponible"} color={selected.enabled ? "success" : "default"} />
-                <Chip size="small" label={`${selected.prix.toLocaleString()} Ar`} />
-              </Stack>
-              <Divider />
-              <Typography variant="body2" fontWeight={700}>Ingrédients</Typography>
-              <Typography variant="caption" color="text.secondary">À compléter — liste d’ingrédients et grammages</Typography>
-              <Typography variant="body2" fontWeight={700} sx={{ mt: 1 }}>Allergènes</Typography>
-              <Typography variant="caption" color="text.secondary">À compléter — allergènes potentiels (gluten, arachides, etc.)</Typography>
-              <Typography variant="body2" fontWeight={700} sx={{ mt: 1 }}>Coût matière & Marge</Typography>
-              <Stack direction="row" spacing={1}>
-                <Chip label={`Coût matière: 5 200 Ar`} variant="outlined" />
-                <Chip label={`Marge: 58%`} variant="outlined" />
-              </Stack>
-              <Typography variant="caption" color="text.secondary">Ces valeurs sont simulées et seront reliées au stock plus tard.</Typography>
-            </Stack>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenFiche(false)}>Fermer</Button>
-        </DialogActions>
-      </Dialog>
-
       <Dialog
         open={openNew}
         onClose={() => setOpenNew(false)}
@@ -715,10 +832,20 @@ export default function RestoMenu() {
                   })
                 }
               >
-                <MItem value="entrees">Entrées</MItem>
-                <MItem value="plats">Plats</MItem>
-                <MItem value="boissons">Boissons</MItem>
-                <MItem value="desserts">Desserts</MItem>
+                {tenantCategories.length > 0 ? (
+                  tenantCategories.map((tc) => (
+                    <MItem key={tc.id} value={tc.id}>
+                      {tc.label}
+                    </MItem>
+                  ))
+                ) : (
+                  <>
+                    <MItem value="entrees">Entrées</MItem>
+                    <MItem value="plats">Plats</MItem>
+                    <MItem value="boissons">Boissons</MItem>
+                    <MItem value="desserts">Desserts</MItem>
+                  </>
+                )}
               </Select>
             </FormControl>
             <TextField
@@ -750,6 +877,114 @@ export default function RestoMenu() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Substitution Modal */}
+      <Dialog
+        open={substitutionModal.open}
+        onClose={() => setSubstitutionModal({ open: false, cartItemId: null, menuItemId: null })}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Substituer un ingrédient</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" mb={2}>
+            Sélectionnez un ingrédient de la recette à retirer, et choisissez l'ingrédient de remplacement. La note de cuisine et la déduction de stock seront mises à jour automatiquement.
+          </Typography>
+          
+          {(() => {
+            const mItem = data?.find(i => i.id === substitutionModal.menuItemId);
+            const fiche = fiches?.find(f => f.id === mItem?.ficheTechniqueId);
+            if (!fiche) return <Typography>Aucune fiche technique trouvée.</Typography>;
+            
+            return (
+              <Stack spacing={2}>
+                {fiche.ingredients?.map(ing => {
+                  const sp = stockProduits?.find(p => p.id === ing.produitId);
+                  const qtyRequired = ing.quantite / (fiche.portions || 1);
+                  return (
+                    <SubstitutionRow 
+                      key={ing.produitId} 
+                      ingId={ing.produitId} 
+                      ingNom={sp?.nom || 'Inconnu'} 
+                      qtyRequired={qtyRequired}
+                      unite={sp?.unite || 'U'}
+                      stockProduits={stockProduits || []}
+                      onSubstitute={(addedId, addedNom, qty) => {
+                        if (substitutionModal.cartItemId) {
+                          addSubstitution(substitutionModal.cartItemId, {
+                            removedProduitId: ing.produitId,
+                            addedProduitId: addedId,
+                            removedNom: sp?.nom || 'Inconnu',
+                            addedNom,
+                            quantite: qty,
+                            unite: sp?.unite || 'U'
+                          });
+                          setSubstitutionModal({ open: false, cartItemId: null, menuItemId: null });
+                        }
+                      }}
+                    />
+                  );
+                })}
+              </Stack>
+            );
+          })()}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSubstitutionModal({ open: false, cartItemId: null, menuItemId: null })}>Fermer</Button>
+        </DialogActions>
+      </Dialog>
+
+    </Box>
+  );
+}
+
+function SubstitutionRow({ ingId, ingNom, qtyRequired, unite, stockProduits, onSubstitute }: any) {
+  const [replacing, setReplacing] = useState(false);
+  const [selectedStock, setSelectedStock] = useState<any>(null);
+  const [qty, setQty] = useState(qtyRequired);
+
+  if (!replacing) {
+    return (
+      <Box sx={{ p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Typography><strong>{ingNom}</strong> ({qtyRequired} {unite})</Typography>
+        <Button size="small" variant="outlined" onClick={() => setReplacing(true)}>Remplacer</Button>
+      </Box>
+    );
+  }
+
+  return (
+    <Box sx={{ p: 1.5, border: '1px solid', borderColor: 'primary.main', borderRadius: 1, bgcolor: 'primary.50' }}>
+      <Typography variant="body2" mb={1}>Remplacer <strong>{ingNom}</strong> par :</Typography>
+      <Stack spacing={1}>
+        <Autocomplete
+          size="small"
+          options={stockProduits}
+          getOptionLabel={(o: any) => `${o.nom} (En stock: ${o.stockTheorique ?? o.stock} ${o.unite})`}
+          onChange={(_e, val) => setSelectedStock(val)}
+          renderInput={(params) => <TextField {...params} label="Ingrédient de remplacement" />}
+        />
+        {selectedStock && (
+          <Stack direction="row" spacing={1} alignItems="center">
+            <TextField
+              size="small"
+              label={`Quantité à déduire (${selectedStock.unite})`}
+              type="number"
+              value={qty}
+              onChange={(e) => setQty(parseFloat(e.target.value) || 0)}
+              sx={{ width: 150 }}
+              inputProps={{ step: "0.01" }}
+            />
+            <Button 
+              variant="contained" 
+              size="small"
+              onClick={() => onSubstitute(selectedStock.id, selectedStock.nom, qty)}
+            >
+              Valider
+            </Button>
+            <Button size="small" onClick={() => setReplacing(false)}>Annuler</Button>
+          </Stack>
+        )}
+      </Stack>
     </Box>
   );
 }

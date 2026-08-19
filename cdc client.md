@@ -1,5 +1,5 @@
-Cahier des charges – Application interne de gestion Ny Andrin’ny Soa
-(AS Résidence)
+Cahier des charges – Plateforme SaaS de gestion hôtelière ResiPro
+(Établissement pilote : OKA LODGE)
 
 A.	Présentation du projet
 •	Nom du projet : OKA LODGE
