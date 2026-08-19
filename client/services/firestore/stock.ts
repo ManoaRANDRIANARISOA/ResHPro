@@ -60,3 +60,17 @@ export function useDeleteStockProduit() {
     onSuccess: () => qc.invalidateQueries({ queryKey: stockKeys.all }),
   });
 }
+
+export function useAddJustification() {
+  const qc = useQueryClient();
+  const { tenantId } = useTenant();
+  return useMutation({
+    mutationFn: async ({ id, justification, currentPertes }: { id: string; justification: { quantite: number; motif: string; date: string }; currentPertes: any[] }) => {
+      if (!tenantId) throw new Error("Tenant ID is required");
+      const updatedPertes = [...(currentPertes || []), justification];
+      await updateTenantDoc(tenantId, "stock", id, { pertesJustifiees: updatedPertes });
+      return true;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: stockKeys.all }),
+  });
+}

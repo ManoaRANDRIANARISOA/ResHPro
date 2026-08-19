@@ -39,7 +39,7 @@ export const useRBAC = () => {
     }
     resto.push({ label: "Stock", path: "/resto/stock" });
     if (config?.modules?.analyseEcarts) {
-      resto.push({ label: "Analyse des Écarts", path: "/resto/ecarts" });
+      resto.push({ label: "Qualité & Rentabilité", path: "/resto/ecarts" });
     }
     resto.push({ label: "Événements", path: "/resto/evenements" });
     
@@ -48,7 +48,7 @@ export const useRBAC = () => {
       { label: "Stock Restaurant", path: "/resto/stock" },
     ];
     if (config?.modules?.analyseEcarts) {
-      stock.push({ label: "Analyse des Écarts", path: "/resto/ecarts" });
+      stock.push({ label: "Qualité & Rentabilité", path: "/resto/ecarts" });
     }
     const financier = [{ label: "Financier", path: "/financier" }];
     const rapports = [{ label: "Rapports", path: "/rapports" }];

@@ -122,6 +122,7 @@ export interface StockProduit {
   dailySummary?: any;
   prixUnitaire?: number; // Prix moyen d'achat
   dernierInventaire?: string; // ISO date du dernier inventaire
+  pertesJustifiees?: { quantite: number; motif: string; date: string }[];
 }
 
 export interface MouvementStock {
