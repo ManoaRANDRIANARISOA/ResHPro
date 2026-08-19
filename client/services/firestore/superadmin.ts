@@ -100,6 +100,7 @@ export function useProvisionTenant() {
       await setDoc(doc(db, `tenants/${tenantId}/utilisateurs`, "admin"), {
         nom: `Admin ${nom}`,
         email: `admin@${tenantId}.com`, // Dummy email
+        login: `admin@${tenantId}.com`,
         role: "admin",
         createdAt: new Date().toISOString()
       });

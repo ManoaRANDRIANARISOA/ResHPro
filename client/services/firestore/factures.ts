@@ -4,7 +4,7 @@ import { useTenant } from "@/contexts/TenantContext";
 import { fetchCollection, createDoc, updateTenantDoc, getTenantDoc } from "./utils";
 import { addDays } from "date-fns";
 import { FicheTechnique } from "@shared/fiche-technique";
-import { writeBatch } from "firebase/firestore";
+import { writeBatch, increment } from "firebase/firestore";
 import { db } from "@/services/firebase";
 
 export const facturesKeys = {

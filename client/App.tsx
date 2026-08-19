@@ -32,9 +32,17 @@ import SuperAdminDashboard from "@/pages/superadmin/Dashboard";
 
 const queryClient = new QueryClient();
 
+import { useEffect } from "react";
+
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, isAuthenticated, isLoading, logout } = useAuth();
   const { tenantId } = useTenant();
+
+  useEffect(() => {
+    if (user && !user.superAdmin && user.tenantId !== tenantId) {
+      logout();
+    }
+  }, [user, tenantId, logout]);
 
   if (isLoading) {
     return <div>Chargement...</div>;
@@ -45,8 +53,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   }
 
   if (!user.superAdmin && user.tenantId !== tenantId) {
-    logout(); // Force disconnect
-    return <Navigate to="login" replace state={{ error: "Non autorisé: Ce compte n'appartient pas à cet établissement." }} />;
+    return <Navigate to="login" replace state={{ error: "Votre compte n'est pas rattaché à cet établissement. Veuillez vérifier le lien ou contacter votre administrateur." }} />;
   }
 
   return <>{children}</>;
@@ -56,51 +63,51 @@ function AuthenticatedTenantRoutes() {
   return (
     <AppLayout>
       <Routes>
-        <Route path="/" element={<Navigate to="dashboard" replace />} />
-        <Route path="/dashboard" element={<Dashboard />} />
+        <Route index element={<Navigate to="dashboard" replace />} />
+        <Route path="dashboard" element={<Dashboard />} />
 
-        <Route path="/hebergement/gestion" element={
+        <Route path="hebergement/gestion" element={
           <RouteGuard allowed={["admin","reception","economat","direction"]}><GestionChambres /></RouteGuard>
         } />
-        <Route path="/hebergement/clients" element={
+        <Route path="hebergement/clients" element={
           <RouteGuard allowed={["admin","reception","economat","direction"]}><HebergementClients /></RouteGuard>
         } />
-        <Route path="/hebergement/stock" element={
+        <Route path="hebergement/stock" element={
           <RouteGuard allowed={["admin","economat","direction"]}><HebergementStock /></RouteGuard>
         } />
-        <Route path="/hebergement/tarifs" element={
+        <Route path="hebergement/tarifs" element={
           <RouteGuard allowed={["admin","direction"]}><HebergementTarifs /></RouteGuard>
         } />
 
-        <Route path="/resto/plan" element={
+        <Route path="resto/plan" element={
           <RouteGuard allowed={["admin","reception","chef_salle","serveur","cuisine","bar","comptoir","direction"]}><RestoPlan /></RouteGuard>
         } />
-        <Route path="/resto/menu" element={
+        <Route path="resto/menu" element={
           <RouteGuard allowed={["admin","chef_salle","serveur","cuisine","bar","comptoir","direction"]}><RestoMenu /></RouteGuard>
         } />
-        <Route path="/resto/fiches-techniques" element={
+        <Route path="resto/fiches-techniques" element={
           <RouteGuard allowed={["admin","chef_salle","cuisine","direction"]}><FichesTechniques /></RouteGuard>
         } />
-        <Route path="/resto/stock" element={
+        <Route path="resto/stock" element={
           <RouteGuard allowed={["admin","comptoir","direction"]}><RestoStock /></RouteGuard>
         } />
-        <Route path="/stock/dashboard" element={
+        <Route path="stock/dashboard" element={
           <RouteGuard allowed={["admin","economat","direction"]}><StockDashboard /></RouteGuard>
         } />
-        <Route path="/resto/evenements" element={
+        <Route path="resto/evenements" element={
           <RouteGuard allowed={["admin","chef_salle","serveur","cuisine","bar","comptoir","direction"]}><RestoEvenements /></RouteGuard>
         } />
-        <Route path="/resto/ecarts" element={
+        <Route path="resto/ecarts" element={
           <RouteGuard allowed={["admin","economat","direction"]}><AnalyseEcarts /></RouteGuard>
         } />
 
-        <Route path="/financier" element={
+        <Route path="financier" element={
           <RouteGuard allowed={["admin","comptable","comptoir","direction","reception"]}><Financier /></RouteGuard>
         } />
-        <Route path="/admin" element={
+        <Route path="admin" element={
           <RouteGuard allowed={["admin"]}><AdminPage /></RouteGuard>
         } />
-        <Route path="/parametres" element={<Placeholder title="Paramètres" />} />
+        <Route path="parametres" element={<Placeholder title="Paramètres" />} />
 
         <Route path="*" element={<NotFound />} />
       </Routes>
@@ -126,20 +133,17 @@ function TenantGuard({ children }: { children: React.ReactNode }) {
 
   if (isLoading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', flexDirection: 'column' }}>
-        <h2>Chargement de l'établissement...</h2>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mx-auto mb-4"></div>
+          <h2 className="text-lg font-medium text-gray-700">Chargement de l'établissement...</h2>
+        </div>
       </div>
     );
   }
 
   if (error) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', flexDirection: 'column', textAlign: 'center' }}>
-        <h1 style={{ color: '#d32f2f' }}>404 - Établissement introuvable</h1>
-        <p>L'établissement que vous essayez d'accéder n'existe pas ou l'URL est incorrecte.</p>
-        <p style={{ color: '#666', fontSize: '0.9em' }}>Veuillez vérifier le lien fourni par votre administrateur.</p>
-      </div>
-    );
+    return <NotFound message="L'établissement que vous essayez d'accéder n'existe pas ou l'URL est incorrecte." />;
   }
 
   return <>{children}</>;
@@ -169,22 +173,22 @@ const App = () => (
       <AuthProvider>
         <BrowserRouter>
           <Routes>
-              {/* Route super-admin sans tenant */}
-              <Route path="/superadmin/*" element={<SuperAdminDashboard />} />
-              
-              {/* Routes avec tenant */}
-              <Route path="/:tenantId/*" element={
-                <TenantProvider>
-                  <TenantRoutes />
-                </TenantProvider>
-              } />
-              
-              {/* Racine → page d'accueil ou redirection vers le tenant par défaut (temporaire) */}
-              <Route path="/" element={<Navigate to="/oka-lodge/login" replace />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </AuthProvider>
+            {/* Route super-admin sans tenant */}
+            <Route path="/superadmin/*" element={<SuperAdminDashboard />} />
+            
+            {/* Routes avec tenant */}
+            <Route path="/:tenantId/*" element={
+              <TenantProvider>
+                <TenantRoutes />
+              </TenantProvider>
+            } />
+            
+            {/* Racine et routes inexistantes -> 404 */}
+            <Route path="/" element={<NotFound />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </AuthProvider>
     </QueryClientProvider>
   </Provider>
 );
