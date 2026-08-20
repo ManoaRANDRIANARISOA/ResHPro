@@ -69,6 +69,22 @@ export function TenantProvider({ children }: PropsWithChildren) {
     loadTenant();
   }, [tenantId]);
 
+  useEffect(() => {
+    const logo = publicConfig?.logoUrl || "/assets/default-logo.jpg";
+    const title = publicConfig?.nom 
+      ? `${publicConfig.nom} — ResiPro` 
+      : "ResiPro — Logiciel Hôtellerie & Restauration";
+    document.title = title;
+    
+    let link: HTMLLinkElement | null = document.querySelector("link[rel~='icon']");
+    if (!link) {
+      link = document.createElement('link');
+      link.rel = 'icon';
+      document.getElementsByTagName('head')[0].appendChild(link);
+    }
+    link.href = logo;
+  }, [publicConfig]);
+
   return (
     <TenantContext.Provider value={{ tenantId: tenantId || null, publicConfig, config, isLoading, error, refreshConfig: loadTenant }}>
       {children}
