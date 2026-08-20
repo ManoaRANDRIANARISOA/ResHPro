@@ -63,8 +63,8 @@ export function AppLayout({ children }: PropsWithChildren) {
   const { menu, role } = useRBAC();
   const location = useLocation();
   const dispatch = useAppDispatch();
+  const { tenantId, publicConfig, logo } = useTenant();
   const { logout, user } = useAuth();
-  const { publicConfig, tenantId } = useTenant();
   const { data: usersList } = useUsers();
 
   // Nom d'affichage de l'utilisateur connecté
@@ -133,11 +133,11 @@ export function AppLayout({ children }: PropsWithChildren) {
       >
         <Toolbar sx={{ justifyContent: "space-between", minHeight: 64, px: { xs: 2, md: 3 } }}>
           {/* LOGO & TENANT NAME */}
-          <Box sx={{ display: "flex", alignItems: "center" }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', px: 0.5 }}>
             <img 
-              src={publicConfig?.logoUrl || "/assets/default-logo.jpg"} 
-              alt={`Logo ${publicConfig?.nom || 'Etablissement'}`} 
-              style={{ height: 38, width: 38, marginRight: 12, borderRadius: 8, objectFit: "cover", border: "1px solid #e2e8f0" }} 
+              src={logo} 
+              alt="Logo" 
+              style={{ width: 44, height: 44, borderRadius: 12, marginRight: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }} 
             />
             <Typography variant="h6" fontWeight={800} color="#0f172a" letterSpacing="-0.3px">
               {publicConfig?.nom || "Chargement..."}

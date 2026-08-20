@@ -153,6 +153,9 @@ export function printFacturePro(
   const etablissementAdresse = tenantConfig?.adresse || "";
   const etablissementTel = tenantConfig?.telephone || "";
   const etablissementEmail = tenantConfig?.email || "";
+  const rib = tenantConfig?.rib || "";
+  const mvola = tenantConfig?.mvola || "";
+  const cachetSignatureUrl = tenantConfig?.cachetSignatureUrl || "";
 
   // Informations Client & Agence
   const clientNom = facture.clientNom || clientData?.nom || "Client";
@@ -195,6 +198,9 @@ export function printFacturePro(
     ? facture.remiseMontant
     : (remisePct > 0 ? Math.round((sousTotal * remisePct) / 100) : 0);
   const totalNet = facture.totalTTC || (sousTotal - remiseMontant);
+  const accompte = (facture as any).accompte || 0;
+  const methodePaiementAccompte = (facture as any).methodePaiementAccompte || "";
+  const resteAPayer = totalNet - accompte;
 
   // Statut
   const isPayee = facture.statut === "payee";
@@ -672,6 +678,8 @@ export function printFacturePro(
             <p><strong>Conditions de règlement :</strong></p>
             <p>• Règlement attendu avant le : <strong>${dateEcheance}</strong></p>
             <p>• Modalité : <strong>${modePaiementLabel}</strong></p>
+            ${rib ? `<p>• RIB : <strong>${rib}</strong></p>` : ''}
+            ${mvola ? `<p>• MVola : <strong>${mvola}</strong></p>` : ''}
             <p style="font-size: 11px; color: #64748b; margin-top: 4px;">
               ${isPayee 
                 ? 'Cette facture est acquittée et fait office de reçu officiel.' 
@@ -690,9 +698,15 @@ export function printFacturePro(
                 <span>- ${remiseMontant.toLocaleString('fr-FR')} Ar</span>
               </div>
             ` : ''}
+            ${accompte > 0 ? `
+              <div class="total-row">
+                <span>Acompte (${paymentLabels[methodePaiementAccompte] || methodePaiementAccompte}) :</span>
+                <span>- ${accompte.toLocaleString('fr-FR')} Ar</span>
+              </div>
+            ` : ''}
             <div class="total-row final">
-              <span>Net à payer TTC :</span>
-              <span class="final-price">${totalNet.toLocaleString('fr-FR')} Ar</span>
+              <span>${accompte > 0 ? 'Reste à payer TTC :' : 'Net à payer TTC :'}</span>
+              <span class="final-price">${(accompte > 0 ? resteAPayer : totalNet).toLocaleString('fr-FR')} Ar</span>
             </div>
           </div>
         </div>
@@ -706,7 +720,13 @@ export function printFacturePro(
           </div>
           <div class="stamp-box">
             <span>Cachet & Signature</span>
-            <span style="font-size: 8px; margin-top: 2px;">${etablissementNom}</span>
+            ${cachetSignatureUrl ? `
+              <div style="margin-top: 5px;">
+                <img src="${cachetSignatureUrl}" alt="Signature" style="max-height: 50px; max-width: 100%; object-fit: contain;" />
+              </div>
+            ` : `
+              <span style="font-size: 8px; margin-top: 2px;">${etablissementNom}</span>
+            `}
           </div>
         </div>
       </div>

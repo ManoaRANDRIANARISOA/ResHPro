@@ -2,7 +2,7 @@ import { Avatar, Box, Button, Chip, List, ListItemButton, ListItemText, Paper, S
 import { useMemo, useState, useEffect } from "react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
-import { useClients, useUpdateClient, useHebergementReservations } from "@/services/api";
+import { useClients, useUpdateClient, useHebergementReservations, useChambres } from "@/services/api";
 import { useNavigate } from "react-router-dom";
 import { useTenant } from "@/contexts/TenantContext";
 
@@ -12,6 +12,7 @@ export default function HebergementClients() {
   const { data: clientsData } = useClients();
   const updateClient = useUpdateClient();
   const { data: reservationsData } = useHebergementReservations();
+  const { data: chambres } = useChambres();
   const [q, setQ] = useState("");
   const hebergementClientIds = useMemo(() => {
     const ids = new Set<string>();
@@ -38,6 +39,7 @@ export default function HebergementClients() {
     tags: "",
     reference: "",
     agenceVoyage: "",
+    origine: "",
     notes: ""
   });
 
@@ -54,7 +56,8 @@ export default function HebergementClients() {
         tags: selected.tags || "",
         reference: selected.reference || "",
         agenceVoyage: selected.agenceVoyage || "",
-        notes: ""
+        origine: selected.origine || "",
+        notes: (selected as any).notes || ""
       });
     }
   }, [selected]);
@@ -204,6 +207,16 @@ export default function HebergementClients() {
                 <Grid item xs={12} md={3}>
                   <TextField 
                     size="small" 
+                    label="Origine (Canal)" 
+                    fullWidth
+                    placeholder="Site web, Téléphone..."
+                    value={formData.origine}
+                    onChange={(e) => setFormData({...formData, origine: e.target.value})}
+                  />
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <TextField 
+                    size="small" 
                     label="Tags" 
                     fullWidth
                     placeholder="VIP, Direct"
@@ -278,7 +291,7 @@ export default function HebergementClients() {
                     </Box>
                     <Box>
                       <Typography variant="body2">
-                        {h.type === 'hebergement' ? `Chambre ${h.chambreId}` : 
+                        {h.type === 'hebergement' ? `Chambre ${chambres?.find(c => c.id === h.chambreId)?.numero || h.chambreId}` : 
                          h.type === 'restaurant' ? `Table ${h.tableId}` : 
                          'Autre'}
                       </Typography>

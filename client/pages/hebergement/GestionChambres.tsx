@@ -18,7 +18,9 @@ import {
   useCreateClient,
   useCreateHebergementReservation,
   useGenerateHebergementInvoice,
-  useFactures
+  useFactures,
+  useUpdateClient,
+  useDeleteHebergementReservation
 } from "@/services/api";
 import { useTenant } from "@/contexts/TenantContext";
 import { Reservation, Chambre, ChambreMaintenance, HebergementPack } from "@shared/api";
@@ -439,6 +441,7 @@ function CreateReservationForm({
 }) {
   const { data: clients } = useClients();
   const createClient = useCreateClient();
+  const updateClient = useUpdateClient();
   const { config } = useTenant();
 
   const availablePacks = useMemo(() => {
@@ -456,11 +459,15 @@ function CreateReservationForm({
     clientId: initialClientId ?? '',
     clientNom: '',
     clientTelephone: '',
+    clientAgenceVoyage: '',
+    clientOrigine: '',
     chambreId: '',
     dateDebut: today,
     dateFin: tomorrow,
     nbPersonnes: 2,
     statut: 'confirmee' as const,
+    accompte: '',
+    methodePaiementAccompte: 'especes',
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -561,7 +568,7 @@ function CreateReservationForm({
     if (!isRoomAvailable(chambreId, date)) return '#EF5350'; // Rouge - occupé
     
     if (selectedDates.start && selectedDates.end && chambreId === form.chambreId) {
-      if (date >= selectedDates.start && date <= selectedDates.end) {
+      if (date >= selectedDates.start && date < selectedDates.end) {
         return '#66BB6A'; // Vert - sélectionné
       }
     } else if (selectedDates.start && !selectedDates.end && chambreId === form.chambreId) {
@@ -574,7 +581,7 @@ function CreateReservationForm({
   }
 
   // Validation
-  const isValid = (form.clientId || (form.clientNom && form.clientTelephone)) && 
+  const isValid = (form.clientId || form.clientNom) && 
                   form.chambreId && 
                   selectedDates.start;
 
@@ -585,17 +592,25 @@ function CreateReservationForm({
     let clientId = form.clientId;
     
     // Créer un nouveau client si nécessaire
-    if (!clientId && form.clientNom && form.clientTelephone) {
+    if (!clientId && form.clientNom) {
       try {
         const newClient = await createClient.mutateAsync({
           nom: form.clientNom,
-          telephone: form.clientTelephone
+          telephone: form.clientTelephone || undefined,
+          agenceVoyage: form.clientAgenceVoyage || undefined,
+          origine: form.clientOrigine || undefined
         });
         clientId = newClient.id;
       } catch (error) {
         console.error('Erreur lors de la création du client:', error);
         setIsSubmitting(false);
         return;
+      }
+    } else if (clientId) {
+      // Mettre à jour l'origine si c'est un client existant et qu'elle a changé
+      const existingClient = clients?.find(c => c.id === clientId);
+      if (existingClient && form.clientOrigine !== (existingClient.origine || '')) {
+        updateClient.mutate({ id: clientId, origine: form.clientOrigine });
       }
     }
     
@@ -610,6 +625,8 @@ function CreateReservationForm({
       packNom: selectedPack?.nom,
       packPrix: selectedPack?.prix,
       packTypeCalcul: selectedPack?.typeCalcul,
+      accompte: form.accompte ? Number(form.accompte) : 0,
+      methodePaiementAccompte: form.methodePaiementAccompte,
     });
   }
 
@@ -623,9 +640,9 @@ function CreateReservationForm({
         value={clients?.find(c => c.id === form.clientId) || null}
         onChange={(_, newValue) => {
           if (newValue && typeof newValue !== 'string') {
-            setForm({ ...form, clientId: newValue.id, clientNom: '', clientTelephone: '' });
+            setForm({ ...form, clientId: newValue.id, clientNom: '', clientTelephone: '', clientAgenceVoyage: '', clientOrigine: newValue.origine || '' });
           } else {
-            setForm({ ...form, clientId: '', clientNom: '', clientTelephone: '' });
+            setForm({ ...form, clientId: '', clientNom: '', clientTelephone: '', clientAgenceVoyage: '', clientOrigine: '' });
           }
         }}
         onInputChange={(_, newInputValue, reason) => {
@@ -639,14 +656,61 @@ function CreateReservationForm({
       />
 
       {!form.clientId && form.clientNom && (
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+          <TextField
+            size="small"
+            fullWidth
+            label="Téléphone (Optionnel)"
+            value={form.clientTelephone}
+            onChange={(e) => setForm({ ...form, clientTelephone: e.target.value })}
+            placeholder="032 00 000 00"
+          />
+          <TextField
+            size="small"
+            fullWidth
+            label="Agence de voyage (Optionnel)"
+            value={form.clientAgenceVoyage}
+            onChange={(e) => setForm({ ...form, clientAgenceVoyage: e.target.value })}
+            placeholder="Booking, Expedia..."
+          />
+        </Stack>
+      )}
+
+      {/* Afficher le champ origine qu'il s'agisse d'un nouveau client ou d'un client existant sélectionné */}
+      {(form.clientId || form.clientNom) && (
         <TextField
           size="small"
-          label="Téléphone du nouveau client"
-          value={form.clientTelephone}
-          onChange={(e) => setForm({ ...form, clientTelephone: e.target.value })}
-          placeholder="032 00 000 00"
+          fullWidth
+          label="Origine (Canal de réservation)"
+          value={form.clientOrigine}
+          onChange={(e) => setForm({ ...form, clientOrigine: e.target.value })}
+          placeholder="Ex: Site web, Téléphone, Booking..."
+          sx={{ mt: 2 }}
         />
       )}
+
+      <Divider />
+
+      <Typography variant="body2" fontWeight={700}>Acompte (Optionnel)</Typography>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5 }}>
+        <TextField
+          size="small"
+          label="Montant de l'acompte (Ar)"
+          type="number"
+          value={form.accompte}
+          onChange={(e) => setForm({ ...form, accompte: e.target.value })}
+        />
+        <Select
+          size="small"
+          value={form.methodePaiementAccompte}
+          onChange={(e) => setForm({ ...form, methodePaiementAccompte: e.target.value })}
+        >
+          <MenuItem value="especes">Espèces</MenuItem>
+          <MenuItem value="mobile_money">Mobile Money (MVola, etc.)</MenuItem>
+          <MenuItem value="virement">Virement</MenuItem>
+          <MenuItem value="carte">Carte</MenuItem>
+        </Select>
+      </Box>
 
       <Divider />
       
@@ -846,6 +910,8 @@ function EditReservation({ r, reservations, rooms, maintenance, onSave, onClose 
   const { tenantId, config } = useTenant();
   const navigate = useNavigate();
   const { data: clients } = useClients();
+  const updateClient = useUpdateClient();
+  const deleteReservation = useDeleteHebergementReservation();
   const { data: factures } = useFactures();
   const generateInvoiceMutation = useGenerateHebergementInvoice();
 
@@ -856,11 +922,16 @@ function EditReservation({ r, reservations, rooms, maintenance, onSave, onClose 
   const [selectedPackId, setSelectedPackId] = useState<string>(r.packId || availablePacks[0]?.id || "chambre_seule");
   const selectedPack = availablePacks.find(p => p.id === selectedPackId) || availablePacks[0];
 
+  const currentClient = clients?.find(c => c.id === r.clientId);
+
   const [form, setForm] = useState({
     clientId: r.clientId || '',
+    clientOrigine: currentClient?.origine || '',
     chambreId: r.chambreId || '',
     statut: r.statut,
     nbPersonnes: r.nbPersonnes || 2,
+    accompte: (r as any).accompte || '',
+    methodePaiementAccompte: (r as any).methodePaiementAccompte || 'especes',
   });
 
   const initialStart = new Date(r.dateDebut);
@@ -931,7 +1002,7 @@ function EditReservation({ r, reservations, rooms, maintenance, onSave, onClose 
     if (!isRoomAvailable(chambreId, date)) return '#EF5350';
 
     if (selectedDates.start && selectedDates.end && chambreId === form.chambreId) {
-      if (date >= selectedDates.start && date <= selectedDates.end) return '#66BB6A';
+      if (date >= selectedDates.start && date < selectedDates.end) return '#66BB6A';
     } else if (selectedDates.start && !selectedDates.end && chambreId === form.chambreId) {
       if (date.getTime() === selectedDates.start.getTime()) return '#66BB6A';
     }
@@ -947,6 +1018,14 @@ function EditReservation({ r, reservations, rooms, maintenance, onSave, onClose 
       return;
     }
     if (!isValid) return;
+
+    if (form.clientId) {
+      const existingClient = clients?.find(c => c.id === form.clientId);
+      if (existingClient && form.clientOrigine !== (existingClient.origine || '')) {
+        updateClient.mutate({ id: form.clientId, origine: form.clientOrigine });
+      }
+    }
+
     onSave({
       id: r.id,
       clientId: form.clientId,
@@ -959,6 +1038,8 @@ function EditReservation({ r, reservations, rooms, maintenance, onSave, onClose 
       packNom: selectedPack?.nom,
       packPrix: selectedPack?.prix,
       packTypeCalcul: selectedPack?.typeCalcul,
+      accompte: form.accompte ? Number(form.accompte) : 0,
+      methodePaiementAccompte: form.methodePaiementAccompte,
     });
   }
 
@@ -971,8 +1052,19 @@ function EditReservation({ r, reservations, rooms, maintenance, onSave, onClose 
         size="small"
         options={(clients || []).map(c => ({ id: c.id, label: c.nom }))}
         value={(clients || []).map(c => ({ id: c.id, label: c.nom })).find(o => o.id === form.clientId) || null}
-        onChange={(_, v) => setForm({ ...form, clientId: v?.id || '' })}
+        onChange={(_, v) => {
+          const selectedClient = clients?.find(c => c.id === v?.id);
+          setForm({ ...form, clientId: v?.id || '', clientOrigine: selectedClient?.origine || '' });
+        }}
         renderInput={(params) => <TextField {...params} label="Client" />}
+      />
+
+      <TextField
+        size="small"
+        label="Origine (Canal de réservation)"
+        value={form.clientOrigine}
+        onChange={(e) => setForm({ ...form, clientOrigine: e.target.value })}
+        placeholder="Ex: Site web, Téléphone, Booking..."
       />
 
       <Select size="small" value={form.statut} onChange={(e)=> setForm({ ...form, statut: e.target.value as any })}>
@@ -982,6 +1074,27 @@ function EditReservation({ r, reservations, rooms, maintenance, onSave, onClose 
         <MenuItem value="terminee">Terminée</MenuItem>
         <MenuItem value="annulee">Annulée</MenuItem>
       </Select>
+
+      <Typography variant="body2" fontWeight={700}>Acompte (Optionnel)</Typography>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5 }}>
+        <TextField
+          size="small"
+          label="Montant de l'acompte (Ar)"
+          type="number"
+          value={form.accompte}
+          onChange={(e) => setForm({ ...form, accompte: e.target.value })}
+        />
+        <Select
+          size="small"
+          value={form.methodePaiementAccompte}
+          onChange={(e) => setForm({ ...form, methodePaiementAccompte: e.target.value })}
+        >
+          <MenuItem value="especes">Espèces</MenuItem>
+          <MenuItem value="mobile_money">Mobile Money (MVola, etc.)</MenuItem>
+          <MenuItem value="virement">Virement</MenuItem>
+          <MenuItem value="carte">Carte</MenuItem>
+        </Select>
+      </Box>
 
       <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1.4fr 1fr' }, gap: 1.5 }}>
         <Box>
@@ -1136,12 +1249,22 @@ function EditReservation({ r, reservations, rooms, maintenance, onSave, onClose 
         </Typography>
       )}
 
-      <Stack direction="row" spacing={1} justifyContent="space-between" alignItems="center">
-        <Button color="error" variant="outlined" onClick={() => { onSave({ id: r.id, statut: 'annulee' }); onClose(); }}>
-          Annuler la réservation
-        </Button>
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} justifyContent="space-between" alignItems="center">
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+          <Button color="error" variant="outlined" onClick={() => { onSave({ id: r.id, statut: 'annulee' }); onClose(); }}>
+            Annuler le séjour
+          </Button>
+          <Button color="error" variant="contained" disabled={deleteReservation.isPending} onClick={() => { 
+            if(window.confirm('Voulez-vous vraiment supprimer définitivement cette réservation et sa facture associée (erreur de saisie) ?')) {
+              deleteReservation.mutate({ id: r.id });
+              onClose();
+            }
+          }}>
+            Supprimer
+          </Button>
+        </Stack>
         <Stack direction="row" spacing={1}>
-          <Button variant="outlined" onClick={onClose}>Annuler modification</Button>
+          <Button variant="outlined" onClick={onClose}>Fermer sans sauver</Button>
           <Button variant="contained" onClick={handleSave} disabled={!isValid}>Valider</Button>
         </Stack>
       </Stack>

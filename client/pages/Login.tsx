@@ -17,12 +17,13 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";
 
 export default function Login() {
+  const { tenantId, publicConfig, logo } = useTenant();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const { login, logout } = useAuth();
-  const { tenantId, publicConfig, isLoading: tenantLoading, error: tenantError } = useTenant();
+  const { isLoading: tenantLoading, error: tenantError } = useTenant();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -88,7 +89,7 @@ export default function Login() {
             }}
           >
             <img
-              src={publicConfig?.logoUrl || "/assets/default-logo.jpg"}
+              src={logo}
               alt={`${publicConfig?.nom || 'Etablissement'} Logo`}
               style={{
                 width: "180px",

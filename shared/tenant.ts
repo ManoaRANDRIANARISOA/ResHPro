@@ -20,6 +20,9 @@ export interface TenantConfig {
   adresse?: string; // Adresse physique de l'établissement
   telephone?: string; // Téléphone officiel de l'établissement
   email?: string; // E-mail officiel de facturation
+  rib?: string; // Relevé d'identité bancaire pour virement
+  mvola?: string; // Numéro MVola (Mobile Money)
+  cachetSignatureUrl?: string; // URL de l'image de signature / cachet
   checkInHour: string;
   checkOutHour: string;
   restoSlotDefaultMinutes: number;
@@ -57,6 +60,9 @@ export interface TenantPublicConfig {
   adresse?: string;
   telephone?: string;
   email?: string;
+  rib?: string;
+  mvola?: string;
+  cachetSignatureUrl?: string;
   theme: {
     primary: string;
     secondary: string;

@@ -12,6 +12,7 @@ export interface Client {
   reference?: string;
   preferences_alimentaires?: string;
   agenceVoyage?: string;
+  origine?: string;
 }
 
 export interface Chambre {
@@ -66,6 +67,8 @@ export interface Reservation {
   packNom?: string;
   packPrix?: number;
   packTypeCalcul?: "par_personne_nuit" | "par_chambre_nuit" | "forfait_fixe" | string;
+  accompte?: number;
+  methodePaiementAccompte?: string;
   statut:
     | "en_attente"
     | "confirmee"
@@ -171,6 +174,8 @@ export interface Facture {
   remisePourcentage?: number; // Taux de rabais/remise (0 à 10%)
   remiseMontant?: number; // Montant du rabais en Ariary
   totalTTC: number; // Total Net à payer
+  accompte?: number; // Acompte payé
+  methodePaiementAccompte?: string; // Mode de paiement de l'acompte
   modePaiement?: "especes" | "mobile_money" | "carte" | "virement" | "cheque" | string;
   statut: "emise" | "payee" | "annulee";
   notes?: string;

@@ -24,6 +24,8 @@ import {
   Alert,
   Tabs,
   Tab,
+  Checkbox,
+  FormControlLabel,
 } from "@mui/material";
 import {
   Add,
@@ -150,6 +152,9 @@ export default function Financier() {
       stat: config?.stat || publicConfig?.stat || "À fournir par le client",
       rcs: config?.rcs || publicConfig?.rcs || "",
       adresse: config?.adresse || publicConfig?.adresse || "",
+      rib: config?.rib || publicConfig?.rib || "",
+      mvola: config?.mvola || publicConfig?.mvola || "",
+      cachetSignatureUrl: config?.cachetSignatureUrl || publicConfig?.cachetSignatureUrl || "",
       telephone: config?.telephone || publicConfig?.telephone || "",
       email: config?.email || publicConfig?.email || "",
       invoicePrefix: config?.invoicePrefix || "FAC",
@@ -170,6 +175,7 @@ export default function Financier() {
   const [isEditing, setIsEditing] = useState(false);
   const [editingFactureId, setEditingFactureId] = useState<string | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [includeSignature, setIncludeSignature] = useState(true);
 
   // Formulaire établissement (NIF, STAT, etc.)
   const [tenantForm, setTenantForm] = useState({
@@ -178,6 +184,9 @@ export default function Financier() {
     stat: "",
     rcs: "",
     adresse: "",
+    rib: "",
+    mvola: "",
+    cachetSignatureUrl: "",
     telephone: "",
     email: "",
   });
@@ -190,6 +199,9 @@ export default function Financier() {
         stat: tenantFiscalConfig.stat === "À fournir par le client" ? "" : tenantFiscalConfig.stat,
         rcs: tenantFiscalConfig.rcs,
         adresse: tenantFiscalConfig.adresse,
+        rib: tenantFiscalConfig.rib || "",
+        mvola: tenantFiscalConfig.mvola || "",
+        cachetSignatureUrl: tenantFiscalConfig.cachetSignatureUrl || "",
         telephone: tenantFiscalConfig.telephone,
         email: tenantFiscalConfig.email,
       });
@@ -455,6 +467,9 @@ export default function Financier() {
         stat: tenantForm.stat.trim() || "À fournir par le client",
         rcs: tenantForm.rcs.trim(),
         adresse: tenantForm.adresse.trim(),
+        rib: tenantForm.rib.trim(),
+        mvola: tenantForm.mvola.trim(),
+        cachetSignatureUrl: tenantForm.cachetSignatureUrl.trim(),
         telephone: tenantForm.telephone.trim(),
         email: tenantForm.email.trim(),
       };
@@ -474,7 +489,11 @@ export default function Financier() {
   function handlePrintSelected() {
     if (!selected) return;
     const clientObj = (clients || []).find(c => c.id === selected.clientId || c.nom === selected.clientNom);
-    printFacturePro(selected, tenantFiscalConfig, clientObj);
+    const configForPrint = { 
+      ...tenantFiscalConfig, 
+      cachetSignatureUrl: includeSignature ? tenantFiscalConfig.cachetSignatureUrl : undefined 
+    };
+    printFacturePro(selected, configForPrint, clientObj);
   }
 
   // Export CSV global
@@ -845,6 +864,17 @@ export default function Financier() {
                   </Stack>
 
                   <Stack direction="row" spacing={1}>
+                    <FormControlLabel
+                      control={
+                        <Checkbox 
+                          size="small" 
+                          checked={includeSignature} 
+                          onChange={(e) => setIncludeSignature(e.target.checked)} 
+                        />
+                      }
+                      label={<Typography variant="caption" fontWeight={600}>Inclure signature</Typography>}
+                      sx={{ mr: 1, color: "text.secondary" }}
+                    />
                     <Button
                       size="small"
                       variant="contained"
@@ -1626,6 +1656,45 @@ export default function Financier() {
                 />
               </Grid>
             </Grid>
+
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  size="small"
+                  label="RIB (Virement bancaire)"
+                  fullWidth
+                  placeholder="00000 00000 00000000000 00"
+                  value={tenantForm.rib}
+                  onChange={(e) => setTenantForm(prev => ({ ...prev, rib: e.target.value }))}
+                />
+              </Grid>
+
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  size="small"
+                  label="Numéro MVola"
+                  fullWidth
+                  placeholder="034 00 000 00"
+                  value={tenantForm.mvola}
+                  onChange={(e) => setTenantForm(prev => ({ ...prev, mvola: e.target.value }))}
+                />
+              </Grid>
+            </Grid>
+
+            <TextField
+              size="small"
+              label="URL Cachet & Signature (Image PNG/JPG transparente)"
+              fullWidth
+              placeholder="https://..."
+              value={tenantForm.cachetSignatureUrl}
+              onChange={(e) => setTenantForm(prev => ({ ...prev, cachetSignatureUrl: e.target.value }))}
+              helperText="Astuce: Hébergez l'image et collez le lien direct ici."
+            />
+            {tenantForm.cachetSignatureUrl && (
+              <Box sx={{ mt: 1, border: '1px dashed #ccc', p: 1, borderRadius: 1, display: 'inline-block' }}>
+                <img src={tenantForm.cachetSignatureUrl} alt="Aperçu signature" style={{ maxHeight: 60 }} />
+              </Box>
+            )}
           </Stack>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>

@@ -106,6 +106,29 @@ export default function SuperAdminDashboard() {
                 value={(form as any).adresse || ""}
                 onChange={(e) => setForm({ ...form, adresse: e.target.value } as any)}
               />
+              <Stack direction="row" spacing={2}>
+                <TextField 
+                  label="RIB de l'établissement" 
+                  fullWidth 
+                  placeholder="RIB"
+                  value={(form as any).rib || ""}
+                  onChange={(e) => setForm({ ...form, rib: e.target.value } as any)}
+                />
+                <TextField 
+                  label="Numéro MVola" 
+                  fullWidth 
+                  placeholder="MVola"
+                  value={(form as any).mvola || ""}
+                  onChange={(e) => setForm({ ...form, mvola: e.target.value } as any)}
+                />
+              </Stack>
+              <TextField 
+                label="URL de la signature/cachet" 
+                fullWidth 
+                placeholder="https://..."
+                value={(form as any).cachetSignatureUrl || ""}
+                onChange={(e) => setForm({ ...form, cachetSignatureUrl: e.target.value } as any)}
+              />
               <TextField 
                 label="URL du Logo" 
                 fullWidth 

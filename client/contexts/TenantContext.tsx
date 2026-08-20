@@ -8,6 +8,7 @@ interface TenantContextType {
   tenantId: string | null;
   publicConfig: TenantPublicConfig | null;
   config: TenantConfig | null;
+  logo: string;
   isLoading: boolean;
   error: Error | null;
   refreshConfig: () => Promise<void>;
@@ -69,8 +70,11 @@ export function TenantProvider({ children }: PropsWithChildren) {
     loadTenant();
   }, [tenantId]);
 
+  const logo = tenantId === 'okalodge' 
+    ? '/assets/logo-oka.jpeg?v=' + new Date().getTime() 
+    : (publicConfig?.logoUrl || '/assets/default-logo.jpg');
+
   useEffect(() => {
-    const logo = publicConfig?.logoUrl || "/assets/default-logo.jpg";
     const title = publicConfig?.nom 
       ? `${publicConfig.nom} — ResiPro` 
       : "ResiPro — Logiciel Hôtellerie & Restauration";
@@ -83,10 +87,10 @@ export function TenantProvider({ children }: PropsWithChildren) {
       document.getElementsByTagName('head')[0].appendChild(link);
     }
     link.href = logo;
-  }, [publicConfig]);
+  }, [publicConfig, logo]);
 
   return (
-    <TenantContext.Provider value={{ tenantId: tenantId || null, publicConfig, config, isLoading, error, refreshConfig: loadTenant }}>
+    <TenantContext.Provider value={{ tenantId: tenantId || null, publicConfig, config, logo, isLoading, error, refreshConfig: loadTenant }}>
       {children}
     </TenantContext.Provider>
   );

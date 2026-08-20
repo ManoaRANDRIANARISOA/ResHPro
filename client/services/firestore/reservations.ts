@@ -196,7 +196,7 @@ async function generateHebergementInvoice(tenantId: string, reservation: Reserva
     const created: any = {
       numero,
       date: new Date().toISOString(),
-      dueDate: addDays(dStart, 15).toISOString(),
+      dueDate: new Date(reservation.dateDebut).toISOString(),
       reservationId: reservation.id,
       clientId: reservation.clientId || "",
       clientNom: cli?.nom ?? (reservation.clientId || "Client"),
@@ -206,6 +206,8 @@ async function generateHebergementInvoice(tenantId: string, reservation: Reserva
       remisePourcentage: 0,
       remiseMontant: 0,
       totalTTC: total,
+      accompte: (reservation as any).accompte || 0,
+      methodePaiementAccompte: (reservation as any).methodePaiementAccompte || 'especes',
       modePaiement: "especes",
       statut: "emise" as const,
     };
@@ -305,5 +307,31 @@ export function useAssignTable() {
       return updateTenantDoc(tenantId, "reservations", reservationId, { tableId });
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: reservationsKeys.all }),
+  });
+}
+
+export function useDeleteHebergementReservation() {
+  const qc = useQueryClient();
+  const { tenantId } = useTenant();
+  return useMutation({
+    mutationFn: async ({ id }: { id: string }) => {
+      if (!tenantId) throw new Error("Tenant ID is required");
+
+      // Chercher si une facture est liée à cette réservation
+      const facturesLies = await fetchCollection<any>(tenantId, "factures", where("reservationId", "==", id));
+      
+      // Supprimer la/les facture(s)
+      for (const facture of facturesLies) {
+        await deleteTenantDoc(tenantId, "factures", facture.id);
+      }
+
+      // Supprimer la réservation
+      await deleteTenantDoc(tenantId, "reservations", id);
+      return id;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: reservationsKeys.all });
+      qc.invalidateQueries({ queryKey: ["factures"] });
+    },
   });
 }
