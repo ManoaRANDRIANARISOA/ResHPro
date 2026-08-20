@@ -13,11 +13,18 @@ import {
   Typography,
   Card,
   CardContent,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  IconButton,
 } from "@mui/material";
-import TrendingUpIcon from "@mui/icons-material/TrendingUp";
+import SettingsIcon from "@mui/icons-material/Settings";
 import { useMemo, useState, useEffect, Fragment, useCallback } from "react";
 import {
   useTables,
+  useSaveTables,
+  DEFAULT_TABLES,
   useEndOfService,
   useTodayRestoReservations,
   useCreateClient,
@@ -30,7 +37,6 @@ import {
 import { Reservation, TableResto, Client } from "@shared/api";
 import { TableStatus } from "@/components/StatusChip";
 import DynamicSchedule from "@/components/DynamicSchedule";
-// Modals latéraux retirés selon demande
 import { format } from "date-fns";
 
 type ReservationMode = "new" | "view" | null;
@@ -53,12 +59,62 @@ interface FormState {
 
 export default function RestoPlan() {
   const { data: tables } = useTables();
+  const saveTablesMutation = useSaveTables();
   const todayRes = useTodayRestoReservations();
   const { data: clients } = useClients();
   const deleteResa = useDeleteRestoReservation();
   const cancelPendingCmd = useCancelPendingCommandesForReservation();
-  // Drawer/modal latéral retiré
   const end = useEndOfService();
+
+  // Dialog configuration des tables
+  const [configOpen, setConfigOpen] = useState(false);
+  const [tableCountInput, setTableCountInput] = useState<number>(12);
+  const [customTables, setCustomTables] = useState<TableResto[]>([]);
+
+  const effectiveTables = useMemo(() => {
+    return (tables && tables.length > 0) ? tables : DEFAULT_TABLES;
+  }, [tables]);
+
+  useEffect(() => {
+    if (effectiveTables.length > 0) {
+      setTableCountInput(effectiveTables.length);
+      setCustomTables(effectiveTables);
+    }
+  }, [effectiveTables]);
+
+  function handleOpenConfig() {
+    setTableCountInput(effectiveTables.length);
+    setCustomTables(effectiveTables);
+    setConfigOpen(true);
+  }
+
+  function handleCountChange(count: number) {
+    const validCount = Math.max(1, Math.min(30, count));
+    setTableCountInput(validCount);
+    const newTables: TableResto[] = [];
+    for (let i = 0; i < validCount; i++) {
+      const existing = customTables[i];
+      if (existing) {
+        newTables.push(existing);
+      } else {
+        newTables.push({
+          id: `T${i + 1}`,
+          numero: `T${i + 1}`,
+          capacite: (i % 3 === 0 ? 6 : i % 2 === 0 ? 4 : 2),
+          statut: 'libre',
+        });
+      }
+    }
+    setCustomTables(newTables);
+  }
+
+  function handleSaveTableConfig() {
+    saveTablesMutation.mutate(customTables, {
+      onSuccess: () => {
+        setConfigOpen(false);
+      }
+    });
+  }
 
   // Enrichir les réservations avec les données clients
   const enrichedReservations = useMemo(() => {
@@ -78,17 +134,14 @@ export default function RestoPlan() {
 
   // Fonction optimisée pour mettre à jour les réservations localement
   const handleReservationUpdate = useCallback((updatedReservations: EnrichedReservation[]) => {
-    console.log('Plan.tsx - Mise à jour des réservations reçue:', updatedReservations.length, 'réservations');
     setLocalEnrichedReservations(updatedReservations);
-    // Mettre également à jour la réservation sélectionnée si elle existe
     const updatedSelected = updatedReservations.find(r => r.id === selectedReservation?.id);
     if (updatedSelected) {
-      console.log('Plan.tsx - Réservation sélectionnée mise à jour:', updatedSelected.id);
       setSelectedReservation(updatedSelected);
     }
   }, [selectedReservation?.id]);
 
-  // Synchroniser l'état local avec les données du serveur - SOLUTION DÉFINITIVE
+  // Synchroniser l'état local avec les données du serveur
   useEffect(() => {
     if (enrichedReservations.length > 0) {
       setLocalEnrichedReservations(enrichedReservations);
@@ -107,11 +160,11 @@ export default function RestoPlan() {
   }
 
   const filteredTables = useMemo(() => {
-    let list = tables ?? [];
+    let list = effectiveTables;
     if (cap === "2") list = list.filter((t) => t.capacite <= 2);
     if (cap === "4p") list = list.filter((t) => t.capacite >= 4);
     return list;
-  }, [tables, cap]);
+  }, [effectiveTables, cap]);
 
   const currentService = useMemo(() => {
     const now = new Date();
@@ -130,9 +183,7 @@ export default function RestoPlan() {
     return { label: "" };
   }, [service, enrichedReservations]);
 
-  // const selectedReservationId = selected?.assignedReservationId ?? ""; // retiré
-
-  // Statistiques (statique pour l'instant, prêt pour données dynamiques du backend)
+  // Statistiques
   const topTableStats = useMemo(() => {
     const SERVICE_START = 8;
     const SERVICE_END = 22;
@@ -157,7 +208,7 @@ export default function RestoPlan() {
       return (r.duree as number) || 60;
     }
     const totalOccupied = localEnrichedReservations.reduce((sum, r) => sum + durationForReservation(r), 0);
-    const capacity = (tables?.length || 0) * SERVICE_MINUTES;
+    const capacity = (effectiveTables?.length || 0) * SERVICE_MINUTES;
     const avgOccupationPct = capacity > 0 ? Math.min(100, Math.round((totalOccupied / capacity) * 100)) : 0;
     const perTable: Record<string, number> = {};
     for (const r of localEnrichedReservations) {
@@ -167,21 +218,21 @@ export default function RestoPlan() {
     }
     const favEntry = Object.entries(perTable).sort((a, b) => b[1] - a[1])[0];
     const favTableId = favEntry?.[0];
-    const favTable = (tables || []).find(t => t.id === favTableId)?.numero || (favTableId ? favTableId : "—");
+    const favTable = (effectiveTables || []).find(t => t.id === favTableId)?.numero || (favTableId ? favTableId : "—");
     return {
       totalReservations: localEnrichedReservations.length,
       avgOccupation: `${avgOccupationPct}%`,
       topTable: favTable
     };
-  }, [localEnrichedReservations, tables]);
+  }, [localEnrichedReservations, effectiveTables]);
 
   return (
-    <Box>
+    <Box sx={{ pb: 4 }}>
       {/* Contrôles de filtre */}
       <Paper sx={{ p: 2, mb: 2 }}>
         <Grid container spacing={2} alignItems="center">
           <Grid item xs={12} md={6}>
-            <Typography variant="h6" component="h2">
+            <Typography variant="h6" component="h2" fontWeight={800}>
               Planification Restaurant
             </Typography>
             <Typography variant="body2" color="text.secondary">
@@ -189,19 +240,16 @@ export default function RestoPlan() {
             </Typography>
           </Grid>
           <Grid item xs={12} md={6}>
-            <Stack direction="row" spacing={2} justifyContent="flex-end">
-              {/* <FormControl size="small" sx={{ minWidth: 120 }}>
-                <InputLabel>Service</InputLabel>
-                <Select
-                  value={service}
-                  onChange={(e) => setService(e.target.value as any)}
-                  label="Service"
-                >
-                  <MenuItem value="today">Aujourd'hui</MenuItem>
-                  <MenuItem value="dej">Déjeuner</MenuItem>
-                  <MenuItem value="diner">Dîner</MenuItem>
-                </Select>
-              </FormControl> */}
+            <Stack direction="row" spacing={1.5} justifyContent="flex-end" alignItems="center" flexWrap="wrap">
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<SettingsIcon />}
+                onClick={handleOpenConfig}
+                sx={{ textTransform: "none", fontWeight: 700 }}
+              >
+                Configurer les tables ({effectiveTables.length})
+              </Button>
               <FormControl size="small" sx={{ minWidth: 120 }}>
                 <InputLabel>Capacité</InputLabel>
                 <Select
@@ -224,7 +272,7 @@ export default function RestoPlan() {
         <Grid container spacing={3} justifyContent="center" alignItems="stretch">
           <Grid item xs={12} sm={4} md={4}>
             <Box textAlign="center">
-              <Typography variant="h6" color="primary">
+              <Typography variant="h6" color="primary" fontWeight={800}>
                 {topTableStats.totalReservations}
               </Typography>
               <Typography variant="body2" color="text.secondary">
@@ -234,7 +282,7 @@ export default function RestoPlan() {
           </Grid>
           <Grid item xs={12} sm={4} md={4}>
             <Box textAlign="center">
-              <Typography variant="h6" color="primary">
+              <Typography variant="h6" color="primary" fontWeight={800}>
                 {topTableStats.avgOccupation}
               </Typography>
               <Typography variant="body2" color="text.secondary">
@@ -244,7 +292,7 @@ export default function RestoPlan() {
           </Grid>
           <Grid item xs={12} sm={4} md={4}>
             <Box textAlign="center">
-              <Typography variant="h6" color="primary">
+              <Typography variant="h6" color="primary" fontWeight={800}>
                 {topTableStats.topTable}
               </Typography>
               <Typography variant="body2" color="text.secondary">
@@ -257,14 +305,14 @@ export default function RestoPlan() {
 
       {/* Légende et contrôles */}
       <Paper sx={{ p: 2, mb: 2 }}>
-        <Stack direction="row" spacing={2} alignItems="center" justifyContent="space-between">
-          <Stack direction="row" spacing={2} alignItems="center">
-            <Typography variant="h6" component="h3">
+        <Stack direction="row" spacing={2} alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={1}>
+          <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap">
+            <Typography variant="subtitle1" fontWeight={700}>
               Légende
             </Typography>
-            <Chip size="small" label="Réservé" sx={{ backgroundColor: '#66BB6A', color: '#fff' }} />
-            <Chip size="small" label="Occupé" sx={{ backgroundColor: '#EF5350', color: '#fff' }} />
-            <Chip size="small" label="Terminé" sx={{ backgroundColor: '#9E9E9E', color: '#fff' }} />
+            <Chip size="small" label="Réservé" sx={{ backgroundColor: '#66BB6A', color: '#fff', fontWeight: 600 }} />
+            <Chip size="small" label="Occupé" sx={{ backgroundColor: '#EF5350', color: '#fff', fontWeight: 600 }} />
+            <Chip size="small" label="Terminé" sx={{ backgroundColor: '#9E9E9E', color: '#fff', fontWeight: 600 }} />
           </Stack>
           <Button
             variant="contained"
@@ -273,33 +321,32 @@ export default function RestoPlan() {
               setSelectedReservation(null);
               document.getElementById("new-resa")?.scrollIntoView({ behavior: "smooth" });
             }}
+            sx={{ fontWeight: 700 }}
           >
             Nouvelle Réservation
           </Button>
         </Stack>
       </Paper>
 
-      {/* Planning dynamique médical-style */}
-      <Paper sx={{ p: 2, mb: 2 }}>
+      {/* Planning dynamique médical-style (Grille Horaires x Tables avec ligne de temps rouge) */}
+      <Paper sx={{ p: 2, mb: 2, overflowX: 'auto' }}>
         <Typography fontWeight={800} mb={2}>Planning Dynamique</Typography>
-        {filteredTables.length > 0 && enrichedReservations && (
-          <DynamicSchedule 
-            reservations={localEnrichedReservations} 
-            tables={filteredTables}
-            clients={clients}
-            onReservationUpdate={handleReservationUpdate}
-            onReservationClick={(reservation) => {
-              setReservationMode('view');
-              setSelectedReservation(reservation);
-              document
-                .getElementById("new-resa")
-                ?.scrollIntoView({ behavior: "smooth" });
-            }}
-            onMarkNoShow={(reservationId) => {
-              cancelPendingCmd.mutate({ reservationId });
-            }}
-          />
-        )}
+        <DynamicSchedule 
+          reservations={localEnrichedReservations} 
+          tables={filteredTables}
+          clients={clients}
+          onReservationUpdate={handleReservationUpdate}
+          onReservationClick={(reservation) => {
+            setReservationMode('view');
+            setSelectedReservation(reservation);
+            document
+              .getElementById("new-resa")
+              ?.scrollIntoView({ behavior: "smooth" });
+          }}
+          onMarkNoShow={(reservationId) => {
+            cancelPendingCmd.mutate({ reservationId });
+          }}
+        />
       </Paper>
 
       <ReservationsList 
@@ -321,7 +368,6 @@ export default function RestoPlan() {
         onDelete={async () => {
           if (selectedReservation) {
             await deleteResa.mutateAsync({ id: selectedReservation.id });
-            // Mettre à jour l'état local immédiatement
             const updatedReservations = localEnrichedReservations.filter(r => r.id !== selectedReservation.id);
             setLocalEnrichedReservations(updatedReservations);
             setReservationMode(null);
@@ -335,7 +381,78 @@ export default function RestoPlan() {
         setSelectedReservation={setSelectedReservation}
       />
 
-      {/* Drawer et modals supprimés pour une interface simplifiée */}
+      {/* Modal Paramétrage des Tables du Restaurant */}
+      <Dialog open={configOpen} onClose={() => setConfigOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800 }}>
+          Paramétrage des tables du restaurant
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={2.5} sx={{ mt: 1 }}>
+            <Box>
+              <Typography variant="body2" fontWeight={700} mb={0.5}>
+                Nombre total de tables :
+              </Typography>
+              <TextField
+                type="number"
+                size="small"
+                fullWidth
+                value={tableCountInput}
+                onChange={(e) => handleCountChange(parseInt(e.target.value || '1', 10))}
+                inputProps={{ min: 1, max: 30 }}
+                helperText="Ajustez le nombre de tables configurées pour votre établissement (ex: 8, 12, 16, 20)."
+              />
+            </Box>
+
+            <Typography variant="subtitle2" fontWeight={700}>
+              Liste et capacités des tables
+            </Typography>
+
+            <Box sx={{ maxHeight: 280, overflowY: 'auto', pr: 1 }}>
+              <Stack spacing={1.5}>
+                {customTables.map((t, idx) => (
+                  <Paper key={t.id || idx} variant="outlined" sx={{ p: 1.5, display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <TextField
+                      label="Nom / Numéro"
+                      size="small"
+                      value={t.numero}
+                      onChange={(e) => {
+                        const next = [...customTables];
+                        next[idx] = { ...next[idx], numero: e.target.value, id: e.target.value };
+                        setCustomTables(next);
+                      }}
+                      sx={{ flex: 1 }}
+                    />
+                    <TextField
+                      label="Capacité (pers.)"
+                      type="number"
+                      size="small"
+                      value={t.capacite}
+                      onChange={(e) => {
+                        const next = [...customTables];
+                        next[idx] = { ...next[idx], capacite: parseInt(e.target.value || '2', 10) };
+                        setCustomTables(next);
+                      }}
+                      inputProps={{ min: 1, max: 20 }}
+                      sx={{ width: 140 }}
+                    />
+                  </Paper>
+                ))}
+              </Stack>
+            </Box>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfigOpen(false)}>Annuler</Button>
+          <Button 
+            variant="contained" 
+            onClick={handleSaveTableConfig}
+            disabled={saveTablesMutation.isPending}
+            sx={{ fontWeight: 700 }}
+          >
+            {saveTablesMutation.isPending ? "Enregistrement..." : "Enregistrer la disposition"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

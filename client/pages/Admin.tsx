@@ -249,11 +249,12 @@ export default function AdminPage() {
       id: "",
       nom: "",
       email: "",
-      role: "Serveur",
-      canal: "Restaurant",
+      role: "",
+      canal: "",
       derniere: "",
       statut: "Actif",
     });
+    setPassword("");
     setModalOpen(true);
   }
 
@@ -262,11 +263,14 @@ export default function AdminPage() {
     setIsCreating(false);
     setEditingUser(user);
     setUserForm({ ...user });
+    setPassword("");
     setModalOpen(true);
   }
 
   // Sauvegarder les modifications ou créer un nouvel utilisateur
   function saveUser() {
+    if (!userForm.nom || !userForm.email || !userForm.role) return;
+
     const roleKey = (() => {
       const map: Record<string, string> = {
         "Admin": "admin",
@@ -629,6 +633,7 @@ export default function AdminPage() {
               }
               fullWidth
             >
+              <MenuItem value="" disabled><em>-- Choisir un rôle métier --</em></MenuItem>
               <MenuItem value="Admin">Admin (Supervision & Technique)</MenuItem>
               <MenuItem value="Direction">Direction (Supervision Globale)</MenuItem>
               <MenuItem value="Responsable Hébergement">Responsable Hébergement</MenuItem>
@@ -651,6 +656,7 @@ export default function AdminPage() {
               }
               fullWidth
             >
+              <MenuItem value="" disabled><em>-- Choisir un canal --</em></MenuItem>
               <MenuItem value="Tous">Tous</MenuItem>
               <MenuItem value="Hébergement">Hébergement</MenuItem>
               <MenuItem value="Restaurant">Restaurant</MenuItem>
@@ -668,15 +674,18 @@ export default function AdminPage() {
               fullWidth
             >
               <MenuItem value="Actif">Actif</MenuItem>
-              {/* <MenuItem value="Invité">Invité</MenuItem> */}
               <MenuItem value="Suspendu">Suspendu</MenuItem>
             </TextField>
           </Stack>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setModalOpen(false)}>Annuler</Button>
-          <Button variant="contained" onClick={saveUser}>
-            {isCreating ? "Créer" : "Enregistrer"}
+          <Button 
+            variant="contained" 
+            onClick={saveUser} 
+            disabled={!userForm.nom || !userForm.email || !userForm.role || createUser.isPending || updateUser.isPending}
+          >
+            {isCreating ? (createUser.isPending ? "Création..." : "Créer") : (updateUser.isPending ? "Enregistrement..." : "Enregistrer")}
           </Button>
         </DialogActions>
       </Dialog>
