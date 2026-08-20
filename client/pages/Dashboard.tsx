@@ -338,7 +338,7 @@ export default function Dashboard() {
                           label={e.nom}
                           color="primary"
                           component={Link as any}
-                          to="/resto/evenements"
+                          to={`/${tenantId}/resto/evenements`}
                           clickable
                         />
                       ))}
@@ -408,7 +408,7 @@ export default function Dashboard() {
                     size="small"
                     variant="outlined"
                     component={Link}
-                    to={`/financier?factureId=${encodeURIComponent(f.id)}`}
+                    to={`/${tenantId}/financier?factureId=${encodeURIComponent(f.id)}`}
                   >
                     Ouvrir
                   </Button>
@@ -515,7 +515,7 @@ export default function Dashboard() {
             <Button
               variant="contained"
               component={Link as any}
-              to="/resto/plan"
+              to={`/${tenantId}/resto/plan`}
             >
               Ouvrir
             </Button>
@@ -541,7 +541,7 @@ export default function Dashboard() {
             <Button
               variant="outlined"
               component={Link as any}
-              to="/hebergement/gestion"
+              to={`/${tenantId}/hebergement/gestion`}
             >
               Voir
             </Button>

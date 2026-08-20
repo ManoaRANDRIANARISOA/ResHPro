@@ -2,12 +2,15 @@ import { Avatar, Box, Button, Chip, List, ListItemButton, ListItemText, Paper, S
 import { useMemo, useState, useEffect } from "react";
 import { format } from "date-fns";
 import { fr } from "date-fns/locale";
-import { useClients, useHebergementReservations } from "@/services/api";
+import { useClients, useUpdateClient, useHebergementReservations } from "@/services/api";
 import { useNavigate } from "react-router-dom";
+import { useTenant } from "@/contexts/TenantContext";
 
 export default function HebergementClients() {
   const navigate = useNavigate();
+  const { tenantId } = useTenant();
   const { data: clientsData } = useClients();
+  const updateClient = useUpdateClient();
   const { data: reservationsData } = useHebergementReservations();
   const [q, setQ] = useState("");
   const hebergementClientIds = useMemo(() => {
@@ -34,6 +37,7 @@ export default function HebergementClients() {
     pays: "",
     tags: "",
     reference: "",
+    agenceVoyage: "",
     notes: ""
   });
 
@@ -49,6 +53,7 @@ export default function HebergementClients() {
         pays: selected.pays || "Madagascar",
         tags: selected.tags || "",
         reference: selected.reference || "",
+        agenceVoyage: selected.agenceVoyage || "",
         notes: ""
       });
     }
@@ -65,6 +70,7 @@ export default function HebergementClients() {
       pays: selected.pays || "Madagascar",
       tags: selected.tags || "",
       reference: selected.reference || "",
+      agenceVoyage: selected.agenceVoyage || "",
       notes: ""
     };
     return JSON.stringify(formData) !== JSON.stringify(base);
@@ -120,9 +126,9 @@ export default function HebergementClients() {
               variant="contained"
               onClick={() => {
                 if (selectedId) {
-                  navigate(`/hebergement/gestion?newReservation=1&clientId=${encodeURIComponent(selectedId)}`);
+                  navigate(`/${tenantId}/hebergement/gestion?newReservation=1&clientId=${encodeURIComponent(selectedId)}`);
                 } else {
-                  navigate(`/hebergement/gestion?newReservation=1`);
+                  navigate(`/${tenantId}/hebergement/gestion?newReservation=1`);
                 }
               }}
             >
@@ -188,6 +194,16 @@ export default function HebergementClients() {
                 <Grid item xs={12} md={6}>
                   <TextField 
                     size="small" 
+                    label="Agence de voyage (si partenaire)" 
+                    fullWidth
+                    placeholder="Ex: Madagascar Travel, Lemur Tours..."
+                    value={formData.agenceVoyage}
+                    onChange={(e) => setFormData({...formData, agenceVoyage: e.target.value})}
+                  />
+                </Grid>
+                <Grid item xs={12} md={3}>
+                  <TextField 
+                    size="small" 
                     label="Tags" 
                     fullWidth
                     placeholder="VIP, Direct"
@@ -195,7 +211,7 @@ export default function HebergementClients() {
                     onChange={(e) => setFormData({...formData, tags: e.target.value})}
                   />
                 </Grid>
-                <Grid item xs={12} md={6}>
+                <Grid item xs={12} md={3}>
                   <TextField 
                     size="small" 
                     label="Référence" 
@@ -288,8 +304,20 @@ export default function HebergementClients() {
                 ))}
               </Box>
               <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
-                {isDirty && <Button variant="contained" onClick={()=> console.log('save client (mock)', formData)}>Sauvegarder</Button>}
-                <Button variant="outlined" onClick={()=> navigate(`/financier?clientId=${encodeURIComponent(selectedId)}`)}>Voir les factures</Button>
+                {isDirty && (
+                  <Button 
+                    variant="contained" 
+                    onClick={() => {
+                      if (selectedId) {
+                        updateClient.mutate({ id: selectedId, ...formData });
+                      }
+                    }}
+                    disabled={updateClient.isPending}
+                  >
+                    {updateClient.isPending ? "Sauvegarde..." : "Sauvegarder"}
+                  </Button>
+                )}
+                <Button variant="outlined" onClick={()=> navigate(`/${tenantId}/financier?clientId=${encodeURIComponent(selectedId)}`)}>Voir les factures</Button>
               </Stack>
             </Stack>
           )}

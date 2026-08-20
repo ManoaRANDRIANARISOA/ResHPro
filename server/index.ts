@@ -4,6 +4,7 @@ import cors from "cors";
 import fs from 'fs/promises';
 import path from 'path';
 import { handleDemo } from "./routes/demo";
+import usersRouter from "./routes/users";
 
 export function createServer() {
   const app = express();
@@ -80,6 +81,7 @@ export function createServer() {
   });
 
   app.get("/api/demo", handleDemo);
+  app.use("/api/users", usersRouter);
 
   return app;
 }

@@ -1,15 +1,7 @@
 import { createContext, useContext, PropsWithChildren, useEffect } from "react";
-import { useFirebaseAuth, signInWithEmailAndPassword, signOut } from "@/services/firebase-auth";
+import { useFirebaseAuth, signInWithEmailAndPassword, signOut, AuthUser } from "@/services/firebase-auth";
 import { useAppDispatch, setRole } from "@/store";
 import { Role } from "@/hooks/useRBAC";
-
-interface AuthUser {
-  uid: string;
-  email: string | null;
-  tenantId: string | null;
-  role: Role | null;
-  superAdmin: boolean;
-}
 
 interface AuthContextType {
   user: AuthUser | null;

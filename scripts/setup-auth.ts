@@ -34,16 +34,16 @@ const usersToCreate = [
   },
   
   // Oka Lodge Users
-  { email: "admin@okalodge.mg", password: "okalodge2025", displayName: "Oka Admin", claims: { tenantId: "oka-lodge", role: "admin" } },
-  { email: "reception@okalodge.mg", password: "okalodge2025", displayName: "Oka Reception", claims: { tenantId: "oka-lodge", role: "reception" } },
-  { email: "chef.salle@okalodge.mg", password: "okalodge2025", displayName: "Oka Chef Salle", claims: { tenantId: "oka-lodge", role: "chef_salle" } },
-  { email: "serveur@okalodge.mg", password: "okalodge2025", displayName: "Oka Serveur", claims: { tenantId: "oka-lodge", role: "serveur" } },
-  { email: "cuisine@okalodge.mg", password: "okalodge2025", displayName: "Oka Cuisine", claims: { tenantId: "oka-lodge", role: "cuisine" } },
-  { email: "bar@okalodge.mg", password: "okalodge2025", displayName: "Oka Bar", claims: { tenantId: "oka-lodge", role: "bar" } },
-  { email: "comptoir@okalodge.mg", password: "okalodge2025", displayName: "Oka Comptoir", claims: { tenantId: "oka-lodge", role: "comptoir" } },
-  { email: "economat@okalodge.mg", password: "okalodge2025", displayName: "Oka Economat", claims: { tenantId: "oka-lodge", role: "economat" } },
-  { email: "comptable@okalodge.mg", password: "okalodge2025", displayName: "Oka Comptable", claims: { tenantId: "oka-lodge", role: "comptable" } },
-  { email: "direction@okalodge.mg", password: "okalodge2025", displayName: "Oka Direction", claims: { tenantId: "oka-lodge", role: "direction" } },
+  { email: "admin@okalodge.mg", password: "okalodge2025", displayName: "Oka Admin", claims: { tenantId: "okalodge", role: "admin" } },
+  { email: "reception@okalodge.mg", password: "okalodge2025", displayName: "Oka Reception", claims: { tenantId: "okalodge", role: "reception" } },
+  { email: "chef.salle@okalodge.mg", password: "okalodge2025", displayName: "Oka Chef Salle", claims: { tenantId: "okalodge", role: "chef_salle" } },
+  { email: "serveur@okalodge.mg", password: "okalodge2025", displayName: "Oka Serveur", claims: { tenantId: "okalodge", role: "serveur" } },
+  { email: "cuisine@okalodge.mg", password: "okalodge2025", displayName: "Oka Cuisine", claims: { tenantId: "okalodge", role: "cuisine" } },
+  { email: "bar@okalodge.mg", password: "okalodge2025", displayName: "Oka Bar", claims: { tenantId: "okalodge", role: "bar" } },
+  { email: "comptoir@okalodge.mg", password: "okalodge2025", displayName: "Oka Comptoir", claims: { tenantId: "okalodge", role: "comptoir" } },
+  { email: "economat@okalodge.mg", password: "okalodge2025", displayName: "Oka Economat", claims: { tenantId: "okalodge", role: "economat" } },
+  { email: "comptable@okalodge.mg", password: "okalodge2025", displayName: "Oka Comptable", claims: { tenantId: "okalodge", role: "comptable" } },
+  { email: "direction@okalodge.mg", password: "okalodge2025", displayName: "Oka Direction", claims: { tenantId: "okalodge", role: "direction" } },
   
   // Kanana Users
   { email: "admin@kanana.mg", password: "kanana2026", displayName: "Kanana Admin", claims: { tenantId: "kanana", role: "admin" } },

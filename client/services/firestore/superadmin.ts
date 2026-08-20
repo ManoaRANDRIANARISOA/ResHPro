@@ -4,28 +4,37 @@ import { db } from "@/services/firebase";
 import { TenantConfig, TenantPublicConfig } from "@shared/tenant";
 
 export function useAllTenants() {
-  // En production, cette requête serait protégée par des règles Firestore strictes 
-  // (ex: seul l'utilisateur global admin = true peut lister les tenants).
-  // Pour le MVP, on liste simplement la collection `tenants`.
   return useQuery({
     queryKey: ["superadmin", "tenants"],
     queryFn: async () => {
       const snap = await getDocs(collection(db, "tenants"));
-      // Pour avoir les détails, il faudrait lire les publicConfig de chaque tenant.
-      // On le fait dans une boucle (acceptable si on a peu de tenants).
-      const tenantsData = [];
-      for (const tDoc of snap.docs) {
-        const publicSnap = await getDocs(collection(db, `tenants/${tDoc.id}/publicConfig`));
-        const publicConf = publicSnap.docs.find(d => d.id === "main")?.data() as TenantPublicConfig;
-        
-        const confSnap = await getDocs(collection(db, `tenants/${tDoc.id}/config`));
-        const conf = confSnap.docs.find(d => d.id === "main")?.data() as TenantConfig;
+      const tenantIds = new Set<string>(snap.docs.map(d => d.id));
+      
+      // Assurer que "demo" est également vérifié s'il n'avait pas de document racine
+      tenantIds.add("demo");
 
-        tenantsData.push({
-          id: tDoc.id,
-          publicConfig: publicConf,
-          config: conf,
-        });
+      const tenantsData = [];
+      for (const tId of tenantIds) {
+        try {
+          const publicSnap = await getDocs(collection(db, `tenants/${tId}/publicConfig`));
+          const publicConf = publicSnap.docs.find(d => d.id === "main")?.data() as TenantPublicConfig | undefined;
+          
+          // Si le locataire n'a ni config ni document racine, on passe
+          if (!publicConf && !snap.docs.some(d => d.id === tId)) {
+            continue;
+          }
+
+          const confSnap = await getDocs(collection(db, `tenants/${tId}/config`));
+          const conf = confSnap.docs.find(d => d.id === "main")?.data() as TenantConfig | undefined;
+
+          tenantsData.push({
+            id: tId,
+            publicConfig: publicConf,
+            config: conf,
+          });
+        } catch (err) {
+          console.warn(`Erreur lors de la récupération du tenant ${tId}:`, err);
+        }
       }
       return tenantsData;
     },
@@ -38,6 +47,12 @@ interface ProvisionPayload {
   themePrimary: string;
   themeSecondary: string;
   logoUrl: string;
+  nif?: string;
+  stat?: string;
+  rcs?: string;
+  adresse?: string;
+  telephone?: string;
+  email?: string;
   modules: {
     hebergement: boolean;
     restaurant: boolean;
@@ -51,12 +66,32 @@ interface ProvisionPayload {
 export function useProvisionTenant() {
   return useMutation({
     mutationFn: async (payload: ProvisionPayload) => {
-      const { tenantId, nom, themePrimary, themeSecondary, logoUrl, modules, invoicePrefix } = payload;
+      const {
+        tenantId,
+        nom,
+        themePrimary,
+        themeSecondary,
+        logoUrl,
+        nif,
+        stat,
+        rcs,
+        adresse,
+        telephone,
+        email,
+        modules,
+        invoicePrefix
+      } = payload;
       
       // 1. Créer le publicConfig
       const publicConfig: TenantPublicConfig = {
         nom,
         logoUrl,
+        nif: nif?.trim() ? nif.trim() : "À fournir par le client",
+        stat: stat?.trim() ? stat.trim() : "À fournir par le client",
+        rcs: rcs?.trim() || undefined,
+        adresse: adresse?.trim() || undefined,
+        telephone: telephone?.trim() || undefined,
+        email: email?.trim() || undefined,
         theme: {
           primary: themePrimary,
           secondary: themeSecondary,
@@ -70,8 +105,15 @@ export function useProvisionTenant() {
       await setDoc(doc(db, `tenants/${tenantId}/publicConfig/main`), publicConfig);
 
       // 2. Créer la config
-      // On génère des catégories par défaut
       const config: Partial<TenantConfig> = {
+        nom,
+        logoUrl,
+        nif: nif?.trim() ? nif.trim() : "À fournir par le client",
+        stat: stat?.trim() ? stat.trim() : "À fournir par le client",
+        rcs: rcs?.trim() || undefined,
+        adresse: adresse?.trim() || undefined,
+        telephone: telephone?.trim() || undefined,
+        email: email?.trim() || undefined,
         modules: {
           ...modules,
           fichesTechniques: true,

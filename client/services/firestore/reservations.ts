@@ -112,19 +112,59 @@ async function generateHebergementInvoice(tenantId: string, reservation: Reserva
     
     const dStart = new Date(reservation.dateDebut);
     const dEnd = new Date(reservation.dateFin || reservation.dateDebut);
-    const nights = eachDayOfInterval({ start: dStart, end: dEnd }).length - 1 || 1; // -1 because last day is checkout day, fallback to 1
-    
-    const hasBreakfast = (reservation.notes?.toLowerCase().includes("pdj inclus") || reservation.notes?.toLowerCase().includes("petit déj"));
-    const breakfastPrice = configDoc?.breakfastPrice ?? 15000;
-    const breakfastTotal = hasBreakfast ? (breakfastPrice * nights * (reservation.nbPersonnes || 1)) : 0;
-    
-    const tarif = ch?.tarif_base ?? 0;
-    const total = tarif * nights + breakfastTotal;
-    
-    const lignes = [{ description: `Nuitée ${ch?.numero ?? reservation.chambreId} (${dStart.toLocaleDateString()} – ${dEnd.toLocaleDateString()})`, qte: nights, pu: tarif }];
-    if (hasBreakfast) {
-      lignes.push({ description: "Petit Déjeuner Inclus", qte: nights * (reservation.nbPersonnes || 1), pu: breakfastPrice });
+    const nights = Math.max(1, eachDayOfInterval({ start: dStart, end: dEnd }).length - 1);
+
+    // Calcul du pack / formule de séjour
+    let formulaTotal = 0;
+    const formulaLines: { description: string; qte: number; pu: number }[] = [];
+
+    if (reservation.packNom && reservation.packPrix && reservation.packPrix > 0) {
+      if (reservation.packTypeCalcul === "par_personne_nuit") {
+        const qty = nights * (reservation.nbPersonnes || 1);
+        formulaTotal = reservation.packPrix * qty;
+        formulaLines.push({
+          description: `Formule ${reservation.packNom} (${reservation.nbPersonnes || 1} pers. × ${nights} nuit${nights > 1 ? 's' : ''})`,
+          qte: qty,
+          pu: reservation.packPrix,
+        });
+      } else if (reservation.packTypeCalcul === "par_chambre_nuit") {
+        formulaTotal = reservation.packPrix * nights;
+        formulaLines.push({
+          description: `Formule ${reservation.packNom} (${nights} nuit${nights > 1 ? 's' : ''})`,
+          qte: nights,
+          pu: reservation.packPrix,
+        });
+      } else {
+        // forfait_fixe
+        formulaTotal = reservation.packPrix;
+        formulaLines.push({
+          description: `Formule ${reservation.packNom} (Forfait séjour)`,
+          qte: 1,
+          pu: reservation.packPrix,
+        });
+      }
+    } else {
+      // Rétrocompatibilité avec les notes 'pdj inclus'
+      const hasBreakfast = (reservation.notes?.toLowerCase().includes("pdj inclus") || reservation.notes?.toLowerCase().includes("petit déj"));
+      const breakfastPrice = configDoc?.breakfastPrice ?? 15000;
+      if (hasBreakfast) {
+        const qty = nights * (reservation.nbPersonnes || 1);
+        formulaTotal = breakfastPrice * qty;
+        formulaLines.push({
+          description: `Petit Déjeuner Inclus (${reservation.nbPersonnes || 1} pers. × ${nights} nuit${nights > 1 ? 's' : ''})`,
+          qte: qty,
+          pu: breakfastPrice,
+        });
+      }
     }
+
+    const tarif = ch?.tarif_base ?? 0;
+    const total = tarif * nights + formulaTotal;
+    
+    const lignes = [
+      { description: `Nuitée Chambre ${ch?.numero ?? reservation.chambreId} (${dStart.toLocaleDateString('fr-FR')} – ${dEnd.toLocaleDateString('fr-FR')})`, qte: nights, pu: tarif },
+      ...formulaLines
+    ];
 
     const prefix = configDoc?.invoicePrefix || "RESI";
     const numero = `${prefix}-${dStart.getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, "0")}`;
@@ -134,10 +174,19 @@ async function generateHebergementInvoice(tenantId: string, reservation: Reserva
       date: new Date().toISOString(),
       dueDate: addDays(dStart, 15).toISOString(),
       reservationId: reservation.id,
-      clientNom: cli?.nom ?? reservation.clientId,
+      clientId: reservation.clientId,
+      clientNom: cli?.nom ?? (reservation.clientId || "Client"),
+      clientTelephone: cli?.telephone || undefined,
+      clientEmail: cli?.email || undefined,
+      clientAdresse: cli?.adresse || undefined,
+      agenceVoyage: cli?.agenceVoyage || undefined,
       source: "Hebergement" as const,
       lignes,
+      sousTotal: total,
+      remisePourcentage: 0,
+      remiseMontant: 0,
       totalTTC: total,
+      modePaiement: "especes",
       statut: "emise" as const,
     };
     

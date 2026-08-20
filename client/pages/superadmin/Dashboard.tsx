@@ -84,6 +84,28 @@ export default function SuperAdminDashboard() {
                 value={form.nom}
                 onChange={(e) => setForm({ ...form, nom: e.target.value })}
               />
+              <Stack direction="row" spacing={2}>
+                <TextField 
+                  label="NIF de l'établissement" 
+                  fullWidth 
+                  placeholder="À fournir par le client"
+                  value={(form as any).nif || ""}
+                  onChange={(e) => setForm({ ...form, nif: e.target.value } as any)}
+                />
+                <TextField 
+                  label="STAT de l'établissement" 
+                  fullWidth 
+                  placeholder="À fournir par le client"
+                  value={(form as any).stat || ""}
+                  onChange={(e) => setForm({ ...form, stat: e.target.value } as any)}
+                />
+              </Stack>
+              <TextField 
+                label="Adresse de l'établissement" 
+                fullWidth 
+                value={(form as any).adresse || ""}
+                onChange={(e) => setForm({ ...form, adresse: e.target.value } as any)}
+              />
               <TextField 
                 label="URL du Logo" 
                 fullWidth 

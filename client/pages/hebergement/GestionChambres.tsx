@@ -20,10 +20,42 @@ import {
   useFactures
 } from "@/services/api";
 import { useTenant } from "@/contexts/TenantContext";
-import { Reservation, Chambre, ChambreMaintenance } from "@shared/api";
+import { Reservation, Chambre, ChambreMaintenance, HebergementPack } from "@shared/api";
 import { RoomCalendar } from "@/components/RoomCalendar";
 import { exportToCSV, exportToPDF } from "@/lib/export";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
+
+const DEFAULT_PACKS: HebergementPack[] = [
+  {
+    id: "chambre_seule",
+    nom: "Chambre Seule (Logement Simple)",
+    description: "Nuitée standard sans repas inclus.",
+    typeCalcul: "par_chambre_nuit",
+    prix: 0,
+    isDefault: true,
+  },
+  {
+    id: "pdj_inclus",
+    nom: "Formule Petit-Déjeuner (B&B)",
+    description: "Nuitée avec petit-déjeuner complet par personne.",
+    typeCalcul: "par_personne_nuit",
+    prix: 15000,
+  },
+  {
+    id: "demi_pension",
+    nom: "Formule Demi-Pension",
+    description: "Nuitée avec Petit-déjeuner et Dîner (hors boissons).",
+    typeCalcul: "par_personne_nuit",
+    prix: 45000,
+  },
+  {
+    id: "pension_complete",
+    nom: "Formule Pension Complète",
+    description: "Nuitée avec Petit-déjeuner, Déjeuner et Dîner.",
+    typeCalcul: "par_personne_nuit",
+    prix: 75000,
+  },
+];
 
 type View = "month" | "week" | "day";
 
@@ -58,7 +90,8 @@ export default function GestionChambres() {
   const { data: rooms } = useChambres();
   const [open, setOpen] = useState<Reservation | null>(null);
   const [createModalOpen, setCreateModalOpen] = useState(false);
-  const { publicConfig } = useTenant();
+  const { publicConfig, tenantId } = useTenant();
+  const navigate = useNavigate();
   const [view, setView] = useState<View>('month');
   const [dateRef, setDateRef] = useState<Date>(startOfMonth(new Date()));
   const [searchParams] = useSearchParams();
@@ -279,7 +312,7 @@ export default function GestionChambres() {
                     const f = (factures || []).find((x) => x.reservationId === r.id && x.source === 'Hebergement');
                     if (!f) return <Chip size="small" label="—" variant="outlined" />;
                     return (
-                      <Button size="small" variant="text" onClick={() => (window.location.href = `/financier?factureId=${f.id}`)}>
+                      <Button size="small" variant="text" onClick={() => navigate(`/${tenantId}/financier?factureId=${f.id}`)}>
                         {f.totalTTC.toLocaleString()} Ar
                       </Button>
                     );
@@ -294,14 +327,57 @@ export default function GestionChambres() {
                       const dStart = new Date(r.dateDebut);
                       const dEnd = new Date(r.dateFin || r.dateDebut);
                       const nights = eachDayOfInterval({ start: dStart, end: dEnd }).length;
-                      const total = (ch?.tarif_base ?? 0) * nights;
+                      const roomTotal = (ch?.tarif_base ?? 0) * nights;
+                      let formulaTotal = 0;
+                      const formulaLines: { description: string; qte: number; pu: number }[] = [];
+
+                      if (r.packNom && r.packPrix && r.packPrix > 0) {
+                        if (r.packTypeCalcul === "par_personne_nuit") {
+                          const qty = nights * (r.nbPersonnes || 1);
+                          formulaTotal = r.packPrix * qty;
+                          formulaLines.push({
+                            description: `Formule ${r.packNom} (${r.nbPersonnes || 1} pers. × ${nights} nuits)`,
+                            qte: qty,
+                            pu: r.packPrix,
+                          });
+                        } else if (r.packTypeCalcul === "par_chambre_nuit") {
+                          formulaTotal = r.packPrix * nights;
+                          formulaLines.push({
+                            description: `Formule ${r.packNom} (${nights} nuits)`,
+                            qte: nights,
+                            pu: r.packPrix,
+                          });
+                        } else {
+                          formulaTotal = r.packPrix;
+                          formulaLines.push({
+                            description: `Formule ${r.packNom} (Forfait séjour)`,
+                            qte: 1,
+                            pu: r.packPrix,
+                          });
+                        }
+                      }
+
+                      const total = roomTotal + formulaTotal;
+                      const clientObj = clients?.find(c => c.id === r.clientId);
                       return (
                         <Button size="small" variant="contained" onClick={() => createFacture.mutate({
-                          clientNom: clients?.find(c => c.id === r.clientId)?.nom || String(r.clientId),
+                          clientId: r.clientId,
+                          clientNom: clientObj?.nom || String(r.clientId),
+                          clientTelephone: clientObj?.telephone,
+                          clientEmail: clientObj?.email,
+                          clientAdresse: clientObj?.adresse,
+                          agenceVoyage: clientObj?.agenceVoyage,
                           date: new Date().toISOString(),
                           dueDate: addDays(dStart, 15).toISOString(),
                           source: 'Hebergement',
-                          lignes: [{ description: `Nuitée ${(rooms || []).find(c => c.id === r.chambreId)?.numero || r.chambreId} (${dStart.toLocaleDateString()} – ${dEnd.toLocaleDateString()})`, qte: nights, pu: ch?.tarif_base ?? 0 }],
+                          modePaiement: 'especes',
+                          lignes: [
+                            { description: `Nuitée ${(rooms || []).find(c => c.id === r.chambreId)?.numero || r.chambreId} (${dStart.toLocaleDateString('fr-FR')} – ${dEnd.toLocaleDateString('fr-FR')})`, qte: nights, pu: ch?.tarif_base ?? 0 },
+                            ...formulaLines
+                          ],
+                          sousTotal: total,
+                          remisePourcentage: 0,
+                          remiseMontant: 0,
                           totalTTC: total,
                           reservationId: r.id,
                         })}>
@@ -379,6 +455,14 @@ function CreateReservationForm({
 }) {
   const { data: clients } = useClients();
   const createClient = useCreateClient();
+  const { config } = useTenant();
+
+  const availablePacks = useMemo(() => {
+    return (config?.hebergementPacks && config.hebergementPacks.length > 0) ? config.hebergementPacks : DEFAULT_PACKS;
+  }, [config]);
+
+  const [selectedPackId, setSelectedPackId] = useState<string>(availablePacks[0]?.id || "chambre_seule");
+  const selectedPack = availablePacks.find(p => p.id === selectedPackId) || availablePacks[0];
   
   const today = new Date();
   const tomorrow = addDays(today, 1);
@@ -534,6 +618,10 @@ function CreateReservationForm({
       dateFin: (selectedDates.end ? selectedDates.end : addDays(selectedDates.start!, 1)).toISOString(),
       nbPersonnes: form.nbPersonnes,
       statut: form.statut,
+      packId: selectedPack?.id,
+      packNom: selectedPack?.nom,
+      packPrix: selectedPack?.prix,
+      packTypeCalcul: selectedPack?.typeCalcul,
     });
   }
 
@@ -648,20 +736,23 @@ function CreateReservationForm({
         </Box>
       </Stack>
 
-      {(selectedDates.start && form.chambreId) && (
-        <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'primary.50' }}>
-          <Typography variant="body2" fontWeight={700}>Résumé de la réservation</Typography>
-          <Typography variant="caption">
-            Chambre: {(rooms || []).find(c => c.id === form.chambreId)?.numero}
-          </Typography>
-          <br />
-          <Typography variant="caption">
-            {selectedDates.end
-              ? `Du ${format(selectedDates.start, 'dd MMM yyyy', { locale: fr })} au ${format(selectedDates.end, 'dd MMM yyyy', { locale: fr })}`
-              : `Séjour d’un jour le ${format(selectedDates.start, 'dd MMM yyyy', { locale: fr })}`}
-          </Typography>
-        </Paper>
-      )}
+      <Box>
+        <Typography variant="body2" fontWeight={700} mb={0.5}>
+          Formule / Pack de séjour
+        </Typography>
+        <Select
+          size="small"
+          fullWidth
+          value={selectedPackId}
+          onChange={(e) => setSelectedPackId(e.target.value)}
+        >
+          {availablePacks.map((p) => (
+            <MenuItem key={p.id} value={p.id}>
+              {p.nom} {p.prix > 0 ? `(+${p.prix.toLocaleString('fr-FR')} Ar ${p.typeCalcul === 'par_personne_nuit' ? '/ pers. / nuit' : p.typeCalcul === 'par_chambre_nuit' ? '/ nuit' : 'forfait'})` : '(Inclus)'}
+            </MenuItem>
+          ))}
+        </Select>
+      </Box>
 
       <TextField
         size="small"
@@ -681,6 +772,72 @@ function CreateReservationForm({
         <MenuItem value="confirmee">Confirmée</MenuItem>
       </Select>
 
+      {/* Résumé & Estimation tarifaire en temps réel */}
+      {selectedDates.start && form.chambreId && (
+        <Paper variant="outlined" sx={{ p: 2, bgcolor: '#f0fdf4', borderColor: '#bbf7d0', borderRadius: 2 }}>
+          {(() => {
+            const dStart = selectedDates.start || today;
+            const dEnd = selectedDates.end ? selectedDates.end : addDays(dStart, 1);
+            const nights = Math.max(1, eachDayOfInterval({ start: dStart, end: dEnd }).length - 1);
+            const selectedRoom = rooms.find((c) => c.id === form.chambreId);
+            const roomBaseTotal = (selectedRoom?.tarif_base || 0) * nights;
+
+            let packFormulaTotal = 0;
+            if (selectedPack && selectedPack.prix > 0) {
+              if (selectedPack.typeCalcul === "par_personne_nuit") {
+                packFormulaTotal = selectedPack.prix * nights * (form.nbPersonnes || 1);
+              } else if (selectedPack.typeCalcul === "par_chambre_nuit") {
+                packFormulaTotal = selectedPack.prix * nights;
+              } else {
+                packFormulaTotal = selectedPack.prix;
+              }
+            }
+            const estimatedTotal = roomBaseTotal + packFormulaTotal;
+
+            return (
+              <Stack spacing={0.8}>
+                <Typography variant="subtitle2" fontWeight={800} color="#166534">
+                  Résumé & Tarification estimée
+                </Typography>
+                <Typography variant="caption" color="#166534" display="block">
+                  Chambre {selectedRoom?.numero} ({selectedRoom?.categorie}) · {nights} nuit{nights > 1 ? "s" : ""} · {form.nbPersonnes} personne{form.nbPersonnes > 1 ? "s" : ""}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" display="block">
+                  {selectedDates.end
+                    ? `Du ${format(selectedDates.start, "dd MMM yyyy", { locale: fr })} au ${format(selectedDates.end, "dd MMM yyyy", { locale: fr })}`
+                    : `Séjour d’un jour le ${format(selectedDates.start, "dd MMM yyyy", { locale: fr })}`}
+                </Typography>
+                <Divider sx={{ my: 0.5, borderColor: "#bbf7d0" }} />
+                <Box sx={{ display: "flex", justifyContent: "space-between", fontSize: "0.82rem" }}>
+                  <span>Nuitée(s) chambre :</span>
+                  <b>{roomBaseTotal.toLocaleString("fr-FR")} Ar</b>
+                </Box>
+                {packFormulaTotal > 0 && (
+                  <Box sx={{ display: "flex", justifyContent: "space-between", fontSize: "0.82rem", color: "#0369a1" }}>
+                    <span>{selectedPack.nom} :</span>
+                    <b>+{packFormulaTotal.toLocaleString("fr-FR")} Ar</b>
+                  </Box>
+                )}
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    pt: 0.8,
+                    borderTop: "1px dashed #bbf7d0",
+                    color: "#166534",
+                    fontWeight: 900,
+                    fontSize: "0.95rem",
+                  }}
+                >
+                  <span>Total estimé :</span>
+                  <span>{estimatedTotal.toLocaleString("fr-FR")} Ar</span>
+                </Box>
+              </Stack>
+            );
+          })()}
+        </Paper>
+      )}
+
       <Stack direction="row" spacing={1} justifyContent="flex-end">
         <Button onClick={onClose}>Annuler</Button>
         <Button 
@@ -696,12 +853,23 @@ function CreateReservationForm({
 }
 
 function EditReservation({ r, reservations, rooms, maintenance, onSave, onClose }: { r: Reservation; reservations: Reservation[]; rooms: Chambre[]; maintenance: ChambreMaintenance[]; onSave: (p: Partial<Reservation> & { id: string }) => void; onClose: ()=>void }) {
+  const { tenantId, config } = useTenant();
+  const navigate = useNavigate();
   const { data: clients } = useClients();
   const { data: factures } = useFactures();
+
+  const availablePacks = useMemo(() => {
+    return (config?.hebergementPacks && config.hebergementPacks.length > 0) ? config.hebergementPacks : DEFAULT_PACKS;
+  }, [config]);
+
+  const [selectedPackId, setSelectedPackId] = useState<string>(r.packId || availablePacks[0]?.id || "chambre_seule");
+  const selectedPack = availablePacks.find(p => p.id === selectedPackId) || availablePacks[0];
+
   const [form, setForm] = useState({
     clientId: r.clientId || '',
     chambreId: r.chambreId || '',
     statut: r.statut,
+    nbPersonnes: r.nbPersonnes || 2,
   });
 
   const initialStart = new Date(r.dateDebut);
@@ -756,7 +924,6 @@ function EditReservation({ r, reservations, rooms, maintenance, onSave, onClose 
     }
 
     if (date.getTime() === selectedDates.start.getTime()) {
-      // Toggle: reclique sur la même date => aucune sélection
       setSelectedDates({ start: null, end: null });
       setForm({ ...form, chambreId: '' });
       return;
@@ -783,7 +950,6 @@ function EditReservation({ r, reservations, rooms, maintenance, onSave, onClose 
   const isValid = form.chambreId && selectedDates.start;
 
   function handleSave() {
-    // Si aucune date sélectionnée, annuler la réservation
     if (!selectedDates.start) {
       onSave({ id: r.id, statut: 'annulee' });
       onClose();
@@ -796,7 +962,12 @@ function EditReservation({ r, reservations, rooms, maintenance, onSave, onClose 
       chambreId: form.chambreId,
       dateDebut: selectedDates.start!.toISOString(),
       dateFin: (selectedDates.end ? selectedDates.end : addDays(selectedDates.start!, 1)).toISOString(),
+      nbPersonnes: form.nbPersonnes,
       statut: form.statut,
+      packId: selectedPack?.id,
+      packNom: selectedPack?.nom,
+      packPrix: selectedPack?.prix,
+      packTypeCalcul: selectedPack?.typeCalcul,
     });
   }
 
@@ -814,6 +985,33 @@ function EditReservation({ r, reservations, rooms, maintenance, onSave, onClose 
         renderInput={(params) => <TextField {...params} label="Client" />}
       />
 
+      <Box>
+        <Typography variant="body2" fontWeight={700} mb={0.5}>
+          Formule / Pack de séjour
+        </Typography>
+        <Select
+          size="small"
+          fullWidth
+          value={selectedPackId}
+          onChange={(e) => setSelectedPackId(e.target.value)}
+        >
+          {availablePacks.map((p) => (
+            <MenuItem key={p.id} value={p.id}>
+              {p.nom} {p.prix > 0 ? `(+${p.prix.toLocaleString('fr-FR')} Ar ${p.typeCalcul === 'par_personne_nuit' ? '/ pers. / nuit' : p.typeCalcul === 'par_chambre_nuit' ? '/ nuit' : 'forfait'})` : '(Inclus)'}
+            </MenuItem>
+          ))}
+        </Select>
+      </Box>
+
+      <TextField
+        size="small"
+        type="number"
+        label="Nombre de personnes"
+        value={form.nbPersonnes}
+        onChange={(e) => setForm({ ...form, nbPersonnes: parseInt(e.target.value || '1', 10) })}
+        inputProps={{ min: 1 }}
+      />
+
       <Select size="small" value={form.statut} onChange={(e)=> setForm({ ...form, statut: e.target.value as any })}>
         <MenuItem value="en_attente">En attente</MenuItem>
         <MenuItem value="confirmee">Confirmée</MenuItem>
@@ -822,64 +1020,69 @@ function EditReservation({ r, reservations, rooms, maintenance, onSave, onClose 
         <MenuItem value="annulee">Annulée</MenuItem>
       </Select>
 
-      <Divider />
-      <Typography variant="body2" fontWeight={700}>Sélectionnez les dates et la chambre (calendrier)</Typography>
-      <Stack direction="row" spacing={1} alignItems="center">
-        <Chip size="small" label={`Semaine du ${format(weekStart, 'dd MMM yyyy', { locale: fr })}`} />
-        <Chip size="small" label="◀" onClick={() => setModalDateRef(d => addDays(d, -7))} />
-        <Chip size="small" label="▶" onClick={() => setModalDateRef(d => addDays(d, 7))} />
-      </Stack>
+      {/* Résumé & Estimation tarifaire en temps réel */}
+      {selectedDates.start && form.chambreId && (
+        <Paper variant="outlined" sx={{ p: 2, bgcolor: '#f0fdf4', borderColor: '#bbf7d0', borderRadius: 2 }}>
+          {(() => {
+            const dStart = selectedDates.start || initialStart;
+            const dEnd = selectedDates.end ? selectedDates.end : addDays(dStart, 1);
+            const nights = Math.max(1, eachDayOfInterval({ start: dStart, end: dEnd }).length - 1);
+            const selectedRoom = rooms.find((c) => c.id === form.chambreId);
+            const roomBaseTotal = (selectedRoom?.tarif_base || 0) * nights;
 
-      <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1, maxHeight: 300, overflowY: 'auto', overflowX: 'auto' }}>
-        <Box sx={{ display: 'grid', gridTemplateColumns: `80px repeat(${weekDays.length}, minmax(90px, 1fr))`, gap: 0.5, minWidth: 'max-content' }}>
-          <Box />
-          {weekDays.map((d) => (
-            <Box key={d.toISOString()} sx={{ textAlign: 'center', fontSize: '0.7rem', fontWeight: 600, py: 0.5 }}>
-              {format(d, 'EEE d', { locale: fr })}
-            </Box>
-          ))}
+            let packFormulaTotal = 0;
+            if (selectedPack && selectedPack.prix > 0) {
+              if (selectedPack.typeCalcul === "par_personne_nuit") {
+                packFormulaTotal = selectedPack.prix * nights * (form.nbPersonnes || 1);
+              } else if (selectedPack.typeCalcul === "par_chambre_nuit") {
+                packFormulaTotal = selectedPack.prix * nights;
+              } else {
+                packFormulaTotal = selectedPack.prix;
+              }
+            }
+            const estimatedTotal = roomBaseTotal + packFormulaTotal;
 
-          {(rooms || []).map((chambre) => (
-            <Fragment key={chambre.id}>
-              <Box sx={{ py: 0.5, fontSize: '0.75rem', fontWeight: 700 }}>
-                {chambre.numero}
-              </Box>
-              {weekDays.map((date) => {
-                const available = isRoomAvailable(chambre.id, date);
-                const color = getCellColor(chambre.id, date);
-                return (
-                  <Box
-                    key={`${chambre.id}-${date.toISOString()}`}
-                    onClick={() => available && handleCellClick(chambre.id, date)}
-                    sx={{
-                      height: 32,
-                      bgcolor: color,
-                      border: '1px solid',
-                      borderColor: 'divider',
-                      cursor: available ? 'pointer' : 'not-allowed',
-                      opacity: available ? 1 : 0.5,
-                      '&:hover': available ? { opacity: 0.8 } : {}
-                    }}
-                  />
-                );
-              })}
-            </Fragment>
-          ))}
-        </Box>
-      </Box>
-
-      {(selectedDates.start && form.chambreId) && (
-        <Paper variant="outlined" sx={{ p: 1.5, bgcolor: 'primary.50' }}>
-          <Typography variant="body2" fontWeight={700}>Résumé</Typography>
-          <Typography variant="caption">
-            Chambre: {(rooms || []).find(c => c.id === form.chambreId)?.numero}
-          </Typography>
-          <br />
-          <Typography variant="caption">
-            {selectedDates.end
-              ? `Du ${format(selectedDates.start, 'dd MMM yyyy', { locale: fr })} au ${format(selectedDates.end, 'dd MMM yyyy', { locale: fr })}`
-              : `Séjour d’un jour le ${format(selectedDates.start, 'dd MMM yyyy', { locale: fr })}`}
-          </Typography>
+            return (
+              <Stack spacing={0.8}>
+                <Typography variant="subtitle2" fontWeight={800} color="#166534">
+                  Résumé & Tarification estimée
+                </Typography>
+                <Typography variant="caption" color="#166534" display="block">
+                  Chambre {selectedRoom?.numero} ({selectedRoom?.categorie}) · {nights} nuit{nights > 1 ? "s" : ""} · {form.nbPersonnes} personne{form.nbPersonnes > 1 ? "s" : ""}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" display="block">
+                  {selectedDates.end
+                    ? `Du ${format(selectedDates.start, "dd MMM yyyy", { locale: fr })} au ${format(selectedDates.end, "dd MMM yyyy", { locale: fr })}`
+                    : `Séjour d’un jour le ${format(selectedDates.start, "dd MMM yyyy", { locale: fr })}`}
+                </Typography>
+                <Divider sx={{ my: 0.5, borderColor: "#bbf7d0" }} />
+                <Box sx={{ display: "flex", justifyContent: "space-between", fontSize: "0.82rem" }}>
+                  <span>Nuitée(s) chambre :</span>
+                  <b>{roomBaseTotal.toLocaleString("fr-FR")} Ar</b>
+                </Box>
+                {packFormulaTotal > 0 && (
+                  <Box sx={{ display: "flex", justifyContent: "space-between", fontSize: "0.82rem", color: "#0369a1" }}>
+                    <span>{selectedPack.nom} :</span>
+                    <b>+{packFormulaTotal.toLocaleString("fr-FR")} Ar</b>
+                  </Box>
+                )}
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    pt: 0.8,
+                    borderTop: "1px dashed #bbf7d0",
+                    color: "#166534",
+                    fontWeight: 900,
+                    fontSize: "0.95rem",
+                  }}
+                >
+                  <span>Total estimé :</span>
+                  <span>{estimatedTotal.toLocaleString("fr-FR")} Ar</span>
+                </Box>
+              </Stack>
+            );
+          })()}
         </Paper>
       )}
 
@@ -917,7 +1120,7 @@ function EditReservation({ r, reservations, rooms, maintenance, onSave, onClose 
             </Stack>
           ))}
           <Typography><b>Total:</b> <Ariary value={linkedInvoice.totalTTC} /></Typography>
-          <Button size="small" variant="outlined" onClick={() => (window.location.href = `/financier?factureId=${linkedInvoice.id}`)}>Ouvrir la facture</Button>
+          <Button size="small" variant="outlined" onClick={() => navigate(`/${tenantId}/financier?factureId=${linkedInvoice.id}`)}>Ouvrir la facture</Button>
         </Stack>
       )}
     </Stack>

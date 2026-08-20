@@ -30,6 +30,7 @@ import {
 } from "@/services/api";
 import { Evenement } from "@shared/api";
 import { useNavigate } from "react-router-dom";
+import { useTenant } from "@/contexts/TenantContext";
 import MusicNoteIcon from "@mui/icons-material/MusicNote";
 import WineBarIcon from "@mui/icons-material/WineBar";
 import CakeIcon from "@mui/icons-material/Cake";
@@ -141,6 +142,7 @@ function CalendarMonth({
 }
 
 export default function RestoEvenements() {
+  const { tenantId } = useTenant();
   const { data } = useEvenements();
   const create = useCreateEvenement();
   const update = useUpdateEvenement();
@@ -222,11 +224,15 @@ export default function RestoEvenements() {
               date: new Date().toISOString(),
               clientNom: (form.contact || ev.contact || "Client"),
               source: "Evenement",
+              modePaiement: "especes",
               lignes: [{ description: `Événement ${form.nom || ev.nom}`, qte: qty, pu: RATE_AR }],
+              sousTotal: qty * RATE_AR,
+              remisePourcentage: 0,
+              remiseMontant: 0,
               totalTTC: qty * RATE_AR,
             },
             {
-              onSuccess: (f) => navigate(`/financier?factureId=${f.id}`),
+              onSuccess: (f) => navigate(`/${tenantId}/financier?factureId=${f.id}`),
             },
           );
         }

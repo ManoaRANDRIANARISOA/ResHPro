@@ -1,4 +1,4 @@
-import { PropsWithChildren, useState } from "react";
+import { PropsWithChildren, useState, useMemo } from "react";
 import {
   AppBar,
   Box,
@@ -15,6 +15,10 @@ import {
   MenuItem,
   ListSubheader,
   ListItemIcon,
+  Avatar,
+  Chip,
+  Stack,
+  Tooltip,
 } from "@mui/material";
 import LogoutIcon from "@mui/icons-material/Logout";
 import DashboardIcon from "@mui/icons-material/Dashboard";
@@ -34,8 +38,26 @@ import { useRBAC } from "@/hooks/useRBAC";
 import { useAppDispatch } from "@/store";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";
+import { useUsers } from "@/services/api";
 
 const drawerWidth = 280;
+
+const ROLE_BADGES: Record<string, { label: string; bg: string; color: string }> = {
+  admin: { label: "Admin", bg: "#e0e7ff", color: "#3730a3" },
+  direction: { label: "Direction", bg: "#ede9fe", color: "#5b21b6" },
+  reception: { label: "Réception", bg: "#dbeafe", color: "#1e40af" },
+  resp_hebergement: { label: "Resp. Hébergement", bg: "#dbeafe", color: "#1e40af" },
+  "responsable hebergement": { label: "Resp. Hébergement", bg: "#dbeafe", color: "#1e40af" },
+  resp_resto: { label: "Resp. Restaurant", bg: "#fef3c7", color: "#92400e" },
+  "responsable restaurant": { label: "Resp. Restaurant", bg: "#fef3c7", color: "#92400e" },
+  chef_salle: { label: "Chef de Salle", bg: "#fef3c7", color: "#92400e" },
+  serveur: { label: "Service", bg: "#f1f5f9", color: "#475569" },
+  cuisine: { label: "Cuisine", bg: "#ffedd5", color: "#9a3412" },
+  bar: { label: "Bar", bg: "#fae8ff", color: "#86198f" },
+  comptoir: { label: "Comptoir", bg: "#e0f2fe", color: "#0369a1" },
+  economat: { label: "Économat", bg: "#ecfdf5", color: "#065f46" },
+  comptable: { label: "Comptable", bg: "#f0fdf4", color: "#166534" },
+};
 
 export function AppLayout({ children }: PropsWithChildren) {
   const { menu, role } = useRBAC();
@@ -43,6 +65,31 @@ export function AppLayout({ children }: PropsWithChildren) {
   const dispatch = useAppDispatch();
   const { logout, user } = useAuth();
   const { publicConfig, tenantId } = useTenant();
+  const { data: usersList } = useUsers();
+
+  // Nom d'affichage de l'utilisateur connecté
+  const userName = useMemo(() => {
+    if (!user) return "Invité";
+    const matched = (usersList || []).find(
+      (u) =>
+        (user.email && (u.email?.toLowerCase() === user.email.toLowerCase() || u.login?.toLowerCase() === user.email.toLowerCase())) ||
+        (user.uid && u.id === user.uid)
+    );
+    if (matched?.nom) return matched.nom;
+    if (user.displayName) return user.displayName;
+    if (user.email) {
+      const prefix = user.email.split("@")[0];
+      return prefix.charAt(0).toUpperCase() + prefix.slice(1).replace(/[._]/g, " ");
+    }
+    return "Utilisateur";
+  }, [user, usersList]);
+
+  const userInitial = userName.charAt(0).toUpperCase();
+  const roleBadge = (role && ROLE_BADGES[role.toLowerCase()]) || {
+    label: role ? (role.charAt(0).toUpperCase() + role.slice(1)) : "Staff",
+    bg: "#f1f5f9",
+    color: "#475569",
+  };
 
   function iconFor(path: string) {
     if (path.startsWith("/hebergement/gestion"))
@@ -75,34 +122,120 @@ export function AppLayout({ children }: PropsWithChildren) {
     <Box sx={{ display: "flex" }}>
       <AppBar
         position="fixed"
-        sx={{ zIndex: (t) => t.zIndex.drawer + 1 }}
+        sx={{
+          zIndex: (t) => t.zIndex.drawer + 1,
+          bgcolor: "#ffffff",
+          borderBottom: "1px solid #e2e8f0",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.03)",
+        }}
         color="inherit"
+        elevation={0}
       >
-        <Toolbar>
-          <Box sx={{ display: 'flex', alignItems: 'center', mr: 3 }}>
+        <Toolbar sx={{ justifyContent: "space-between", minHeight: 64, px: { xs: 2, md: 3 } }}>
+          {/* LOGO & TENANT NAME */}
+          <Box sx={{ display: "flex", alignItems: "center" }}>
             <img 
               src={publicConfig?.logoUrl || "/assets/default-logo.jpg"} 
               alt={`Logo ${publicConfig?.nom || 'Etablissement'}`} 
-              style={{ height: 40, marginRight: 12, borderRadius: 8, objectFit: "cover" }} 
+              style={{ height: 38, width: 38, marginRight: 12, borderRadius: 8, objectFit: "cover", border: "1px solid #e2e8f0" }} 
             />
-            <Typography variant="h6" fontWeight={800}>
+            <Typography variant="h6" fontWeight={800} color="#0f172a" letterSpacing="-0.3px">
               {publicConfig?.nom || "Chargement..."}
             </Typography>
           </Box>
-          <Box sx={{ flex: 1 }} />
-          <Typography sx={{ mr: 2 }} variant="body2" color="text.secondary">Connecté</Typography>
-          <Button variant="text" sx={{ ml: 1 }} disabled>
-            Rôle: {role}
-          </Button>
-          <Typography variant="body2" sx={{ ml: 1 }}>{(user as any)?.name || ''}</Typography>
-          <IconButton
-            onClick={logout}
-            color="inherit"
-            sx={{ ml: 1 }}
-            title="Déconnexion"
-          >
-            <LogoutIcon />
-          </IconButton>
+
+          {/* USER PROFILE & LOGOUT DECK */}
+          <Stack direction="row" alignItems="center" spacing={1.5}>
+            {/* User Profile Pill */}
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 1.2,
+                py: 0.5,
+                px: 1.2,
+                borderRadius: 999,
+                bgcolor: "#f8fafc",
+                border: "1px solid #e2e8f0",
+                transition: "all 0.2s ease",
+                "&:hover": {
+                  bgcolor: "#f1f5f9",
+                  borderColor: "#cbd5e1",
+                },
+              }}
+            >
+              <Box sx={{ position: "relative", display: "inline-flex" }}>
+                <Avatar
+                  sx={{
+                    width: 32,
+                    height: 32,
+                    fontSize: "0.85rem",
+                    fontWeight: 800,
+                    background: "linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%)",
+                    color: "#ffffff",
+                    boxShadow: "0 2px 5px rgba(79, 70, 229, 0.2)",
+                  }}
+                >
+                  {userInitial}
+                </Avatar>
+                {/* Online Indicator */}
+                <Box
+                  sx={{
+                    position: "absolute",
+                    bottom: -1,
+                    right: -1,
+                    width: 9,
+                    height: 9,
+                    bgcolor: "#22c55e",
+                    borderRadius: "50%",
+                    border: "2px solid #ffffff",
+                  }}
+                />
+              </Box>
+
+              <Box sx={{ pr: 0.5, textAlign: "left" }}>
+                <Typography variant="body2" fontWeight={800} color="#0f172a" lineHeight={1.2}>
+                  {userName}
+                </Typography>
+                <Chip
+                  size="small"
+                  label={roleBadge.label}
+                  sx={{
+                    height: 18,
+                    fontSize: "0.68rem",
+                    fontWeight: 700,
+                    bgcolor: roleBadge.bg,
+                    color: roleBadge.color,
+                    mt: 0.2,
+                    borderRadius: 1,
+                  }}
+                />
+              </Box>
+            </Box>
+
+            {/* Logout Icon Button */}
+            <Tooltip title="Se déconnecter" arrow>
+              <IconButton
+                onClick={logout}
+                size="small"
+                sx={{
+                  width: 36,
+                  height: 36,
+                  bgcolor: "#f8fafc",
+                  border: "1px solid #e2e8f0",
+                  color: "#64748b",
+                  transition: "all 0.15s ease",
+                  "&:hover": {
+                    bgcolor: "#fee2e2",
+                    borderColor: "#fca5a5",
+                    color: "#dc2626",
+                  },
+                }}
+              >
+                <LogoutIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Stack>
         </Toolbar>
       </AppBar>
       <Drawer

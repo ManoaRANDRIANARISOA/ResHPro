@@ -74,3 +74,4 @@ export function useAddJustification() {
     onSuccess: () => qc.invalidateQueries({ queryKey: stockKeys.all }),
   });
 }
+

@@ -11,6 +11,7 @@ export interface Client {
   tags?: string;
   reference?: string;
   preferences_alimentaires?: string;
+  agenceVoyage?: string;
 }
 
 export interface Chambre {
@@ -60,6 +61,10 @@ export interface Reservation {
   heureDepart?: string; // HH:mm (heure réelle de départ du client)
   duree?: number; // durée en minutes (par défaut 60)
   nbPersonnes?: number;
+  packId?: string;
+  packNom?: string;
+  packPrix?: number;
+  packTypeCalcul?: "par_personne_nuit" | "par_chambre_nuit" | "forfait_fixe" | string;
   statut:
     | "en_attente"
     | "confirmee"
@@ -70,6 +75,8 @@ export interface Reservation {
   gracePeriodMinutes: number;
   notes?: string;
 }
+
+export type { HebergementPack } from "./tenant";
 
 export interface MenuItem {
   id: string;
@@ -143,24 +150,38 @@ export interface FactureLigne {
   noteSpeciale?: string; // Pour l'impression
   substitutions?: Substitution[]; // Pour la déduction dynamique de stock lors de la facturation/service
 }
+
 export interface Facture {
   id: string;
   numero: string;
   date: string; // ISO
   dueDate?: string; // ISO - échéance
+  datePaiement?: string; // ISO - date de règlement
   reservationId?: string;
+  clientId?: string;
   clientNom: string;
+  clientTelephone?: string;
+  clientEmail?: string;
+  clientAdresse?: string;
+  agenceVoyage?: string; // Nom de l'agence de voyage partenaire si applicable
   source: "Hebergement" | "Restaurant" | "Evenement";
   lignes: FactureLigne[];
-  totalTTC: number;
+  sousTotal?: number; // Total brut avant remise
+  remisePourcentage?: number; // Taux de rabais/remise (0 à 10%)
+  remiseMontant?: number; // Montant du rabais en Ariary
+  totalTTC: number; // Total Net à payer
+  modePaiement?: "especes" | "mobile_money" | "carte" | "virement" | "cheque" | string;
   statut: "emise" | "payee" | "annulee";
+  notes?: string;
 }
 
 export interface Utilisateur {
   id: string;
   nom: string;
   login: string;
+  email?: string;
   role: string;
+  statut?: string;
 }
 
 export interface Parametres {

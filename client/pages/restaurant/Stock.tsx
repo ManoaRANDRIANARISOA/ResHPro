@@ -214,9 +214,16 @@ export default function RestoStock() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
 
-  // Tous les produits restaurant
+  // Tous les produits restaurant (avec compatibilité douce)
   const restoRows = useMemo(
-    () => (all || []).filter((p) => p.famille === "Restaurant"),
+    () =>
+      (all || [])
+        .filter((p) => !p.famille || p.famille === "Restaurant" || p.famille === "Nourriture")
+        .map((p) => ({
+          ...p,
+          stock: p.stock ?? (p as any).quantite ?? 0,
+          famille: "Restaurant" as const,
+        })),
     [all],
   );
 

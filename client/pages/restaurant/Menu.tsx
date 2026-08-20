@@ -308,7 +308,7 @@ export default function RestoMenu() {
   const fiches = fichesQuery.data;
   const stockProduits = stockQuery.data;
   
-  const { config, publicConfig } = useTenant();
+  const { config, publicConfig, tenantId } = useTenant();
   const tenantCategories = config?.menuCategories || [];
 
   const topDish = useMemo(() => {
@@ -460,18 +460,30 @@ export default function RestoMenu() {
       alert("Le panier est vide");
       return;
     }
+    const matchedClient = (clientsQuery.data || []).find(c => c.nom === billClient || c.id === billClient);
+    const subTotal = cart.reduce((sum, c) => sum + c.prix * c.qte, 0);
+
     createFacture.mutate(
       {
         date: new Date().toISOString(),
-        clientNom: billClient || "Client comptoir",
+        clientId: matchedClient?.id || undefined,
+        clientNom: matchedClient?.nom || billClient || "Client comptoir",
+        clientTelephone: matchedClient?.telephone || undefined,
+        clientEmail: matchedClient?.email || undefined,
+        clientAdresse: matchedClient?.adresse || undefined,
+        agenceVoyage: matchedClient?.agenceVoyage || undefined,
         source: "Restaurant",
+        modePaiement: "especes",
         lignes: cart.map((c) => ({ description: c.nom + (c.noteSpeciale ? ` (${c.noteSpeciale})` : ""), qte: c.qte, pu: c.prix, menuItemId: c.id, noteSpeciale: c.noteSpeciale, substitutions: c.substitutions })),
-        totalTTC: cart.reduce((sum, c) => sum + c.prix * c.qte, 0),
+        sousTotal: subTotal,
+        remisePourcentage: 0,
+        remiseMontant: 0,
+        totalTTC: subTotal,
       },
       {
         onSuccess: (f) => {
           setCart([]);
-          navigate(`/financier?factureId=${f.id}`);
+          navigate(`/${tenantId}/financier?factureId=${f.id}`);
         },
       },
     );
@@ -708,7 +720,7 @@ export default function RestoMenu() {
           >
             <Typography fontWeight={800}>Détails de l'article</Typography>
             <Stack direction="row" spacing={1}>
-              <Button variant="outlined" onClick={() => navigate("/resto/fiches-techniques")}>Fiches techniques</Button>
+              <Button variant="outlined" onClick={() => navigate(`/${tenantId}/resto/fiches-techniques`)}>Fiches techniques</Button>
               <Button variant="outlined">Dupliquer</Button>
               <Button
                 variant="contained"

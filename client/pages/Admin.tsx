@@ -19,6 +19,7 @@ import {
 } from "@mui/material";
 import { useMemo, useState } from "react";
 import { useUsers, useCreateUser, useUpdateUser, useDeleteUser } from "@/services/api";
+import { useTenant } from "@/contexts/TenantContext";
 
 type User = {
   id: string;
@@ -55,16 +56,52 @@ const initialRoles: Omit<Role, "utilisateurs">[] = [
   },
   {
     id: "r2",
+    nom: "Direction",
+    hebergement: "Total",
+    restaurant: "Total",
+    stock: "Lecture",
+    facturation: "Total",
+    rapports: "Total",
+  },
+  {
+    id: "r3",
     nom: "Responsable Hébergement",
-    hebergement: "Modif.",
+    hebergement: "Total",
     restaurant: "Lecture",
     stock: "Modif.",
     facturation: "Lecture",
     rapports: "Lecture",
   },
   {
-    id: "r3",
-    nom: "Staff Restaurant",
+    id: "r4",
+    nom: "Réception / Accueil",
+    hebergement: "Modif.",
+    restaurant: "Aucun",
+    stock: "Lecture",
+    facturation: "Création",
+    rapports: "Aucun",
+  },
+  {
+    id: "r5",
+    nom: "Responsable Restaurant",
+    hebergement: "Lecture",
+    restaurant: "Total",
+    stock: "Modif.",
+    facturation: "Lecture",
+    rapports: "Lecture",
+  },
+  {
+    id: "r6",
+    nom: "Chef de Salle / Maître d'Hôtel",
+    hebergement: "Aucun",
+    restaurant: "Modif.",
+    stock: "Lecture",
+    facturation: "Création",
+    rapports: "Lecture",
+  },
+  {
+    id: "r7",
+    nom: "Staff Restaurant / Serveur",
     hebergement: "Aucun",
     restaurant: "Modif.",
     stock: "Lecture",
@@ -72,19 +109,56 @@ const initialRoles: Omit<Role, "utilisateurs">[] = [
     rapports: "Aucun",
   },
   {
-    id: "r4",
-    nom: "Responsable Restaurant",
-    hebergement: "Lecture",
+    id: "r8",
+    nom: "Chef Cuisinier / Cuisine",
+    hebergement: "Aucun",
     restaurant: "Modif.",
     stock: "Modif.",
-    facturation: "Lecture",
+    facturation: "Aucun",
+    rapports: "Aucun",
+  },
+  {
+    id: "r9",
+    nom: "Barman / Bar",
+    hebergement: "Aucun",
+    restaurant: "Modif.",
+    stock: "Modif.",
+    facturation: "Aucun",
+    rapports: "Aucun",
+  },
+  {
+    id: "r10",
+    nom: "Comptoir / Caisse",
+    hebergement: "Lecture",
+    restaurant: "Modif.",
+    stock: "Lecture",
+    facturation: "Création",
     rapports: "Lecture",
+  },
+  {
+    id: "r11",
+    nom: "Économat / Gestionnaire Stock",
+    hebergement: "Lecture",
+    restaurant: "Lecture",
+    stock: "Total",
+    facturation: "Aucun",
+    rapports: "Lecture",
+  },
+  {
+    id: "r12",
+    nom: "Comptable / Trésorerie",
+    hebergement: "Lecture",
+    restaurant: "Lecture",
+    stock: "Lecture",
+    facturation: "Total",
+    rapports: "Total",
   },
 ];
 
 export default function AdminPage() {
+  const { tenantId } = useTenant();
   const role = useAppSelector((s) => s.session.role);
-  if (role !== "admin") return <Navigate to="/dashboard?notice=admin-only" replace />;
+  if (role !== "admin") return <Navigate to={`/${tenantId}/dashboard?notice=admin-only`} replace />;
   const { data: usersData } = useUsers();
   const createUser = useCreateUser();
   const updateUser = useUpdateUser();
@@ -94,19 +168,21 @@ export default function AdminPage() {
     const toLabel = (r: string) => {
       const map: Record<string, string> = {
         admin: "Admin",
-        reception: "Responsable Hébergement",
+        direction: "Direction",
+        resp_hebergement: "Responsable Hébergement",
         "responsable hebergement": "Responsable Hébergement",
-        chef_salle: "Responsable Restaurant",
+        reception: "Réception / Accueil",
+        resp_resto: "Responsable Restaurant",
         "responsable restaurant": "Responsable Restaurant",
-        serveur: "Staff Restaurant",
-        cuisine: "Staff Restaurant",
-        bar: "Staff Restaurant",
-        comptoir: "Staff Restaurant",
-        economat: "Économat",
-        comptable: "Comptable",
-        direction: "Admin",
-        staff_restaurant: "Staff Restaurant",
-        saff_restaurant: "Staff Restaurant",
+        chef_salle: "Chef de Salle / Maître d'Hôtel",
+        serveur: "Staff Restaurant / Serveur",
+        staff_resto: "Staff Restaurant / Serveur",
+        staff_restaurant: "Staff Restaurant / Serveur",
+        cuisine: "Chef Cuisinier / Cuisine",
+        bar: "Barman / Bar",
+        comptoir: "Comptoir / Caisse",
+        economat: "Économat / Gestionnaire Stock",
+        comptable: "Comptable / Trésorerie",
       };
       return map[r] || r;
     };
@@ -120,27 +196,7 @@ export default function AdminPage() {
       statut: "Actif",
     }));
   }, [usersData]);
-  const [roles, setRoles] = useState<Omit<Role, "utilisateurs">[]>([
-    ...initialRoles,
-    {
-      id: "r5",
-      nom: "Comptable",
-      hebergement: "Aucun",
-      restaurant: "Aucun",
-      stock: "Aucun",
-      facturation: "Total",
-      rapports: "Lecture",
-    },
-    {
-      id: "r6",
-      nom: "Économat",
-      hebergement: "Aucun",
-      restaurant: "Aucun",
-      stock: "Total",
-      facturation: "Aucun",
-      rapports: "Lecture",
-    },
-  ]);
+  const [roles, setRoles] = useState<Omit<Role, "utilisateurs">[]>(initialRoles);
   
   // Filtres
   const [searchQuery, setSearchQuery] = useState("");
@@ -213,12 +269,18 @@ export default function AdminPage() {
   function saveUser() {
     const roleKey = (() => {
       const map: Record<string, string> = {
-        Admin: "admin",
-        "Responsable Hébergement": "reception",
-        "Responsable Restaurant": "chef_salle",
-        "Staff Restaurant": "serveur",
-        "Économat": "economat",
-        Comptable: "comptable",
+        "Admin": "admin",
+        "Direction": "direction",
+        "Responsable Hébergement": "resp_hebergement",
+        "Réception / Accueil": "reception",
+        "Responsable Restaurant": "resp_resto",
+        "Chef de Salle / Maître d'Hôtel": "chef_salle",
+        "Staff Restaurant / Serveur": "serveur",
+        "Chef Cuisinier / Cuisine": "cuisine",
+        "Barman / Bar": "bar",
+        "Comptoir / Caisse": "comptoir",
+        "Économat / Gestionnaire Stock": "economat",
+        "Comptable / Trésorerie": "comptable",
       };
       return map[userForm.role] || userForm.role;
     })();
@@ -559,7 +621,7 @@ export default function AdminPage() {
               fullWidth
             />
             <TextField
-              label="Rôle"
+              label="Rôle métier"
               select
               value={userForm.role}
               onChange={(e) =>
@@ -567,12 +629,18 @@ export default function AdminPage() {
               }
               fullWidth
             >
-              <MenuItem value="Admin">Admin</MenuItem>
+              <MenuItem value="Admin">Admin (Supervision & Technique)</MenuItem>
+              <MenuItem value="Direction">Direction (Supervision Globale)</MenuItem>
               <MenuItem value="Responsable Hébergement">Responsable Hébergement</MenuItem>
+              <MenuItem value="Réception / Accueil">Réception / Accueil</MenuItem>
               <MenuItem value="Responsable Restaurant">Responsable Restaurant</MenuItem>
-              <MenuItem value="Staff Restaurant">Staff Restaurant</MenuItem>
-              <MenuItem value="Économat">Économat</MenuItem>
-              <MenuItem value="Comptable">Comptable</MenuItem>
+              <MenuItem value="Chef de Salle / Maître d'Hôtel">Chef de Salle / Maître d'Hôtel</MenuItem>
+              <MenuItem value="Staff Restaurant / Serveur">Staff Restaurant / Serveur</MenuItem>
+              <MenuItem value="Chef Cuisinier / Cuisine">Chef Cuisinier / Cuisine</MenuItem>
+              <MenuItem value="Barman / Bar">Barman / Bar</MenuItem>
+              <MenuItem value="Comptoir / Caisse">Comptoir / Caisse</MenuItem>
+              <MenuItem value="Économat / Gestionnaire Stock">Économat / Gestionnaire Stock</MenuItem>
+              <MenuItem value="Comptable / Trésorerie">Comptable / Trésorerie</MenuItem>
             </TextField>
             <TextField
               label="Canal"

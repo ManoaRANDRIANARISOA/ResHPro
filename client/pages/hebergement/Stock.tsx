@@ -121,10 +121,15 @@ function Section({
 
   const rows = useMemo(
     () =>
-      (all || []).filter(
-        (p) =>
-          p.famille === famille && allowedSousCats.includes(p.sousCategorie),
-      ),
+      (all || [])
+        .filter(
+          (p) =>
+            p.famille === famille && allowedSousCats.includes(p.sousCategorie),
+        )
+        .map((p) => ({
+          ...p,
+          stock: p.stock ?? (p as any).quantite ?? 0,
+        })),
     [all, famille, allowedSousCats],
   );
   const alerts = rows.filter((r) => r.stock <= r.seuilMin);

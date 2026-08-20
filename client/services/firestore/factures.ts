@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Facture } from "@shared/api";
 import { useTenant } from "@/contexts/TenantContext";
-import { fetchCollection, createDoc, updateTenantDoc, getTenantDoc } from "./utils";
+import { fetchCollection, createDoc, updateTenantDoc, getTenantDoc, deleteTenantDoc } from "./utils";
 import { addDays } from "date-fns";
 import { FicheTechnique } from "@shared/fiche-technique";
 import { writeBatch, increment } from "firebase/firestore";
@@ -128,6 +128,19 @@ export function useUpdateFacture() {
       const { id, ...data } = payload;
       await updateTenantDoc(tenantId, "factures", id, data);
       return { id, ...data };
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: facturesKeys.all }),
+  });
+}
+
+export function useDeleteFacture() {
+  const qc = useQueryClient();
+  const { tenantId } = useTenant();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      if (!tenantId) throw new Error("Tenant ID is required");
+      await deleteTenantDoc(tenantId, "factures", id);
+      return id;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: facturesKeys.all }),
   });

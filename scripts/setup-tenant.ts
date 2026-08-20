@@ -78,17 +78,32 @@ async function run() {
     });
     console.log(`✅ Base de données Firestore configurée pour ${t.id}.`);
 
-    // 3. Créer le compte administrateur
+    // 3. Créer le compte administrateur et son profil Firestore
+    let uid = "";
     try {
       const user = await auth.createUser({ email: t.adminEmail, password: t.adminPass, displayName: `Admin ${t.nom}` });
       await auth.setCustomUserClaims(user.uid, { tenantId: t.id, role: "admin" });
+      uid = user.uid;
       console.log(`✅ Compte Administrateur créé : ${t.adminEmail}`);
     } catch (e: any) {
       if (e.code === "auth/email-already-exists") {
-        console.log(`ℹ️ Le compte ${t.adminEmail} existe déjà.`);
+        console.log(`ℹ️ Le compte ${t.adminEmail} existe déjà. On récupère son UID.`);
+        const user = await auth.getUserByEmail(t.adminEmail);
+        uid = user.uid;
       } else {
         console.error(`❌ Erreur création compte ${t.adminEmail}:`, e);
       }
+    }
+
+    if (uid) {
+      // 4. Ajouter l'utilisateur dans la base de données UI (Firestore)
+      await db.collection(`tenants/${t.id}/utilisateurs`).doc(uid).set({
+        nom: `Admin ${t.nom}`,
+        login: t.adminEmail,
+        role: "admin",
+        statut: "Actif"
+      });
+      console.log(`✅ Profil Firestore créé pour ${t.adminEmail}`);
     }
   }
 

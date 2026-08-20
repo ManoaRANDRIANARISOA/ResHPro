@@ -15,6 +15,8 @@ export const auth = getAuth(app);
 export interface AuthUser {
   uid: string;
   email: string | null;
+  displayName: string | null;
+  photoURL?: string | null;
   tenantId: string | null;
   role: Role | null;
   superAdmin: boolean;
@@ -33,6 +35,8 @@ export async function getAuthUser(user: FirebaseUser | null): Promise<AuthUser |
     return {
       uid: user.uid,
       email: user.email,
+      displayName: user.displayName || user.email?.split('@')[0] || "Utilisateur",
+      photoURL: user.photoURL || null,
       tenantId: (claims.tenantId as string) || null,
       role: (claims.role as Role) || null,
       superAdmin: !!claims.superAdmin
@@ -42,6 +46,8 @@ export async function getAuthUser(user: FirebaseUser | null): Promise<AuthUser |
     return {
       uid: user.uid,
       email: user.email,
+      displayName: user.displayName || user.email?.split('@')[0] || "Utilisateur",
+      photoURL: user.photoURL || null,
       tenantId: null,
       role: null,
       superAdmin: false
