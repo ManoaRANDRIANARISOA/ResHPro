@@ -17,6 +17,7 @@ import {
   useClients,
   useCreateClient,
   useCreateHebergementReservation,
+  useGenerateHebergementInvoice,
   useFactures
 } from "@/services/api";
 import { useTenant } from "@/contexts/TenantContext";
@@ -80,6 +81,7 @@ export default function GestionChambres() {
   const { data: list } = useHebergementReservations();
   const { data: factures } = useFactures();
   const createFacture = useCreateFacture();
+  const generateInvoiceMutation = useGenerateHebergementInvoice();
   const { data: maintenance } = useRoomMaintenance();
   const addMaint = useAddRoomMaintenance();
   const removeMaint = useRemoveRoomMaintenance();
@@ -302,123 +304,76 @@ export default function GestionChambres() {
                 </Box>
               </Stack>
             </Paper>
-            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 130px 130px 120px 140px 120px 200px', px: 1.5, py: 1, color: 'text.secondary', fontWeight: 700 }}>
-              <Box>Client</Box><Box>Arrivée</Box><Box>Départ</Box><Box>Chambre</Box><Box>Montant</Box><Box>Statut</Box><Box>Actions</Box>
-            </Box>
-            {(list || []).map((r) => {
-              const f = (factures || []).find((x) => x.reservationId === r.id && x.source === 'Hebergement');
-              return (
-                <Box 
-                  key={r.id} 
-                  sx={{ 
-                    display: 'grid', 
-                    gridTemplateColumns: '1fr 130px 130px 120px 140px 120px 200px', 
-                    px: 1.5, 
-                    py: 1, 
-                    alignItems: 'center', 
-                    borderTop: '1px solid', 
-                    borderColor: 'divider',
-                    cursor: 'pointer',
-                    '&:hover': { bgcolor: 'action.hover' }
-                  }}
-                  onClick={() => setOpen(r)}
-                >
-                  <Box fontWeight={600}>{clients?.find(c => c.id === r.clientId)?.nom ?? r.clientId}</Box>
-                  <Box>{format(new Date(r.dateDebut), 'dd/MM/yyyy')}</Box>
-                  <Box>{r.dateFin ? format(new Date(r.dateFin), 'dd/MM/yyyy') : '-'}</Box>
-                  <Box>{(rooms || []).find((c) => c.id === r.chambreId)?.numero ?? '-'}</Box>
-                  <Box onClick={(e) => e.stopPropagation()}>
-                    {f ? (
-                      <Button size="small" variant="text" sx={{ fontWeight: 700 }} onClick={() => navigate(`/${tenantId}/financier?factureId=${f.id}`)}>
-                        {f.totalTTC.toLocaleString()} Ar
-                      </Button>
-                    ) : (
-                      <Chip size="small" label="—" variant="outlined" />
-                    )}
-                  </Box>
-                  <Box>{deriveReservationStatus(r)}</Box>
-                  <Box sx={{ display: 'flex', gap: 0.8, alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
-                    <Button size="small" variant="outlined" onClick={() => setOpen(r)}>
-                      Voir / Gérer
-                    </Button>
-                    {(!f || f.statut === 'annulee') && (
-                      <Button 
-                        size="small" 
-                        variant="contained" 
-                        color="primary"
-                        onClick={() => {
-                          const ch = (rooms || []).find((c) => c.id === r.chambreId);
-                          const dStart = new Date(r.dateDebut);
-                          const dEnd = new Date(r.dateFin || r.dateDebut);
-                          const nights = Math.max(1, eachDayOfInterval({ start: dStart, end: dEnd }).length - 1);
-                          const roomTotal = (ch?.tarif_base ?? 0) * nights;
-                          let formulaTotal = 0;
-                          const formulaLines: { description: string; qte: number; pu: number }[] = [];
-
-                          if (r.packNom && r.packPrix && r.packPrix > 0) {
-                            if (r.packTypeCalcul === "par_personne_nuit") {
-                              const qty = nights * (r.nbPersonnes || 1);
-                              formulaTotal = r.packPrix * qty;
-                              formulaLines.push({
-                                description: `Formule ${r.packNom} (${r.nbPersonnes || 1} pers. × ${nights} nuits)`,
-                                qte: qty,
-                                pu: r.packPrix,
-                              });
-                            } else if (r.packTypeCalcul === "par_chambre_nuit") {
-                              formulaTotal = r.packPrix * nights;
-                              formulaLines.push({
-                                description: `Formule ${r.packNom} (${nights} nuits)`,
-                                qte: nights,
-                                pu: r.packPrix,
-                              });
-                            } else {
-                              formulaTotal = r.packPrix;
-                              formulaLines.push({
-                                description: `Formule ${r.packNom} (Forfait séjour)`,
-                                qte: 1,
-                                pu: r.packPrix,
-                              });
-                            }
-                          }
-
-                          const total = roomTotal + formulaTotal;
-                          const clientObj = clients?.find(c => c.id === r.clientId);
-                          createFacture.mutate({
-                            clientId: r.clientId,
-                            clientNom: clientObj?.nom || String(r.clientId),
-                            clientTelephone: clientObj?.telephone,
-                            clientEmail: clientObj?.email,
-                            clientAdresse: clientObj?.adresse,
-                            agenceVoyage: clientObj?.agenceVoyage,
-                            date: new Date().toISOString(),
-                            dueDate: addDays(dStart, 15).toISOString(),
-                            source: 'Hebergement',
-                            modePaiement: 'especes',
-                            lignes: [
-                              { description: `Nuitée ${(rooms || []).find(c => c.id === r.chambreId)?.numero || r.chambreId} (${dStart.toLocaleDateString('fr-FR')} – ${dEnd.toLocaleDateString('fr-FR')})`, qte: nights, pu: ch?.tarif_base ?? 0 },
-                              ...formulaLines
-                            ],
-                            sousTotal: total,
-                            remisePourcentage: 0,
-                            remiseMontant: 0,
-                            totalTTC: total,
-                            reservationId: r.id,
-                          }, {
-                            onSuccess: (newFacture: any) => {
-                              if (newFacture?.id) {
-                                navigate(`/${tenantId}/financier?factureId=${newFacture.id}`);
-                              }
-                            }
-                          });
-                        }}
-                      >
-                        Facturer
-                      </Button>
-                    )}
-                  </Box>
+            <Box sx={{ overflowX: 'auto', width: '100%', pb: 1 }}>
+              <Box sx={{ minWidth: 860 }}>
+                <Box sx={{ display: 'grid', gridTemplateColumns: '1.2fr 130px 130px 110px 140px 120px 200px', px: 1.5, py: 1, color: 'text.secondary', fontWeight: 700 }}>
+                  <Box>Client</Box><Box>Arrivée</Box><Box>Départ</Box><Box>Chambre</Box><Box>Montant</Box><Box>Statut</Box><Box>Actions</Box>
                 </Box>
-              );
-            })}
+                {(list || []).map((r) => {
+                  const f = (factures || []).find((x) => x.reservationId === r.id && x.source === 'Hebergement');
+                  return (
+                    <Box 
+                      key={r.id} 
+                      sx={{ 
+                        display: 'grid', 
+                        gridTemplateColumns: '1.2fr 130px 130px 110px 140px 120px 200px', 
+                        px: 1.5, 
+                        py: 1, 
+                        alignItems: 'center', 
+                        borderTop: '1px solid', 
+                        borderColor: 'divider',
+                        cursor: 'pointer',
+                        '&:hover': { bgcolor: 'action.hover' }
+                      }}
+                      onClick={() => setOpen(r)}
+                    >
+                      <Box fontWeight={600}>{clients?.find(c => c.id === r.clientId)?.nom ?? r.clientId}</Box>
+                      <Box>{format(new Date(r.dateDebut), 'dd/MM/yyyy')}</Box>
+                      <Box>{r.dateFin ? format(new Date(r.dateFin), 'dd/MM/yyyy') : '-'}</Box>
+                      <Box>{(rooms || []).find((c) => c.id === r.chambreId)?.numero ?? '-'}</Box>
+                      <Box onClick={(e) => e.stopPropagation()}>
+                        {f ? (
+                          <Button size="small" variant="text" sx={{ fontWeight: 700 }} onClick={() => navigate(`/${tenantId}/financier?factureId=${f.id}`)}>
+                            {f.totalTTC.toLocaleString()} Ar
+                          </Button>
+                        ) : (
+                          <Chip size="small" label="—" variant="outlined" />
+                        )}
+                      </Box>
+                      <Box>{deriveReservationStatus(r)}</Box>
+                      <Box sx={{ display: 'flex', gap: 0.8, alignItems: 'center' }} onClick={(e) => e.stopPropagation()}>
+                        <Button size="small" variant="outlined" onClick={() => setOpen(r)}>
+                          Voir / Gérer
+                        </Button>
+                        {(!f || f.statut === 'annulee') && (
+                          <Button 
+                            size="small" 
+                            variant="contained" 
+                            color="primary"
+                            disabled={generateInvoiceMutation.isPending}
+                            onClick={() => {
+                              generateInvoiceMutation.mutate(r, {
+                                onSuccess: (newDoc: any) => {
+                                  if (newDoc?.id) {
+                                    navigate(`/${tenantId}/financier?factureId=${newDoc.id}`);
+                                  }
+                                },
+                                onError: (err) => {
+                                  console.error("Facturation error:", err);
+                                  alert("Erreur lors de la génération de la facture.");
+                                }
+                              });
+                            }}
+                          >
+                            Facturer
+                          </Button>
+                        )}
+                      </Box>
+                    </Box>
+                  );
+                })}
+              </Box>
+            </Box>
           </Paper>
         </Grid>
       </Grid>
@@ -886,7 +841,7 @@ function EditReservation({ r, reservations, rooms, maintenance, onSave, onClose 
   const navigate = useNavigate();
   const { data: clients } = useClients();
   const { data: factures } = useFactures();
-  const createFacture = useCreateFacture();
+  const generateInvoiceMutation = useGenerateHebergementInvoice();
 
   const availablePacks = useMemo(() => {
     return (config?.hebergementPacks && config.hebergementPacks.length > 0) ? config.hebergementPacks : DEFAULT_PACKS;
@@ -915,7 +870,7 @@ function EditReservation({ r, reservations, rooms, maintenance, onSave, onClose 
 
   function isRoomAvailable(chambreId: string, date: Date) {
     const nextDay = addDays(date, 1);
-    const inMaint = maintenance.some(m => m.chambreId === chambreId && new Date(m.start) < nextDay && new Date(m.end) > date);
+    const inMaint = (maintenance || []).some(m => m.chambreId === chambreId && new Date(m.dateDebut) < nextDay && new Date(m.dateFin) > date);
     if (inMaint) return false;
     const hasConflict = reservations.some(rr => {
       if (rr.id === r.id) return false;
@@ -1006,7 +961,6 @@ function EditReservation({ r, reservations, rooms, maintenance, onSave, onClose 
   return (
     <Stack spacing={2} sx={{ mt: 1 }}>
       <Typography variant="body2" fontWeight={700}>Client</Typography>
-      {/* Uniformiser l’affichage avec Autocomplete */}
       <Autocomplete
         size="small"
         options={(clients || []).map(c => ({ id: c.id, label: c.nom }))}
@@ -1049,6 +1003,54 @@ function EditReservation({ r, reservations, rooms, maintenance, onSave, onClose 
         <MenuItem value="terminee">Terminée</MenuItem>
         <MenuItem value="annulee">Annulée</MenuItem>
       </Select>
+
+      {/* Mini Calendrier Interactif */}
+      <Divider />
+      <Typography variant="body2" fontWeight={700}>Sélectionnez les dates et la chambre (calendrier)</Typography>
+      <Stack direction="row" spacing={1} alignItems="center">
+        <Chip size="small" label={`Quinzaine du ${format(weekStart, 'dd MMM yyyy', { locale: fr })}`} />
+        <Chip size="small" label="◀" onClick={() => setModalDateRef(d => addDays(d, -7))} />
+        <Chip size="small" label="▶" onClick={() => setModalDateRef(d => addDays(d, 7))} />
+      </Stack>
+
+      <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1, maxHeight: 260, overflowY: 'auto', overflowX: 'auto' }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: `80px repeat(${weekDays.length}, minmax(40px, 1fr))`, gap: 0.5, minWidth: 'max-content' }}>
+          <Box />
+          {weekDays.map((d) => (
+            <Box key={d.toISOString()} sx={{ textAlign: 'center', fontSize: '0.7rem', fontWeight: 600, py: 0.5 }}>
+              {format(d, 'd')}
+            </Box>
+          ))}
+
+          {(rooms || []).map((chambre) => (
+            <Fragment key={chambre.id}>
+              <Box sx={{ py: 0.5, fontSize: '0.75rem', fontWeight: 700 }}>
+                {chambre.numero}
+              </Box>
+              {weekDays.map((date) => {
+                const available = isRoomAvailable(chambre.id, date);
+                const color = getCellColor(chambre.id, date);
+                return (
+                  <Box
+                    key={`${chambre.id}-${date.toISOString()}`}
+                    onClick={() => available && handleCellClick(chambre.id, date)}
+                    sx={{
+                      height: 28,
+                      bgcolor: color,
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      cursor: available ? 'pointer' : 'not-allowed',
+                      opacity: available ? 1 : 0.5,
+                      borderRadius: '3px',
+                      '&:hover': available ? { opacity: 0.8 } : {}
+                    }}
+                  />
+                );
+              })}
+            </Fragment>
+          ))}
+        </Box>
+      </Box>
 
       {/* Résumé & Estimation tarifaire en temps réel */}
       {selectedDates.start && form.chambreId && (
@@ -1140,73 +1142,35 @@ function EditReservation({ r, reservations, rooms, maintenance, onSave, onClose 
             size="small" 
             variant="contained" 
             color="primary"
+            disabled={generateInvoiceMutation.isPending}
             onClick={() => {
-              const ch = (rooms || []).find((c) => c.id === r.chambreId);
-              const dStart = selectedDates.start || initialStart;
-              const dEnd = selectedDates.end ? selectedDates.end : addDays(dStart, 1);
-              const nights = Math.max(1, eachDayOfInterval({ start: dStart, end: dEnd }).length - 1);
-              const roomTotal = (ch?.tarif_base ?? 0) * nights;
-              let formulaTotal = 0;
-              const formulaLines: { description: string; qte: number; pu: number }[] = [];
-
-              if (selectedPack && selectedPack.prix > 0) {
-                if (selectedPack.typeCalcul === "par_personne_nuit") {
-                  const qty = nights * (form.nbPersonnes || 1);
-                  formulaTotal = selectedPack.prix * qty;
-                  formulaLines.push({
-                    description: `Formule ${selectedPack.nom} (${form.nbPersonnes || 1} pers. × ${nights} nuits)`,
-                    qte: qty,
-                    pu: selectedPack.prix,
-                  });
-                } else if (selectedPack.typeCalcul === "par_chambre_nuit") {
-                  formulaTotal = selectedPack.prix * nights;
-                  formulaLines.push({
-                    description: `Formule ${selectedPack.nom} (${nights} nuits)`,
-                    qte: nights,
-                    pu: selectedPack.prix,
-                  });
-                } else {
-                  formulaTotal = selectedPack.prix;
-                  formulaLines.push({
-                    description: `Formule ${selectedPack.nom} (Forfait séjour)`,
-                    qte: 1,
-                    pu: selectedPack.prix,
-                  });
-                }
-              }
-
-              const total = roomTotal + formulaTotal;
-              const clientObj = clients?.find(c => c.id === form.clientId || c.id === r.clientId);
-              createFacture.mutate({
+              const currentRes: Reservation = {
+                ...r,
                 clientId: form.clientId || r.clientId,
-                clientNom: clientObj?.nom || String(form.clientId || r.clientId),
-                clientTelephone: clientObj?.telephone,
-                clientEmail: clientObj?.email,
-                clientAdresse: clientObj?.adresse,
-                agenceVoyage: clientObj?.agenceVoyage,
-                date: new Date().toISOString(),
-                dueDate: addDays(dStart, 15).toISOString(),
-                source: 'Hebergement',
-                modePaiement: 'especes',
-                lignes: [
-                  { description: `Nuitée ${(rooms || []).find(c => c.id === form.chambreId)?.numero || form.chambreId} (${dStart.toLocaleDateString('fr-FR')} – ${dEnd.toLocaleDateString('fr-FR')})`, qte: nights, pu: ch?.tarif_base ?? 0 },
-                  ...formulaLines
-                ],
-                sousTotal: total,
-                remisePourcentage: 0,
-                remiseMontant: 0,
-                totalTTC: total,
-                reservationId: r.id,
-              }, {
-                onSuccess: (newFacture: any) => {
-                  if (newFacture?.id) {
-                    navigate(`/${tenantId}/financier?factureId=${newFacture.id}`);
+                chambreId: form.chambreId || r.chambreId,
+                dateDebut: selectedDates.start ? selectedDates.start.toISOString() : r.dateDebut,
+                dateFin: selectedDates.end ? selectedDates.end.toISOString() : (r.dateFin || addDays(new Date(r.dateDebut), 1).toISOString()),
+                nbPersonnes: form.nbPersonnes || r.nbPersonnes || 1,
+                packId: selectedPack?.id || r.packId,
+                packNom: selectedPack?.nom || r.packNom,
+                packPrix: selectedPack?.prix ?? r.packPrix,
+                packTypeCalcul: selectedPack?.typeCalcul || r.packTypeCalcul,
+              };
+
+              generateInvoiceMutation.mutate(currentRes, {
+                onSuccess: (newDoc: any) => {
+                  if (newDoc?.id) {
+                    navigate(`/${tenantId}/financier?factureId=${newDoc.id}`);
                   }
+                },
+                onError: (err) => {
+                  console.error("Facturation error:", err);
+                  alert("Erreur lors de la génération de la facture.");
                 }
               });
             }}
           >
-            📄 Générer la facture
+            {generateInvoiceMutation.isPending ? "Génération..." : "📄 Générer la facture"}
           </Button>
         )}
       </Box>

@@ -190,10 +190,27 @@ async function generateHebergementInvoice(tenantId: string, reservation: Reserva
       statut: "emise" as const,
     };
     
-    await createDoc(tenantId, "factures", created);
+    const createdDoc = await createDoc<any>(tenantId, "factures", created);
+    return createdDoc;
   } catch (error) {
     console.error("Erreur lors de la génération de la facture:", error);
+    throw error;
   }
+}
+
+export function useGenerateHebergementInvoice() {
+  const qc = useQueryClient();
+  const { tenantId } = useTenant();
+  return useMutation({
+    mutationFn: async (reservation: Reservation) => {
+      if (!tenantId) throw new Error("Tenant ID is required");
+      return generateHebergementInvoice(tenantId, reservation);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: reservationsKeys.all });
+      qc.invalidateQueries({ queryKey: ["factures"] });
+    },
+  });
 }
 
 export function useCreateHebergementReservation() {
