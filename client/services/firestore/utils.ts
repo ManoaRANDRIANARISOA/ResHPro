@@ -49,13 +49,29 @@ export async function fetchDoc<T>(tenantId: string, collectionName: string, docI
   return null;
 }
 
+function cleanData(obj: any): any {
+  if (obj === null || obj === undefined) return null;
+  if (Array.isArray(obj)) return obj.map(cleanData);
+  if (typeof obj === 'object') {
+    const cleaned: any = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (value !== undefined) {
+        cleaned[key] = cleanData(value);
+      }
+    }
+    return cleaned;
+  }
+  return obj;
+}
+
 /**
  * Crée un nouveau document (avec ID auto-généré)
  */
 export async function createDoc<T>(tenantId: string, collectionName: string, data: any): Promise<T> {
   const colRef = getTenantCollection(tenantId, collectionName);
-  const docRef = await addDoc(colRef, { ...data, tenantId, createdAt: new Date().toISOString() });
-  return { id: docRef.id, ...data, tenantId } as T;
+  const sanitized = cleanData({ ...data, tenantId, createdAt: new Date().toISOString() });
+  const docRef = await addDoc(colRef, sanitized);
+  return { id: docRef.id, ...sanitized } as T;
 }
 
 /**
@@ -63,8 +79,9 @@ export async function createDoc<T>(tenantId: string, collectionName: string, dat
  */
 export async function setDocWithId<T>(tenantId: string, collectionName: string, docId: string, data: any): Promise<T> {
   const docRef = getTenantDoc(tenantId, collectionName, docId);
-  await setDoc(docRef, { ...data, tenantId, updatedAt: new Date().toISOString() });
-  return { id: docId, ...data, tenantId } as T;
+  const sanitized = cleanData({ ...data, tenantId, updatedAt: new Date().toISOString() });
+  await setDoc(docRef, sanitized);
+  return { id: docId, ...sanitized } as T;
 }
 
 /**
@@ -72,7 +89,8 @@ export async function setDocWithId<T>(tenantId: string, collectionName: string, 
  */
 export async function updateTenantDoc(tenantId: string, collectionName: string, docId: string, data: any): Promise<void> {
   const docRef = getTenantDoc(tenantId, collectionName, docId);
-  await updateDoc(docRef, { ...data, updatedAt: new Date().toISOString() });
+  const sanitized = cleanData({ ...data, updatedAt: new Date().toISOString() });
+  await updateDoc(docRef, sanitized);
 }
 
 /**

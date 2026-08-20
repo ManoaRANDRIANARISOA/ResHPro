@@ -169,17 +169,13 @@ async function generateHebergementInvoice(tenantId: string, reservation: Reserva
     const prefix = configDoc?.invoicePrefix || "RESI";
     const numero = `${prefix}-${dStart.getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, "0")}`;
 
-    const created = {
+    const created: any = {
       numero,
       date: new Date().toISOString(),
       dueDate: addDays(dStart, 15).toISOString(),
       reservationId: reservation.id,
-      clientId: reservation.clientId,
+      clientId: reservation.clientId || "",
       clientNom: cli?.nom ?? (reservation.clientId || "Client"),
-      clientTelephone: cli?.telephone || undefined,
-      clientEmail: cli?.email || undefined,
-      clientAdresse: cli?.adresse || undefined,
-      agenceVoyage: cli?.agenceVoyage || undefined,
       source: "Hebergement" as const,
       lignes,
       sousTotal: total,
@@ -189,6 +185,10 @@ async function generateHebergementInvoice(tenantId: string, reservation: Reserva
       modePaiement: "especes",
       statut: "emise" as const,
     };
+    if (cli?.telephone) created.clientTelephone = cli.telephone;
+    if (cli?.email) created.clientEmail = cli.email;
+    if (cli?.adresse) created.clientAdresse = cli.adresse;
+    if (cli?.agenceVoyage) created.agenceVoyage = cli.agenceVoyage;
     
     const createdDoc = await createDoc<any>(tenantId, "factures", created);
     return createdDoc;

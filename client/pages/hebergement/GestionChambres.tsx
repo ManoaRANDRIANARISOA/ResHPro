@@ -866,7 +866,7 @@ function EditReservation({ r, reservations, rooms, maintenance, onSave, onClose 
   const [modalDateRef, setModalDateRef] = useState<Date>(initialStart);
 
   const weekStart = startOfWeek(modalDateRef, { weekStartsOn: 1 });
-  const weekDays = eachDayOfInterval({ start: weekStart, end: addDays(weekStart, 13) });
+  const weekDays = eachDayOfInterval({ start: weekStart, end: addDays(weekStart, 6) });
 
   function isRoomAvailable(chambreId: string, date: Date) {
     const nextDay = addDays(date, 1);
@@ -969,33 +969,6 @@ function EditReservation({ r, reservations, rooms, maintenance, onSave, onClose 
         renderInput={(params) => <TextField {...params} label="Client" />}
       />
 
-      <Box>
-        <Typography variant="body2" fontWeight={700} mb={0.5}>
-          Formule / Pack de séjour
-        </Typography>
-        <Select
-          size="small"
-          fullWidth
-          value={selectedPackId}
-          onChange={(e) => setSelectedPackId(e.target.value)}
-        >
-          {availablePacks.map((p) => (
-            <MenuItem key={p.id} value={p.id}>
-              {p.nom} {p.prix > 0 ? `(+${p.prix.toLocaleString('fr-FR')} Ar ${p.typeCalcul === 'par_personne_nuit' ? '/ pers. / nuit' : p.typeCalcul === 'par_chambre_nuit' ? '/ nuit' : 'forfait'})` : '(Inclus)'}
-            </MenuItem>
-          ))}
-        </Select>
-      </Box>
-
-      <TextField
-        size="small"
-        type="number"
-        label="Nombre de personnes"
-        value={form.nbPersonnes}
-        onChange={(e) => setForm({ ...form, nbPersonnes: parseInt(e.target.value || '1', 10) })}
-        inputProps={{ min: 1 }}
-      />
-
       <Select size="small" value={form.statut} onChange={(e)=> setForm({ ...form, statut: e.target.value as any })}>
         <MenuItem value="en_attente">En attente</MenuItem>
         <MenuItem value="confirmee">Confirmée</MenuItem>
@@ -1004,21 +977,54 @@ function EditReservation({ r, reservations, rooms, maintenance, onSave, onClose 
         <MenuItem value="annulee">Annulée</MenuItem>
       </Select>
 
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1.4fr 1fr' }, gap: 1.5 }}>
+        <Box>
+          <Typography variant="caption" fontWeight={700} color="text.secondary" mb={0.5} display="block">
+            Formule / Pack de séjour
+          </Typography>
+          <Select
+            size="small"
+            fullWidth
+            value={selectedPackId}
+            onChange={(e) => setSelectedPackId(e.target.value)}
+          >
+            {availablePacks.map((p) => (
+              <MenuItem key={p.id} value={p.id}>
+                {p.nom} {p.prix > 0 ? `(+${p.prix.toLocaleString('fr-FR')} Ar)` : '(Inclus)'}
+              </MenuItem>
+            ))}
+          </Select>
+        </Box>
+        <Box>
+          <Typography variant="caption" fontWeight={700} color="text.secondary" mb={0.5} display="block">
+            Personnes
+          </Typography>
+          <TextField
+            size="small"
+            type="number"
+            fullWidth
+            value={form.nbPersonnes}
+            onChange={(e) => setForm({ ...form, nbPersonnes: parseInt(e.target.value || '1', 10) })}
+            inputProps={{ min: 1 }}
+          />
+        </Box>
+      </Box>
+
       {/* Mini Calendrier Interactif */}
       <Divider />
       <Typography variant="body2" fontWeight={700}>Sélectionnez les dates et la chambre (calendrier)</Typography>
       <Stack direction="row" spacing={1} alignItems="center">
-        <Chip size="small" label={`Quinzaine du ${format(weekStart, 'dd MMM yyyy', { locale: fr })}`} />
+        <Chip size="small" label={`Semaine du ${format(weekStart, 'dd MMM yyyy', { locale: fr })}`} />
         <Chip size="small" label="◀" onClick={() => setModalDateRef(d => addDays(d, -7))} />
         <Chip size="small" label="▶" onClick={() => setModalDateRef(d => addDays(d, 7))} />
       </Stack>
 
       <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, p: 1, maxHeight: 260, overflowY: 'auto', overflowX: 'auto' }}>
-        <Box sx={{ display: 'grid', gridTemplateColumns: `80px repeat(${weekDays.length}, minmax(40px, 1fr))`, gap: 0.5, minWidth: 'max-content' }}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: `70px repeat(${weekDays.length}, minmax(65px, 1fr))`, gap: 0.5, minWidth: 'max-content' }}>
           <Box />
           {weekDays.map((d) => (
-            <Box key={d.toISOString()} sx={{ textAlign: 'center', fontSize: '0.7rem', fontWeight: 600, py: 0.5 }}>
-              {format(d, 'd')}
+            <Box key={d.toISOString()} sx={{ textAlign: 'center', fontSize: '0.72rem', fontWeight: 600, py: 0.5, color: 'text.secondary' }}>
+              {format(d, 'EEE d', { locale: fr })}
             </Box>
           ))}
 
@@ -1035,13 +1041,13 @@ function EditReservation({ r, reservations, rooms, maintenance, onSave, onClose 
                     key={`${chambre.id}-${date.toISOString()}`}
                     onClick={() => available && handleCellClick(chambre.id, date)}
                     sx={{
-                      height: 28,
+                      height: 32,
                       bgcolor: color,
                       border: '1px solid',
                       borderColor: 'divider',
                       cursor: available ? 'pointer' : 'not-allowed',
-                      opacity: available ? 1 : 0.5,
-                      borderRadius: '3px',
+                      opacity: available ? 1 : 0.6,
+                      borderRadius: '4px',
                       '&:hover': available ? { opacity: 0.8 } : {}
                     }}
                   />
@@ -1052,9 +1058,9 @@ function EditReservation({ r, reservations, rooms, maintenance, onSave, onClose 
         </Box>
       </Box>
 
-      {/* Résumé & Estimation tarifaire en temps réel */}
+      {/* Résumé & Estimation tarifaire */}
       {selectedDates.start && form.chambreId && (
-        <Paper variant="outlined" sx={{ p: 2, bgcolor: '#f0fdf4', borderColor: '#bbf7d0', borderRadius: 2 }}>
+        <Paper variant="outlined" sx={{ p: 1.5, bgcolor: '#f0fdf4', borderColor: '#bbf7d0', borderRadius: 2 }}>
           {(() => {
             const dStart = selectedDates.start || initialStart;
             const dEnd = selectedDates.end ? selectedDates.end : addDays(dStart, 1);
@@ -1075,16 +1081,16 @@ function EditReservation({ r, reservations, rooms, maintenance, onSave, onClose 
             const estimatedTotal = roomBaseTotal + packFormulaTotal;
 
             return (
-              <Stack spacing={0.8}>
-                <Typography variant="subtitle2" fontWeight={800} color="#166534">
-                  Résumé & Tarification estimée
+              <Stack spacing={0.5}>
+                <Typography variant="body2" fontWeight={700} color="#166534">
+                  Résumé
                 </Typography>
-                <Typography variant="caption" color="#166534" display="block">
-                  Chambre {selectedRoom?.numero} ({selectedRoom?.categorie}) · {nights} nuit{nights > 1 ? "s" : ""} · {form.nbPersonnes} personne{form.nbPersonnes > 1 ? "s" : ""}
+                <Typography variant="caption" color="text.primary">
+                  Chambre: <b>{selectedRoom?.numero}</b> ({selectedRoom?.categorie})
                 </Typography>
-                <Typography variant="caption" color="text.secondary" display="block">
+                <Typography variant="caption" color="text.secondary">
                   {selectedDates.end
-                    ? `Du ${format(selectedDates.start, "dd MMM yyyy", { locale: fr })} au ${format(selectedDates.end, "dd MMM yyyy", { locale: fr })}`
+                    ? `Du ${format(selectedDates.start, "dd MMM yyyy", { locale: fr })} au ${format(selectedDates.end, "dd MMM yyyy", { locale: fr })} (${nights} nuit${nights > 1 ? 's' : ''})`
                     : `Séjour d’un jour le ${format(selectedDates.start, "dd MMM yyyy", { locale: fr })}`}
                 </Typography>
                 <Divider sx={{ my: 0.5, borderColor: "#bbf7d0" }} />
@@ -1102,11 +1108,11 @@ function EditReservation({ r, reservations, rooms, maintenance, onSave, onClose 
                   sx={{
                     display: "flex",
                     justifyContent: "space-between",
-                    pt: 0.8,
+                    pt: 0.5,
                     borderTop: "1px dashed #bbf7d0",
                     color: "#166534",
-                    fontWeight: 900,
-                    fontSize: "0.95rem",
+                    fontWeight: 800,
+                    fontSize: "0.9rem",
                   }}
                 >
                   <span>Total estimé :</span>
@@ -1135,13 +1141,15 @@ function EditReservation({ r, reservations, rooms, maintenance, onSave, onClose 
       </Stack>
 
       <Divider />
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Typography fontWeight={700}>Facture liée</Typography>
-        {!linkedInvoice && (
+      <Typography fontWeight={700}>Facture liée</Typography>
+      {!linkedInvoice && (
+        <Stack spacing={1}>
+          <Typography variant="caption" color="text.secondary">Aucune facture liée pour le moment</Typography>
           <Button 
             size="small" 
             variant="contained" 
             color="primary"
+            fullWidth
             disabled={generateInvoiceMutation.isPending}
             onClick={() => {
               const currentRes: Reservation = {
@@ -1160,6 +1168,7 @@ function EditReservation({ r, reservations, rooms, maintenance, onSave, onClose 
               generateInvoiceMutation.mutate(currentRes, {
                 onSuccess: (newDoc: any) => {
                   if (newDoc?.id) {
+                    onClose();
                     navigate(`/${tenantId}/financier?factureId=${newDoc.id}`);
                   }
                 },
@@ -1170,12 +1179,9 @@ function EditReservation({ r, reservations, rooms, maintenance, onSave, onClose 
               });
             }}
           >
-            {generateInvoiceMutation.isPending ? "Génération..." : "📄 Générer la facture"}
+            {generateInvoiceMutation.isPending ? "Génération de la facture en cours..." : "📄 Générer la facture"}
           </Button>
-        )}
-      </Box>
-      {!linkedInvoice && (
-        <Typography variant="caption" color="text.secondary">Aucune facture liée pour le moment</Typography>
+        </Stack>
       )}
       {linkedInvoice && (
         <Stack spacing={1}>
@@ -1183,14 +1189,19 @@ function EditReservation({ r, reservations, rooms, maintenance, onSave, onClose 
           <Typography variant="caption">Échéance: {linkedInvoice.dueDate ? new Date(linkedInvoice.dueDate).toLocaleDateString() : '—'}</Typography>
           {linkedInvoice.lignes.map((l, i) => (
             <Stack key={i} direction="row" spacing={1} alignItems="center">
-              <Typography sx={{ minWidth: 160 }}>{l.description}</Typography>
-              <Typography>× {l.qte}</Typography>
-              <Typography><Ariary value={l.pu} /></Typography>
-              <Typography>= <Ariary value={l.qte * l.pu} /></Typography>
+              <Typography sx={{ minWidth: 160 }} variant="caption">{l.description}</Typography>
+              <Typography variant="caption">× {l.qte}</Typography>
+              <Typography variant="caption"><Ariary value={l.pu} /></Typography>
+              <Typography variant="caption">= <Ariary value={l.qte * l.pu} /></Typography>
             </Stack>
           ))}
-          <Typography><b>Total:</b> <Ariary value={linkedInvoice.totalTTC} /></Typography>
-          <Button size="small" variant="outlined" onClick={() => navigate(`/${tenantId}/financier?factureId=${linkedInvoice.id}`)}>Ouvrir la facture</Button>
+          <Typography variant="body2"><b>Total:</b> <Ariary value={linkedInvoice.totalTTC} /></Typography>
+          <Button size="small" variant="outlined" fullWidth onClick={() => {
+            onClose();
+            navigate(`/${tenantId}/financier?factureId=${linkedInvoice.id}`);
+          }}>
+            Ouvrir la facture
+          </Button>
         </Stack>
       )}
     </Stack>
