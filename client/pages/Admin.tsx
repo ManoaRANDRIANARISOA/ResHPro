@@ -355,8 +355,15 @@ export default function AdminPage() {
             size="small"
             placeholder="Rechercher un utilisateur, un rôle..."
             fullWidth
+            name="search-filter-users"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            autoComplete="off"
+            inputProps={{
+              autoComplete: "off",
+              "data-form-type": "other",
+              "data-lpignore": "true",
+            }}
           />
           <Stack direction="row" spacing={1} sx={{ mt: 1, flexWrap: "wrap", gap: 1 }}>
             <Chip
@@ -595,99 +602,116 @@ export default function AdminPage() {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>
-          {isCreating ? "Nouvel utilisateur" : "Gérer l'utilisateur"}
-        </DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ mt: 1 }}>
-            <TextField
-              label="Nom complet"
-              value={userForm.nom}
-              onChange={(e) =>
-                setUserForm((f) => ({ ...f, nom: e.target.value }))
-              }
-              fullWidth
-            />
-            <TextField
-              label="Email"
-              type="email"
-              value={userForm.email}
-              onChange={(e) =>
-                setUserForm((f) => ({ ...f, email: e.target.value }))
-              }
-              fullWidth
-            />
-            <TextField
-              label="Mot de passe"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              fullWidth
-            />
-            <TextField
-              label="Rôle métier"
-              select
-              value={userForm.role}
-              onChange={(e) =>
-                setUserForm((f) => ({ ...f, role: e.target.value }))
-              }
-              fullWidth
+        <form
+          autoComplete="off"
+          onSubmit={(e) => {
+            e.preventDefault();
+            saveUser();
+          }}
+        >
+          <DialogTitle sx={{ fontWeight: 700 }}>
+            {isCreating ? "Nouvel utilisateur" : "Gérer l'utilisateur"}
+          </DialogTitle>
+          <DialogContent>
+            <Stack spacing={2} sx={{ mt: 1 }}>
+              <TextField
+                label="Nom complet"
+                name="admin_user_fullname"
+                value={userForm.nom}
+                onChange={(e) =>
+                  setUserForm((f) => ({ ...f, nom: e.target.value }))
+                }
+                fullWidth
+                autoComplete="off"
+                inputProps={{ autoComplete: "off" }}
+              />
+              <TextField
+                label="Email"
+                type="email"
+                name="admin_user_email_address"
+                value={userForm.email}
+                onChange={(e) =>
+                  setUserForm((f) => ({ ...f, email: e.target.value }))
+                }
+                fullWidth
+                autoComplete="off"
+                inputProps={{ autoComplete: "off" }}
+              />
+              <TextField
+                label="Mot de passe"
+                type="password"
+                name="admin_user_secret_password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                fullWidth
+                autoComplete="new-password"
+                inputProps={{ autoComplete: "new-password" }}
+              />
+              <TextField
+                label="Rôle métier"
+                select
+                value={userForm.role}
+                onChange={(e) =>
+                  setUserForm((f) => ({ ...f, role: e.target.value }))
+                }
+                fullWidth
+              >
+                <MenuItem value="" disabled><em>-- Choisir un rôle métier --</em></MenuItem>
+                <MenuItem value="Admin">Admin (Supervision & Technique)</MenuItem>
+                <MenuItem value="Direction">Direction (Supervision Globale)</MenuItem>
+                <MenuItem value="Responsable Hébergement">Responsable Hébergement</MenuItem>
+                <MenuItem value="Réception / Accueil">Réception / Accueil</MenuItem>
+                <MenuItem value="Responsable Restaurant">Responsable Restaurant</MenuItem>
+                <MenuItem value="Chef de Salle / Maître d'Hôtel">Chef de Salle / Maître d'Hôtel</MenuItem>
+                <MenuItem value="Staff Restaurant / Serveur">Staff Restaurant / Serveur</MenuItem>
+                <MenuItem value="Chef Cuisinier / Cuisine">Chef Cuisinier / Cuisine</MenuItem>
+                <MenuItem value="Barman / Bar">Barman / Bar</MenuItem>
+                <MenuItem value="Comptoir / Caisse">Comptoir / Caisse</MenuItem>
+                <MenuItem value="Économat / Gestionnaire Stock">Économat / Gestionnaire Stock</MenuItem>
+                <MenuItem value="Comptable / Trésorerie">Comptable / Trésorerie</MenuItem>
+              </TextField>
+              <TextField
+                label="Canal"
+                select
+                value={userForm.canal}
+                onChange={(e) =>
+                  setUserForm((f) => ({ ...f, canal: e.target.value }))
+                }
+                fullWidth
+              >
+                <MenuItem value="" disabled><em>-- Choisir un canal --</em></MenuItem>
+                <MenuItem value="Tous">Tous</MenuItem>
+                <MenuItem value="Hébergement">Hébergement</MenuItem>
+                <MenuItem value="Restaurant">Restaurant</MenuItem>
+              </TextField>
+              <TextField
+                label="Statut"
+                select
+                value={userForm.statut}
+                onChange={(e) =>
+                  setUserForm((f) => ({
+                    ...f,
+                    statut: e.target.value as User["statut"],
+                  }))
+                }
+                fullWidth
+              >
+                <MenuItem value="Actif">Actif</MenuItem>
+                <MenuItem value="Suspendu">Suspendu</MenuItem>
+              </TextField>
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setModalOpen(false)}>Annuler</Button>
+            <Button 
+              type="submit"
+              variant="contained" 
+              disabled={!userForm.nom || !userForm.email || !userForm.role || createUser.isPending || updateUser.isPending}
             >
-              <MenuItem value="" disabled><em>-- Choisir un rôle métier --</em></MenuItem>
-              <MenuItem value="Admin">Admin (Supervision & Technique)</MenuItem>
-              <MenuItem value="Direction">Direction (Supervision Globale)</MenuItem>
-              <MenuItem value="Responsable Hébergement">Responsable Hébergement</MenuItem>
-              <MenuItem value="Réception / Accueil">Réception / Accueil</MenuItem>
-              <MenuItem value="Responsable Restaurant">Responsable Restaurant</MenuItem>
-              <MenuItem value="Chef de Salle / Maître d'Hôtel">Chef de Salle / Maître d'Hôtel</MenuItem>
-              <MenuItem value="Staff Restaurant / Serveur">Staff Restaurant / Serveur</MenuItem>
-              <MenuItem value="Chef Cuisinier / Cuisine">Chef Cuisinier / Cuisine</MenuItem>
-              <MenuItem value="Barman / Bar">Barman / Bar</MenuItem>
-              <MenuItem value="Comptoir / Caisse">Comptoir / Caisse</MenuItem>
-              <MenuItem value="Économat / Gestionnaire Stock">Économat / Gestionnaire Stock</MenuItem>
-              <MenuItem value="Comptable / Trésorerie">Comptable / Trésorerie</MenuItem>
-            </TextField>
-            <TextField
-              label="Canal"
-              select
-              value={userForm.canal}
-              onChange={(e) =>
-                setUserForm((f) => ({ ...f, canal: e.target.value }))
-              }
-              fullWidth
-            >
-              <MenuItem value="" disabled><em>-- Choisir un canal --</em></MenuItem>
-              <MenuItem value="Tous">Tous</MenuItem>
-              <MenuItem value="Hébergement">Hébergement</MenuItem>
-              <MenuItem value="Restaurant">Restaurant</MenuItem>
-            </TextField>
-            <TextField
-              label="Statut"
-              select
-              value={userForm.statut}
-              onChange={(e) =>
-                setUserForm((f) => ({
-                  ...f,
-                  statut: e.target.value as User["statut"],
-                }))
-              }
-              fullWidth
-            >
-              <MenuItem value="Actif">Actif</MenuItem>
-              <MenuItem value="Suspendu">Suspendu</MenuItem>
-            </TextField>
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setModalOpen(false)}>Annuler</Button>
-          <Button 
-            variant="contained" 
-            onClick={saveUser} 
-            disabled={!userForm.nom || !userForm.email || !userForm.role || createUser.isPending || updateUser.isPending}
-          >
-            {isCreating ? (createUser.isPending ? "Création..." : "Créer") : (updateUser.isPending ? "Enregistrement..." : "Enregistrer")}
-          </Button>
-        </DialogActions>
+              {isCreating ? (createUser.isPending ? "Création..." : "Créer") : (updateUser.isPending ? "Enregistrement..." : "Enregistrer")}
+            </Button>
+          </DialogActions>
+        </form>
       </Dialog>
     </Box>
   );
