@@ -25,17 +25,7 @@ export function useUsers() {
       if (!tenantId) return [];
       const list = await fetchCollection<Utilisateur>(tenantId, "utilisateurs");
       if (!list || list.length === 0) {
-        const seeded: Utilisateur[] = [];
-        const defaults = DEFAULT_USERS(tenantId);
-        for (const u of defaults) {
-          try {
-            const created = await createDoc<Utilisateur>(tenantId, "utilisateurs", u);
-            seeded.push(created);
-          } catch (e) {
-            console.error("Auto seed user error", e);
-          }
-        }
-        return seeded.length > 0 ? seeded : defaults.map((d, i) => ({ id: `usr_${i}`, ...d } as Utilisateur));
+        return [];
       }
       
       // Déduplication de sécurité par login / email
@@ -119,6 +109,28 @@ export function useDeleteUser() {
       if (!tenantId) throw new Error("Tenant ID is required");
       await deleteTenantDoc(tenantId, "utilisateurs", id);
       return true;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: usersKeys.all }),
+  });
+}
+
+export function useGenerateDefaultUsers() {
+  const qc = useQueryClient();
+  const { tenantId } = useTenant();
+  return useMutation({
+    mutationFn: async () => {
+      if (!tenantId) throw new Error("Tenant ID is required");
+      const seeded: Utilisateur[] = [];
+      const defaults = DEFAULT_USERS(tenantId);
+      for (const u of defaults) {
+        try {
+          const created = await createDoc<Utilisateur>(tenantId, "utilisateurs", u);
+          seeded.push(created);
+        } catch (e) {
+          console.error("Generate default user error", e);
+        }
+      }
+      return seeded;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: usersKeys.all }),
   });

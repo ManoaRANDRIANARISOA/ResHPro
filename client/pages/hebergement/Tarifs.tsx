@@ -36,6 +36,89 @@ import { useTenant } from "@/contexts/TenantContext";
 import { doc, updateDoc, setDoc } from "firebase/firestore";
 import { db } from "@/services/firebase";
 
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
+import { arrayMove, SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import DragIndicatorIcon from "@mui/icons-material/DragIndicator";
+
+function SortableRow({ row, idx, categories, updateByIndex, removeRow }: any) {
+  const itemId = row.id || row.tempId;
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: itemId });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 100 : "auto",
+    position: isDragging ? "relative" : "static",
+  } as React.CSSProperties;
+
+  return (
+    <Box
+      ref={setNodeRef}
+      style={style}
+      sx={{
+        display: "grid",
+        gridTemplateColumns: { xs: "30px 80px 1fr 90px 140px 90px", md: "40px 140px 1fr 120px 180px 100px" },
+        gap: 1.5,
+        px: 2,
+        py: 1,
+        alignItems: "center",
+        borderRadius: 1.5,
+        border: "1px solid #f1f5f9",
+        bgcolor: row.isNew ? "#f0fdf4" : (isDragging ? "#e2e8f0" : "#ffffff"),
+        "&:hover": { bgcolor: "#f8fafc" },
+        opacity: isDragging ? 0.8 : 1,
+        boxShadow: isDragging ? "0 5px 15px rgba(0,0,0,0.15)" : "none",
+      }}
+    >
+      <Box {...attributes} {...listeners} sx={{ cursor: "grab", display: "flex", alignItems: "center", color: "#94a3b8" }}>
+        <DragIndicatorIcon fontSize="small" />
+      </Box>
+      <TextField
+        size="small"
+        value={row.numero}
+        placeholder="Ex: 101"
+        onChange={(e) => updateByIndex(idx, "numero", e.target.value)}
+        sx={{ "& input": { fontWeight: 700 } }}
+      />
+      <Select
+        size="small"
+        value={row.categorie}
+        onChange={(e) => updateByIndex(idx, "categorie", e.target.value as string)}
+      >
+        {categories.map((cat: string) => (
+          <MenuItem key={cat} value={cat}>
+            {cat}
+          </MenuItem>
+        ))}
+      </Select>
+      <TextField
+        size="small"
+        type="number"
+        value={row.capacite}
+        onChange={(e) => updateByIndex(idx, "capacite", parseInt(e.target.value || "1", 10))}
+        inputProps={{ min: 1 }}
+      />
+      <TextField
+        size="small"
+        type="number"
+        value={row.tarif}
+        onChange={(e) => updateByIndex(idx, "tarif", parseInt(e.target.value || "0", 10))}
+        InputProps={{
+          endAdornment: <InputAdornment position="end">Ar</InputAdornment>,
+        }}
+        sx={{ "& input": { fontWeight: 700 } }}
+      />
+      <Stack direction="row" justifyContent="flex-end">
+        <Tooltip title="Supprimer la chambre">
+          <IconButton size="small" color="error" onClick={() => removeRow(idx)}>
+            <DeleteIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      </Stack>
+    </Box>
+  );
+}
+
 const DEFAULT_PACKS: HebergementPack[] = [
   {
     id: "chambre_seule",
@@ -85,7 +168,7 @@ export default function HebergementTarifs() {
 
   // 2. Grille des chambres
   const [rows, setRows] = useState<
-    Array<{ id?: string; numero: string; categorie: string; capacite: number; tarif: number; isNew?: boolean }>
+    Array<{ id?: string; tempId?: string; numero: string; categorie: string; capacite: number; tarif: number; isNew?: boolean; ordre?: number }>
   >([]);
 
   // 3. Formules & Packs
@@ -121,13 +204,25 @@ export default function HebergementTarifs() {
   }, [config]);
 
   useEffect(() => {
+    const sortedRooms = [...(rooms || [])].sort((a, b) => {
+      if (a.ordre !== undefined && b.ordre !== undefined) return a.ordre - b.ordre;
+      if (a.ordre !== undefined) return -1;
+      if (b.ordre !== undefined) return 1;
+
+      const numA = a.numero || "";
+      const numB = b.numero || "";
+      return numA.localeCompare(numB, undefined, { numeric: true, sensitivity: 'base' });
+    });
+
     setRows(
-      (rooms || []).map((c) => ({
+      sortedRooms.map((c) => ({
         id: c.id,
+        tempId: `temp_${Math.random().toString(36).substr(2, 9)}`,
         numero: c.numero,
         categorie: c.categorie,
         capacite: c.capacite,
         tarif: c.tarif_base,
+        ordre: c.ordre,
       }))
     );
   }, [rooms]);
@@ -180,7 +275,7 @@ export default function HebergementTarifs() {
   function addRow() {
     setRows((rs) => [
       ...rs,
-      { numero: "", categorie: categories[0] || "standard", capacite: 2, tarif: 0, isNew: true },
+      { tempId: `temp_${Date.now()}_${Math.random()}`, numero: "", categorie: categories[0] || "standard", capacite: 2, tarif: 0, isNew: true },
     ]);
   }
 
@@ -193,7 +288,8 @@ export default function HebergementTarifs() {
   }
 
   async function handleValidateRooms() {
-    for (const r of rows) {
+    for (let index = 0; index < rows.length; index++) {
+      const r = rows[index];
       if (r.isNew) {
         if (!r.numero || !r.categorie) continue;
         await createChambre.mutateAsync({
@@ -202,6 +298,7 @@ export default function HebergementTarifs() {
           capacite: r.capacite,
           tarif_base: r.tarif,
           statut: "libre",
+          ordre: index,
         });
       } else if (r.id) {
         await updateChambre.mutateAsync({
@@ -210,11 +307,30 @@ export default function HebergementTarifs() {
           categorie: r.categorie,
           capacite: r.capacite,
           tarif_base: r.tarif,
+          ordre: index,
         });
       }
     }
     setSuccessMsg("Tarifs des chambres enregistrés avec succès !");
     setTimeout(() => setSuccessMsg(null), 4000);
+  }
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  function handleDragEnd(event: any) {
+    const { active, over } = event;
+    if (over && active.id !== over.id) {
+      setRows((items) => {
+        const oldIndex = items.findIndex((i) => (i.id || i.tempId) === active.id);
+        const newIndex = items.findIndex((i) => (i.id || i.tempId) === over.id);
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
   }
 
   // Gestion des packs
@@ -353,7 +469,7 @@ export default function HebergementTarifs() {
           <Box
             sx={{
               display: "grid",
-              gridTemplateColumns: { xs: "80px 1fr 90px 140px 90px", md: "140px 1fr 120px 180px 100px" },
+              gridTemplateColumns: { xs: "30px 80px 1fr 90px 140px 90px", md: "40px 140px 1fr 120px 180px 100px" },
               gap: 1.5,
               px: 2,
               py: 1.2,
@@ -366,6 +482,7 @@ export default function HebergementTarifs() {
               mb: 1,
             }}
           >
+            <Box></Box>
             <Box>N° Chambre</Box>
             <Box>Catégorie</Box>
             <Box>Capacité</Box>
@@ -374,68 +491,22 @@ export default function HebergementTarifs() {
           </Box>
 
           {/* ROWS */}
-          <Stack spacing={1}>
-            {rows.map((r, idx) => (
-              <Box
-                key={r.id ?? `new-${idx}`}
-                sx={{
-                  display: "grid",
-                  gridTemplateColumns: { xs: "80px 1fr 90px 140px 90px", md: "140px 1fr 120px 180px 100px" },
-                  gap: 1.5,
-                  px: 2,
-                  py: 1,
-                  alignItems: "center",
-                  borderRadius: 1.5,
-                  border: "1px solid #f1f5f9",
-                  bgcolor: r.isNew ? "#f0fdf4" : "#ffffff",
-                  "&:hover": { bgcolor: "#f8fafc" },
-                }}
-              >
-                <TextField
-                  size="small"
-                  value={r.numero}
-                  placeholder="Ex: 101"
-                  onChange={(e) => updateByIndex(idx, "numero", e.target.value)}
-                  sx={{ "& input": { fontWeight: 700 } }}
-                />
-                <Select
-                  size="small"
-                  value={r.categorie}
-                  onChange={(e) => updateByIndex(idx, "categorie", e.target.value as string)}
-                >
-                  {categories.map((cat) => (
-                    <MenuItem key={cat} value={cat}>
-                      {cat}
-                    </MenuItem>
-                  ))}
-                </Select>
-                <TextField
-                  size="small"
-                  type="number"
-                  value={r.capacite}
-                  onChange={(e) => updateByIndex(idx, "capacite", parseInt(e.target.value || "1", 10))}
-                  inputProps={{ min: 1 }}
-                />
-                <TextField
-                  size="small"
-                  type="number"
-                  value={r.tarif}
-                  onChange={(e) => updateByIndex(idx, "tarif", parseInt(e.target.value || "0", 10))}
-                  InputProps={{
-                    endAdornment: <InputAdornment position="end">Ar</InputAdornment>,
-                  }}
-                  sx={{ "& input": { fontWeight: 700 } }}
-                />
-                <Stack direction="row" justifyContent="flex-end">
-                  <Tooltip title="Supprimer la chambre">
-                    <IconButton size="small" color="error" onClick={() => removeRow(idx)}>
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                </Stack>
-              </Box>
-            ))}
-          </Stack>
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={rows.map(r => r.id || r.tempId || '')} strategy={verticalListSortingStrategy}>
+              <Stack spacing={1}>
+                {rows.map((r, idx) => (
+                  <SortableRow
+                    key={r.id || r.tempId}
+                    row={r}
+                    idx={idx}
+                    categories={categories}
+                    updateByIndex={updateByIndex}
+                    removeRow={removeRow}
+                  />
+                ))}
+              </Stack>
+            </SortableContext>
+          </DndContext>
 
           {rows.length === 0 && (
             <Box textAlign="center" py={5} color="text.secondary">

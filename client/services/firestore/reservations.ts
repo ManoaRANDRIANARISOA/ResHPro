@@ -2,7 +2,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Reservation } from "@shared/api";
 import { useTenant } from "@/contexts/TenantContext";
 import { fetchCollection, createDoc, updateTenantDoc, deleteTenantDoc } from "./utils";
-import { where } from "firebase/firestore";
+import { where, runTransaction, doc } from "firebase/firestore";
+import { db } from "@/services/firebase";
 import { useCreateFacture } from "./factures";
 import { eachDayOfInterval, addDays } from "date-fns";
 import { fetchDoc } from "./utils";
@@ -167,7 +168,30 @@ async function generateHebergementInvoice(tenantId: string, reservation: Reserva
     ];
 
     const prefix = configDoc?.invoicePrefix || "RESI";
-    const numero = `${prefix}-${dStart.getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, "0")}`;
+    
+    // Génération atomique de la suite numérique
+    const year = dStart.getFullYear();
+    const yearPrefix = `${prefix}-${year}-`;
+    const counterRef = doc(db, `tenants/${tenantId}/counters/factures_${year}`);
+    
+    let nextSequence = 1;
+    try {
+      await runTransaction(db, async (transaction) => {
+        const counterDoc = await transaction.get(counterRef);
+        if (!counterDoc.exists()) {
+          transaction.set(counterRef, { current: 1 });
+          nextSequence = 1;
+        } else {
+          nextSequence = counterDoc.data().current + 1;
+          transaction.update(counterRef, { current: nextSequence });
+        }
+      });
+    } catch (err) {
+      console.error("Erreur lors de la génération du numéro de facture:", err);
+      throw new Error("Impossible de générer le numéro de facture séquentiel.");
+    }
+    
+    const numero = `${yearPrefix}${String(nextSequence).padStart(4, "0")}`;
 
     const created: any = {
       numero,

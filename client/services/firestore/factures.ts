@@ -4,7 +4,7 @@ import { useTenant } from "@/contexts/TenantContext";
 import { fetchCollection, createDoc, updateTenantDoc, getTenantDoc, deleteTenantDoc } from "./utils";
 import { addDays } from "date-fns";
 import { FicheTechnique } from "@shared/fiche-technique";
-import { writeBatch, increment } from "firebase/firestore";
+import { writeBatch, increment, runTransaction, doc } from "firebase/firestore";
 import { db } from "@/services/firebase";
 
 export const facturesKeys = {
@@ -32,7 +32,30 @@ export function useCreateFacture() {
       
       const dStart = payload.date ? new Date(payload.date) : new Date();
       const prefix = config?.invoicePrefix || "RESI";
-      const numero = `${prefix}-${dStart.getFullYear()}-${String(Math.floor(Math.random() * 10000)).padStart(4, "0")}`;
+      
+      // Génération atomique de la suite numérique (ex: RESI-2026-0001)
+      const year = dStart.getFullYear();
+      const yearPrefix = `${prefix}-${year}-`;
+      const counterRef = doc(db, `tenants/${tenantId}/counters/factures_${year}`);
+      
+      let nextSequence = 1;
+      try {
+        await runTransaction(db, async (transaction) => {
+          const counterDoc = await transaction.get(counterRef);
+          if (!counterDoc.exists()) {
+            transaction.set(counterRef, { current: 1 });
+            nextSequence = 1;
+          } else {
+            nextSequence = counterDoc.data().current + 1;
+            transaction.update(counterRef, { current: nextSequence });
+          }
+        });
+      } catch (err) {
+        console.error("Erreur lors de la génération du numéro de facture:", err);
+        throw new Error("Impossible de générer le numéro de facture séquentiel.");
+      }
+      
+      const numero = `${yearPrefix}${String(nextSequence).padStart(4, "0")}`;
       
       const f: any = {
         numero,

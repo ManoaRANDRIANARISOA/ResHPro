@@ -18,7 +18,7 @@ import {
   Typography,
 } from "@mui/material";
 import { useMemo, useState } from "react";
-import { useUsers, useCreateUser, useUpdateUser, useDeleteUser } from "@/services/api";
+import { useUsers, useCreateUser, useUpdateUser, useDeleteUser, useGenerateDefaultUsers } from "@/services/api";
 import { useTenant } from "@/contexts/TenantContext";
 
 type User = {
@@ -163,6 +163,7 @@ export default function AdminPage() {
   const createUser = useCreateUser();
   const updateUser = useUpdateUser();
   const deleteUserMutation = useDeleteUser();
+  const generateDefaultUsers = useGenerateDefaultUsers();
   const users: User[] = useMemo(() => {
     // Adapter Utilisateur -> User (email = login, rôle affiché en libellé)
     const toLabel = (r: string) => {
@@ -396,6 +397,15 @@ export default function AdminPage() {
           <Chip label={`Utilisateurs actifs ${users.filter(u=>u.statut==='Actif').length}` } />
           
           <Box sx={{ flex: 1 }} />
+          {users.length === 0 && (
+            <Button 
+              variant="outlined" 
+              onClick={() => generateDefaultUsers.mutate()} 
+              disabled={generateDefaultUsers.isPending}
+            >
+              Générer comptes par défaut
+            </Button>
+          )}
           <Button startIcon={<Add />} variant="contained" onClick={openCreateModal}>
             Nouvel utilisateur
           </Button>

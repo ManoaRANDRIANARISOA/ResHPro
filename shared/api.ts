@@ -21,6 +21,7 @@ export interface Chambre {
   capacite: number;
   tarif_base: number;
   statut: "libre" | "occupee" | "maintenance";
+  ordre?: number;
 }
 
 export interface ChambreMaintenance {

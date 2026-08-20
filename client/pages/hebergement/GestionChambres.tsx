@@ -463,6 +463,8 @@ function CreateReservationForm({
     statut: 'confirmee' as const,
   });
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const [selectedDates, setSelectedDates] = useState<{ start: Date | null; end: Date | null }>({
     start: null,
     end: null
@@ -577,7 +579,8 @@ function CreateReservationForm({
                   selectedDates.start;
 
   async function handleCreate() {
-    if (!isValid) return;
+    if (!isValid || isSubmitting) return;
+    setIsSubmitting(true);
     
     let clientId = form.clientId;
     
@@ -591,6 +594,7 @@ function CreateReservationForm({
         clientId = newClient.id;
       } catch (error) {
         console.error('Erreur lors de la création du client:', error);
+        setIsSubmitting(false);
         return;
       }
     }
@@ -624,8 +628,10 @@ function CreateReservationForm({
             setForm({ ...form, clientId: '', clientNom: '', clientTelephone: '' });
           }
         }}
-        onInputChange={(_, newInputValue) => {
-          setForm({ ...form, clientNom: newInputValue, clientId: '' });
+        onInputChange={(_, newInputValue, reason) => {
+          if (reason === 'input') {
+            setForm({ ...form, clientNom: newInputValue, clientId: '' });
+          }
         }}
         renderInput={(params) => (
           <TextField {...params} size="small" label="Nom du client" placeholder="Saisir ou sélectionner" />
@@ -827,7 +833,7 @@ function CreateReservationForm({
         <Button 
           variant="contained" 
           onClick={handleCreate}
-          disabled={!isValid}
+          disabled={!isValid || isSubmitting}
         >
           Créer
         </Button>
