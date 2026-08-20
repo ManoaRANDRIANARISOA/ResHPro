@@ -37,7 +37,16 @@ export function useUsers() {
         }
         return seeded.length > 0 ? seeded : defaults.map((d, i) => ({ id: `usr_${i}`, ...d } as Utilisateur));
       }
-      return list;
+      
+      // Déduplication de sécurité par login / email
+      const uniqueMap = new Map<string, Utilisateur>();
+      for (const u of list) {
+        const key = u.login ? u.login.toLowerCase().trim() : u.id;
+        if (!uniqueMap.has(key)) {
+          uniqueMap.set(key, u);
+        }
+      }
+      return Array.from(uniqueMap.values());
     },
     enabled: !!tenantId,
   });
@@ -52,15 +61,12 @@ export function useCreateUser() {
       
       const { password, ...userData } = payload;
 
-      // Création directe dans Firestore
-      const created = await createDoc<Utilisateur>(tenantId, "utilisateurs", userData);
-
-      // Appel optionnel du backend si disponible
+      // 1. Tenter d'abord la création complète via le backend Express (Auth User + Firestore avec UID)
       try {
         const currentUser = auth.currentUser;
-        if (currentUser) {
+        if (currentUser && password) {
           const token = await currentUser.getIdToken();
-          await fetch("/api/users", {
+          const response = await fetch("/api/users", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -71,11 +77,20 @@ export function useCreateUser() {
               tenantId
             })
           });
+          if (response.ok) {
+            const data = await response.json();
+            if (data.success && data.user) {
+              // Le serveur a déjà créé le document dans Firestore avec l'UID
+              return data.user as Utilisateur;
+            }
+          }
         }
       } catch (err) {
-        console.warn("API Express non disponible, utilisateur créé dans Firestore:", err);
+        console.warn("API Express non disponible, bascule sur création Firestore directe:", err);
       }
 
+      // 2. Fallback direct dans Firestore uniquement si le serveur n'a pas créé l'utilisateur
+      const created = await createDoc<Utilisateur>(tenantId, "utilisateurs", userData);
       return created;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: usersKeys.all }),
