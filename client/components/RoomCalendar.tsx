@@ -42,7 +42,8 @@ interface RoomCalendarProps {
   statusFilter: "all" | "libre" | "reservee" | "occupee" | "maintenance";
   reservations: Reservation[];
   compact?: boolean;
-  onCellClick?: (chambreId: string, date: Date) => void;
+  onCellClick?: (chambreId: string, date: Date, r?: Reservation) => void;
+  onSelectReservation?: (r: Reservation) => void;
   chambres?: Chambre[];
   maintenance?: ChambreMaintenance[];
 }
@@ -54,6 +55,7 @@ export function RoomCalendar({
   reservations,
   compact = false,
   onCellClick,
+  onSelectReservation,
   chambres,
   maintenance,
 }: RoomCalendarProps) {
@@ -161,16 +163,24 @@ export function RoomCalendar({
               </Box>
               {days.map((d, i) => {
                 const r = hasReservation(c.id, d, addDays(d, 1));
+                const isMaint = r && (r as any).type === 'maintenance';
+                const reservationObj = (r && !isMaint) ? (r as Reservation) : undefined;
                 return (
                   <Box 
                     key={`${c.id}-${i}`} 
-                    onClick={() => onCellClick?.(c.id, d)}
+                    onClick={() => {
+                      if (reservationObj && onSelectReservation) {
+                        onSelectReservation(reservationObj);
+                        return;
+                      }
+                      onCellClick?.(c.id, d, reservationObj);
+                    }}
                     sx={{ 
                       height: compact ? 20 : 32,
                       bgcolor: r ? (r as any).type === 'maintenance' ? '#9E9E9E' : reservationColor(r as Reservation, d) : roomStatusColor(c.statut),
                       border: '1px solid',
                       borderColor: 'divider',
-                      '&:hover': { opacity: 0.8, cursor: onCellClick ? 'pointer' : 'default' }
+                      '&:hover': { opacity: 0.8, cursor: (onSelectReservation || onCellClick) ? 'pointer' : 'default' }
                     }} 
                   />
                 );
@@ -233,16 +243,24 @@ export function RoomCalendar({
               </Box>
               {days.map((d, i) => {
                 const r = hasReservation(c.id, d, addDays(d, 1));
+                const isMaint = r && (r as any).type === 'maintenance';
+                const reservationObj = (r && !isMaint) ? (r as Reservation) : undefined;
                 return (
                   <Box 
                     key={`${c.id}-${i}`} 
-                    onClick={() => onCellClick?.(c.id, d)}
+                    onClick={() => {
+                      if (reservationObj && onSelectReservation) {
+                        onSelectReservation(reservationObj);
+                        return;
+                      }
+                      onCellClick?.(c.id, d, reservationObj);
+                    }}
                     sx={{ 
                       height: compact ? 32 : 32,
-                      bgcolor: r ? (r as any).type === 'maintenance' ? '#9E9E9E' : reservationColor(r, d) : roomStatusColor(c.statut),
+                      bgcolor: r ? (r as any).type === 'maintenance' ? '#9E9E9E' : reservationColor(r as Reservation, d) : roomStatusColor(c.statut),
                       border: '1px solid',
                       borderColor: 'divider',
-                      '&:hover': { opacity: 0.8, cursor: onCellClick ? 'pointer' : 'default' }
+                      '&:hover': { opacity: 0.8, cursor: (onSelectReservation || onCellClick) ? 'pointer' : 'default' }
                     }} 
                   />
                 );
@@ -305,16 +323,24 @@ export function RoomCalendar({
             </Box>
             {hours.map((h, i) => {
               const r = hasReservation(c.id, h, addHours(h, 1));
+              const isMaint = r && (r as any).type === 'maintenance';
+              const reservationObj = (r && !isMaint) ? (r as Reservation) : undefined;
               return (
                 <Box 
                   key={`${c.id}-${i}`} 
-                  onClick={() => onCellClick?.(c.id, h)}
+                  onClick={() => {
+                    if (reservationObj && onSelectReservation) {
+                      onSelectReservation(reservationObj);
+                      return;
+                    }
+                    onCellClick?.(c.id, h, reservationObj);
+                  }}
                   sx={{ 
                     height: compact ? 24 : 32,
-                    bgcolor: r ? (r as any).type === 'maintenance' ? '#9E9E9E' : reservationColor(r, h) : roomStatusColor(c.statut),
+                    bgcolor: r ? (r as any).type === 'maintenance' ? '#9E9E9E' : reservationColor(r as Reservation, h) : roomStatusColor(c.statut),
                     border: '1px solid',
                     borderColor: 'divider',
-                    '&:hover': { opacity: 0.8, cursor: onCellClick ? 'pointer' : 'default' }
+                    '&:hover': { opacity: 0.8, cursor: (onSelectReservation || onCellClick) ? 'pointer' : 'default' }
                   }} 
                 />
               );
