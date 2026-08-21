@@ -30,14 +30,17 @@ import RestoStock from "@/pages/restaurant/Stock";
 import RouteGuard from "@/components/RouteGuard";
 import SuperAdminDashboard from "@/pages/superadmin/Dashboard";
 import RHPage from "@/pages/rh";
+import { SubscriptionBlockedScreen } from "@/components/SubscriptionBlockedScreen";
+import { getSubscriptionDetails } from "@shared/tenant";
 
 const queryClient = new QueryClient();
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const { user, isAuthenticated, isLoading, logout } = useAuth();
-  const { tenantId } = useTenant();
+  const { tenantId, publicConfig, config } = useTenant();
+  const [superAdminBypassed, setSuperAdminBypassed] = useState(false);
 
   useEffect(() => {
     if (user && !user.superAdmin && user.tenantId !== tenantId) {
@@ -55,6 +58,18 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 
   if (!user.superAdmin && user.tenantId !== tenantId) {
     return <Navigate to="login" replace state={{ error: "Votre compte n'est pas rattaché à cet établissement. Veuillez vérifier le lien ou contacter votre administrateur." }} />;
+  }
+
+  // Vérification du cycle de vie et auto-restriction d'abonnement
+  const sub = config?.subscription || publicConfig?.subscription;
+  const subDetails = getSubscriptionDetails(sub);
+
+  if (subDetails.isExpired && !(user.superAdmin && superAdminBypassed)) {
+    return (
+      <SubscriptionBlockedScreen
+        onBypass={user.superAdmin ? () => setSuperAdminBypassed(true) : undefined}
+      />
+    );
   }
 
   return <>{children}</>;

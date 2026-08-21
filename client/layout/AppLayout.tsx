@@ -42,6 +42,7 @@ import { useAppDispatch } from "@/store";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { useUsers } from "@/services/api";
+import { SubscriptionBanner } from "@/components/SubscriptionBanner";
 
 const drawerWidth = 280;
 
@@ -298,6 +299,7 @@ export function AppLayout({ children }: PropsWithChildren) {
       </Drawer>
       <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
         <Toolbar />
+        <SubscriptionBanner />
         {children}
       </Box>
     </Box>

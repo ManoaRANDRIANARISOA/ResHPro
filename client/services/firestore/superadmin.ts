@@ -1,7 +1,7 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { setDoc, doc, collection, getDocs } from "firebase/firestore";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { setDoc, doc, collection, getDocs, updateDoc } from "firebase/firestore";
 import { db } from "@/services/firebase";
-import { TenantConfig, TenantPublicConfig } from "@shared/tenant";
+import { TenantConfig, TenantPublicConfig, TenantSubscription } from "@shared/tenant";
 
 export function useAllTenants() {
   return useQuery({
@@ -10,8 +10,10 @@ export function useAllTenants() {
       const snap = await getDocs(collection(db, "tenants"));
       const tenantIds = new Set<string>(snap.docs.map(d => d.id));
       
-      // Assurer que "demo" est également vérifié s'il n'avait pas de document racine
+      // Assurer que "demo" et les tenants historiques sont vérifiés
       tenantIds.add("demo");
+      tenantIds.add("kanana");
+      tenantIds.add("okalodge");
 
       const tenantsData = [];
       for (const tId of tenantIds) {
@@ -62,9 +64,11 @@ interface ProvisionPayload {
     rhPlanningPaie?: boolean;
   };
   invoicePrefix: string;
+  subscription?: TenantSubscription;
 }
 
 export function useProvisionTenant() {
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: async (payload: ProvisionPayload) => {
       const {
@@ -80,7 +84,8 @@ export function useProvisionTenant() {
         telephone,
         email,
         modules,
-        invoicePrefix
+        invoicePrefix,
+        subscription,
       } = payload;
       
       // 1. Créer le publicConfig
@@ -93,6 +98,7 @@ export function useProvisionTenant() {
         adresse: adresse?.trim() || undefined,
         telephone: telephone?.trim() || undefined,
         email: email?.trim() || undefined,
+        subscription: subscription || undefined,
         theme: {
           primary: themePrimary,
           secondary: themeSecondary,
@@ -100,9 +106,8 @@ export function useProvisionTenant() {
         }
       };
       
-      // 1.5. Créer le document racine (obligatoire pour que getDocs("tenants") le trouve)
+      // 1.5. Créer le document racine
       await setDoc(doc(db, "tenants", tenantId), { createdAt: new Date().toISOString() });
-
       await setDoc(doc(db, `tenants/${tenantId}/publicConfig/main`), publicConfig);
 
       // 2. Créer la config
@@ -115,6 +120,7 @@ export function useProvisionTenant() {
         adresse: adresse?.trim() || undefined,
         telephone: telephone?.trim() || undefined,
         email: email?.trim() || undefined,
+        subscription: subscription || undefined,
         modules: {
           ...modules,
           fichesTechniques: true,
@@ -136,19 +142,118 @@ export function useProvisionTenant() {
       };
       await setDoc(doc(db, `tenants/${tenantId}/config/main`), config);
 
-      // 3. Créer le premier utilisateur (Admin de l'établissement)
-      // Note: Idealement on utilise Cloud Functions (Admin SDK) pour créer le vrai User Firebase Auth.
-      // Pour le MVP client, on enregistre le profil dans Firestore. L'utilisateur devra s'inscrire manuellement
-      // via l'interface avec ce même email pour que les règles match.
+      // 3. Créer le premier utilisateur admin
       await setDoc(doc(db, `tenants/${tenantId}/utilisateurs`, "admin"), {
         nom: `Admin ${nom}`,
-        email: `admin@${tenantId}.com`, // Dummy email
+        email: `admin@${tenantId}.com`,
         login: `admin@${tenantId}.com`,
         role: "admin",
         createdAt: new Date().toISOString()
       });
 
       return tenantId;
-    }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["superadmin", "tenants"] });
+    },
+  });
+}
+
+/**
+ * Renouveler ou modifier la souscription d'un locataire
+ */
+export function useUpdateTenantSubscription() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      tenantId,
+      subscription,
+    }: {
+      tenantId: string;
+      subscription: TenantSubscription;
+    }) => {
+      // Met à jour à la fois config et publicConfig
+      await setDoc(
+        doc(db, `tenants/${tenantId}/publicConfig/main`),
+        { subscription },
+        { merge: true }
+      );
+      await setDoc(
+        doc(db, `tenants/${tenantId}/config/main`),
+        { subscription },
+        { merge: true }
+      );
+      return { tenantId, subscription };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["superadmin", "tenants"] });
+    },
+  });
+}
+
+/**
+ * Modifier les modules actifs d'un locataire (ex: activer/désactiver RH)
+ */
+export function useUpdateTenantModules() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      tenantId,
+      modules,
+    }: {
+      tenantId: string;
+      modules: TenantConfig["modules"];
+    }) => {
+      await setDoc(
+        doc(db, `tenants/${tenantId}/config/main`),
+        { modules },
+        { merge: true }
+      );
+      return { tenantId, modules };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["superadmin", "tenants"] });
+    },
+  });
+}
+
+/**
+ * Suspendre ou Réactiver un locataire en 1 clic
+ */
+export function useToggleTenantSuspension() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      tenantId,
+      currentStatus,
+      currentEndDate,
+    }: {
+      tenantId: string;
+      currentStatus: string;
+      currentEndDate?: string;
+    }) => {
+      const isCurrentlySuspended = currentStatus === "suspended";
+      const newStatus = isCurrentlySuspended ? "active" : "suspended";
+      
+      const subUpdate: Partial<TenantSubscription> = {
+        status: newStatus as any,
+        suspendedReason: isCurrentlySuspended ? undefined : "Suspension manuelle par le Super-Admin",
+      };
+
+      await setDoc(
+        doc(db, `tenants/${tenantId}/publicConfig/main`),
+        { subscription: subUpdate },
+        { merge: true }
+      );
+      await setDoc(
+        doc(db, `tenants/${tenantId}/config/main`),
+        { subscription: subUpdate },
+        { merge: true }
+      );
+      return { tenantId, newStatus };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["superadmin", "tenants"] });
+    },
   });
 }

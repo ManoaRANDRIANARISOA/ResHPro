@@ -7,6 +7,21 @@ export interface HebergementPack {
   isDefault?: boolean;
 }
 
+export interface TenantSubscription {
+  status: "active" | "trial" | "expiring_soon" | "expired" | "suspended";
+  startDate: string; // Format YYYY-MM-DD
+  endDate: string; // Format YYYY-MM-DD
+  plan: "standard" | "premium" | "custom";
+  durationMonths?: number;
+  contactCommercial?: {
+    nom?: string;
+    telephone?: string;
+    email?: string;
+  };
+  suspendedReason?: string;
+  notes?: string;
+}
+
 export interface TenantConfig {
   id: string;
   nom: string;
@@ -28,6 +43,7 @@ export interface TenantConfig {
   restoSlotDefaultMinutes: number;
   breakfastPrice: number;
   eventRatePerPerson: number;
+  subscription?: TenantSubscription;
   theme: {
     primary: string;
     secondary: string;
@@ -64,9 +80,68 @@ export interface TenantPublicConfig {
   rib?: string;
   mvola?: string;
   cachetSignatureUrl?: string;
+  subscription?: TenantSubscription;
   theme: {
     primary: string;
     secondary: string;
     gradient: string;
+  };
+}
+
+/**
+ * Calcul dynamique et sécurisé du statut d'abonnement et du nombre de jours restants
+ */
+export function getSubscriptionDetails(sub?: TenantSubscription) {
+  if (!sub || !sub.endDate) {
+    return {
+      status: "active" as const,
+      daysRemaining: 999,
+      isExpired: false,
+      isExpiringSoon: false,
+      endDateFormatted: "",
+      contactCommercial: {
+        telephone: "+261 34 00 000 00",
+        email: "contact@reshpro.mg",
+        nom: "Service Commercial ResiPro",
+      },
+      suspendedReason: undefined,
+    };
+  }
+
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const end = new Date(sub.endDate);
+  end.setHours(23, 59, 59, 999);
+
+  const diffTime = end.getTime() - now.getTime();
+  const daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+  const isSuspended = sub.status === "suspended";
+  const isExpired = isSuspended || daysRemaining < 0;
+  const isExpiringSoon = !isExpired && daysRemaining <= 10;
+
+  let calculatedStatus: "active" | "trial" | "expiring_soon" | "expired" | "suspended" = "active";
+  if (isSuspended) {
+    calculatedStatus = "suspended";
+  } else if (isExpired) {
+    calculatedStatus = "expired";
+  } else if (isExpiringSoon) {
+    calculatedStatus = "expiring_soon";
+  } else if (sub.status === "trial") {
+    calculatedStatus = "trial";
+  }
+
+  return {
+    status: calculatedStatus,
+    daysRemaining: Math.max(0, daysRemaining),
+    isExpired,
+    isExpiringSoon,
+    endDateFormatted: sub.endDate,
+    contactCommercial: sub.contactCommercial || {
+      telephone: "+261 34 00 000 00",
+      email: "contact@reshpro.mg",
+      nom: "Service Commercial ResiPro",
+    },
+    suspendedReason: sub.suspendedReason,
   };
 }
