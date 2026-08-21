@@ -19,7 +19,11 @@ export type Role =
 
 export const useRBAC = () => {
   const role = useAppSelector((s) => s.session.role);
-  const { config } = useTenant();
+  const { config, tenantId } = useTenant();
+
+  const isRHActive = Boolean(
+    config?.modules?.rhPlanningPaie ?? (tenantId === "kanana" || tenantId === "demo")
+  );
 
   const menu = useMemo(() => {
     const base = [{ label: "Dashboard", path: "/dashboard" }];
@@ -51,28 +55,65 @@ export const useRBAC = () => {
       stock.push({ label: "Qualité et Rentabilité", path: "/resto/ecarts" });
     }
     const financier = [{ label: "Financier", path: "/financier" }];
+    const rh = [
+      { label: "Planning & Tâches", path: "/rh?tab=planning" },
+      { label: "Gestion de la Paie", path: "/rh?tab=paie" },
+      { label: "Présences & Pointages", path: "/rh?tab=pointages" },
+      { label: "Avances sur Salaire", path: "/rh?tab=avances" },
+      { label: "Personnel & Contrats", path: "/rh?tab=employes" },
+    ];
     const rapports = [{ label: "Rapports", path: "/rapports" }];
     const admin = [
       { label: "Gestion / Admin", path: "/admin" },
     ];
 
+    const adminSections = [
+      { label: "Hébergement", children: hebergement },
+      { label: "Restaurant", children: resto },
+      { label: "Financier", children: financier },
+    ];
+    if (isRHActive) {
+      adminSections.push({ label: "Ressources Humaines", children: rh });
+    }
+    adminSections.push({ label: "Administration", children: admin });
+
+    const directionSections = [
+      { label: "Hébergement", children: hebergement },
+      { label: "Restaurant", children: resto },
+      { label: "Financier", children: financier },
+    ];
+    if (isRHActive) {
+      directionSections.push({ label: "Ressources Humaines", children: rh });
+    }
+
+    const comptableSections = [{ label: "Financier", children: financier }];
+    if (isRHActive) {
+      comptableSections.push({ label: "Ressources Humaines", children: rh });
+    }
+
+    const respHebergementSections = [
+      { label: "Hébergement", children: hebergement },
+      { label: "Financier", children: financier },
+    ];
+    if (isRHActive) {
+      respHebergementSections.push({ label: "Ressources Humaines", children: rh });
+    }
+
+    const respRestoSections = [
+      { label: "Restaurant", children: resto },
+      { label: "Financier", children: financier },
+    ];
+    if (isRHActive) {
+      respRestoSections.push({ label: "Ressources Humaines", children: rh });
+    }
+
     const map: Record<Role, { label: string; children: { label: string; path: string }[] }[]> = {
-      admin: [
-        { label: "Hébergement", children: hebergement },
-        { label: "Restaurant", children: resto },
-        { label: "Financier", children: financier },
-        { label: "Administration", children: admin },
-      ],
-      resp_hebergement: [
-        { label: "Hébergement", children: hebergement },
-        { label: "Financier", children: financier },
-      ],
-      resp_resto: [
-        { label: "Restaurant", children: resto },
-        { label: "Financier", children: financier },
-      ],
+      admin: adminSections,
+      direction: directionSections,
+      resp_hebergement: respHebergementSections,
+      resp_resto: respRestoSections,
       staff_resto: [{ label: "Restaurant", children: resto }],
-      comptable: [{ label: "Financier", children: financier }],
+      comptable: comptableSections,
       reception: [{ label: "Hébergement", children: hebergement }],
       chef_salle: [{ label: "Restaurant", children: resto }],
       serveur: [{ label: "Restaurant", children: resto }],
@@ -80,15 +121,10 @@ export const useRBAC = () => {
       bar: [{ label: "Restaurant", children: resto }],
       comptoir: [{ label: "Restaurant", children: resto }],
       economat: [{ label: "Stock", children: stock }],
-      direction: [
-        { label: "Hébergement", children: hebergement },
-        { label: "Restaurant", children: resto },
-        { label: "Financier", children: financier },
-      ],
     };
 
     return { base, sections: map[role] ?? [] };
-  }, [role, config]);
+  }, [role, config, isRHActive]);
 
   return { role, menu };
 };

@@ -220,3 +220,176 @@ export interface Evenement {
 export interface DemoResponse {
   message: string;
 }
+
+// ==========================================
+// MODULE RESSOURCES HUMAINES & GESTION PAIE
+// ==========================================
+
+export type DepartementPersonnel =
+  | "hebergement"
+  | "restaurant"
+  | "cuisine"
+  | "bar"
+  | "reception"
+  | "economat"
+  | "direction"
+  | "technique"
+  | "autre";
+
+export type TypeContrat = "CDI" | "CDD" | "Extra" | "Saisonnier" | "Stage";
+
+export type TypeShift =
+  | "travail"
+  | "coupure"
+  | "repos"
+  | "conge_paye"
+  | "conge_maladie"
+  | "absence_justifiee"
+  | "absence_injustifiee"
+  | "recuperation"
+  | "formation";
+
+export type ModePaiementSalaire = "especes" | "mobile_money" | "virement" | "cheque";
+
+export interface Employe {
+  id: string;
+  matricule: string;
+  nom: string;
+  prenom: string;
+  departement: DepartementPersonnel;
+  poste: string;
+  typeContrat: TypeContrat;
+  dateEmbauche: string; // YYYY-MM-DD
+  dateFinContrat?: string; // YYYY-MM-DD
+  statut: "actif" | "conge" | "inactif";
+  telephone: string;
+  email?: string;
+  cin?: string;
+  adresse?: string;
+  salaireBase: number; // Ariary mensuel
+  tauxHoraire?: number; // Ariary par heure
+  modePaiement: ModePaiementSalaire;
+  coordonneesPaiement?: {
+    fournisseurMobile?: "MVola" | "Orange Money" | "Airtel Money" | string;
+    numeroMobile?: string;
+    banque?: string;
+    rib?: string;
+  };
+  // Cotisations et options flexibles
+  assujettiCnaps: boolean;
+  tauxCnapsSalarial?: number; // ex: 1%
+  cnapsNumber?: string;
+  assujettiOstie: boolean;
+  tauxOstieSalarial?: number; // ex: 1%
+  ostieNumber?: string;
+  assujettiIrsa: boolean;
+  nbEnfantsCharge?: number;
+  userId?: string;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface PlanningShift {
+  id: string;
+  employeId: string;
+  employeNom: string;
+  departement: DepartementPersonnel;
+  date: string; // YYYY-MM-DD
+  heureDebut: string; // HH:mm
+  heureFin: string; // HH:mm
+  pauseMinutes?: number;
+  type: TypeShift;
+  posteAffecte?: string; // Ex: "Service Terrasse Midi", "Chambres Étage 1", "Plonge & Cuisine Chaud"
+  tache?: string; // Instructions ou tâches spécifiques
+  notes?: string;
+  statut: "planifie" | "confirme" | "effectue" | "absent" | "retard";
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface PointagePresence {
+  id: string;
+  employeId: string;
+  employeNom: string;
+  date: string; // YYYY-MM-DD
+  heureArriveeReelle?: string; // HH:mm
+  heureDepartReelle?: string; // HH:mm
+  heuresNormales: number;
+  heuresSup: number;
+  retardMinutes?: number;
+  statut: "present" | "retard" | "absent_justifie" | "absent_injustifie" | "en_conge" | "repos";
+  validePar?: string;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AvanceSalaire {
+  id: string;
+  employeId: string;
+  employeNom: string;
+  moisConcerne: string; // YYYY-MM
+  dateDemande: string; // YYYY-MM-DD
+  dateVersement?: string; // YYYY-MM-DD
+  montant: number; // Ariary
+  motif: string;
+  statut: "en_attente" | "approuve" | "deduit" | "refuse";
+  modeVersement: ModePaiementSalaire;
+  referencePaiement?: string;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface PrimeItem {
+  id: string;
+  nom: string;
+  montant: number;
+  type: "fixe" | "variable";
+}
+
+export interface CotisationItem {
+  nom: string;
+  base: number;
+  taux: number;
+  montant: number;
+}
+
+export interface BulletinPaie {
+  id: string;
+  numero: string; // ex: "PAY-2026-08-001"
+  employeId: string;
+  employeNom: string;
+  employeMatricule: string;
+  poste: string;
+  departement: DepartementPersonnel;
+  periode: string; // YYYY-MM
+  dateEmission: string; // ISO
+  datePaiement?: string; // ISO
+  heuresNormales: number;
+  heuresSup25: number;
+  heuresSup50: number;
+  heuresSup100: number;
+  salaireBase: number;
+  montantHeuresSup: number;
+  primes: PrimeItem[];
+  totalPrimes: number;
+  avantagesEnNature: number;
+  salaireBrut: number;
+  cotisationsSalariales: CotisationItem[];
+  totalCotisationsSalariales: number;
+  irsa: number;
+  avancesDeduites: number;
+  retenuesAbsences: number;
+  autresRetenues: number;
+  totalRetenues: number;
+  salaireNet: number;
+  modePaiement: ModePaiementSalaire;
+  detailsPaiement?: string;
+  statut: "brouillon" | "valide" | "paye";
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+

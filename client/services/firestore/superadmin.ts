@@ -59,6 +59,7 @@ interface ProvisionPayload {
     stock: boolean;
     fichesTechniques: boolean;
     analyseEcarts: boolean;
+    rhPlanningPaie?: boolean;
   };
   invoicePrefix: string;
 }

@@ -297,6 +297,10 @@ export default function AdminPage() {
           setEditingUser(null);
           setIsCreating(false);
           setPassword("");
+          alert("Utilisateur créé avec succès dans l'authentification et la base de données.");
+        },
+        onError: (err: any) => {
+          alert(err?.message || "Erreur lors de la création de l'utilisateur.");
         },
       });
     } else {
@@ -307,6 +311,10 @@ export default function AdminPage() {
           setEditingUser(null);
           setIsCreating(false);
           setPassword("");
+          alert("Utilisateur et identifiants de connexion mis à jour avec succès.");
+        },
+        onError: (err: any) => {
+          alert(err?.message || "Erreur lors de la mise à jour de l'utilisateur.");
         },
       });
     }
@@ -315,7 +323,14 @@ export default function AdminPage() {
   // Supprimer un utilisateur
   function deleteUser(userId: string) {
     if (window.confirm("Êtes-vous sûr de vouloir supprimer cet utilisateur ?")) {
-      deleteUserMutation.mutate({ id: userId });
+      deleteUserMutation.mutate({ id: userId }, {
+        onSuccess: () => {
+          alert("Utilisateur supprimé avec succès.");
+        },
+        onError: (err: any) => {
+          alert(err?.message || "Erreur lors de la suppression de l'utilisateur.");
+        },
+      });
     }
   }
 

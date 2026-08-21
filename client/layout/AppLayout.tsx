@@ -33,6 +33,9 @@ import Inventory2Icon from "@mui/icons-material/Inventory2";
 import ReceiptLongIcon from "@mui/icons-material/ReceiptLong";
 import GroupIcon from "@mui/icons-material/Group";
 import SettingsIcon from "@mui/icons-material/Settings";
+import BadgeIcon from "@mui/icons-material/Badge";
+import AccountBalanceWalletIcon from "@mui/icons-material/AccountBalanceWallet";
+import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import { Link, useLocation } from "react-router-dom";
 import { useRBAC } from "@/hooks/useRBAC";
 import { useAppDispatch } from "@/store";
@@ -112,6 +115,14 @@ export function AppLayout({ children }: PropsWithChildren) {
 
     if (path.startsWith("/financier"))
       return <ReceiptLongIcon fontSize="small" />;
+    if (path.includes("tab=paie") || path.includes("/paie"))
+      return <AccountBalanceWalletIcon fontSize="small" />;
+    if (path.includes("tab=planning") || path.includes("/planning"))
+      return <CalendarMonthIcon fontSize="small" />;
+    if (path.includes("tab=pointages") || path.includes("/pointages"))
+      return <AccessTimeIcon fontSize="small" />;
+    if (path.includes("tab=employes") || path.includes("tab=avances") || path.startsWith("/rh"))
+      return <BadgeIcon fontSize="small" />;
     if (path.startsWith("/admin")) return <GroupIcon fontSize="small" />;
     if (path.startsWith("/parametres"))
       return <SettingsIcon fontSize="small" />;

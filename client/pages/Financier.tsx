@@ -45,6 +45,11 @@ import {
   Close,
   FileDownload,
   LocalOffer,
+  TrendingUp,
+  TrendingDown,
+  AccountBalanceWallet,
+  People,
+  Inventory2,
 } from "@mui/icons-material";
 import {
   useCreateFacture,
@@ -56,6 +61,9 @@ import {
   useChambres,
   useHebergementReservations,
   useRestoReservations,
+  useBulletinsPaie,
+  useAvancesSalaire,
+  useStockProduits,
 } from "@/services/api";
 import { Facture, FactureLigne, Client } from "@shared/api";
 import { exportToCSV, exportToPDF, printFacturePro } from "@/lib/export";
@@ -136,6 +144,14 @@ export default function Financier() {
   const { data: hebergementAll } = useHebergementReservations();
   const { data: chambresData } = useChambres();
   const { tenantId, config, publicConfig } = useTenant();
+
+  const isRHActive = Boolean(
+    config?.modules?.rhPlanningPaie ?? (tenantId === "kanana" || tenantId === "demo")
+  );
+  const currentMonth = format(new Date(), "yyyy-MM");
+  const { data: bulletinsRH = [] } = useBulletinsPaie(isRHActive ? currentMonth : undefined);
+  const { data: avancesRH = [] } = useAvancesSalaire(isRHActive ? currentMonth : undefined);
+  const { data: stockProduits = [] } = useStockProduits();
 
   const create = useCreateFacture();
   const updateStatut = useUpdateFactureStatut();
@@ -550,9 +566,9 @@ export default function Financier() {
     const mStart = startOfMonth(now);
     const mEnd = endOfMonth(now);
     const totalDays = eachDayOfInterval({ start: mStart, end: mEnd }).length;
-    const firstFourRooms = (chambresData || []).slice(0, 4);
+    const allRooms = chambresData || [];
     const counts: Record<string, number> = Object.fromEntries(
-      firstFourRooms.map((ch) => [ch.id, 0]),
+      allRooms.map((ch) => [ch.id, 0]),
     );
     (hebergementAll || [])
       .filter((r) => r.statut !== "annulee" && r.statut !== "no_show")
@@ -565,8 +581,8 @@ export default function Financier() {
         const days = eachDayOfInterval({ start, end });
         counts[r.chambreId] = (counts[r.chambreId] || 0) + days.length;
       });
-    return firstFourRooms.map((ch) => ({
-      name: ch.numero,
+    return allRooms.map((ch) => ({
+      name: `Ch. ${ch.numero}`,
       taux: totalDays ? Math.round(((counts[ch.id] || 0) / totalDays) * 100) : 0,
     }));
   }, [hebergementAll, chambresData]);
@@ -582,6 +598,89 @@ export default function Financier() {
       { name: "Événements", revenus: sum("Evenement") },
     ];
   }, [factures]);
+
+  // Suivi Financier Global : Entrées vs Sorties (avec RH si actif)
+  const cashflowSummary = useMemo(() => {
+    const totalEntrees = kpis.totalPaye;
+
+    // Masse salariale nette du mois
+    const salairesPayes = bulletinsRH
+      .filter((b) => b.statut === "paye")
+      .reduce((acc, b) => acc + (b.salaireNet || 0), 0);
+    const salairesTotalMois = bulletinsRH.reduce((acc, b) => acc + (b.salaireNet || 0), 0);
+
+    // Avances décaissées
+    const avancesPayees = avancesRH
+      .filter((a) => a.statut === "approuve")
+      .reduce((acc, a) => acc + (a.montant || 0), 0);
+
+    // Charges patronales / cotisations
+    const cotisationsTotales = bulletinsRH.reduce(
+      (acc, b) => acc + (b.totalCotisationsSalariales || 0) + (b.irsa || 0),
+      0
+    );
+
+    // Achats stock
+    const valeurStock = (stockProduits || []).reduce(
+      (acc, p) => acc + (p.stock || 0) * (p.prixUnitaire || 0),
+      0
+    );
+
+    const totalSortiesRH = isRHActive ? salairesPayes + avancesPayees : 0;
+    const totalSortiesGlobal = totalSortiesRH;
+    const soldeNetExploitation = totalEntrees - totalSortiesGlobal;
+
+    return {
+      totalEntrees,
+      salairesPayes,
+      salairesTotalMois,
+      avancesPayees,
+      cotisationsTotales,
+      valeurStock,
+      totalSortiesRH,
+      totalSortiesGlobal,
+      soldeNetExploitation,
+    };
+  }, [kpis, bulletinsRH, avancesRH, stockProduits, isRHActive]);
+
+  const cashflowChartData = useMemo(() => {
+    return [
+      {
+        name: "Hébergement",
+        montant: ca.find(c => c.name === "Hébergement")?.revenus || 0,
+        type: "Entrée",
+        fill: "#10b981",
+      },
+      {
+        name: "Restaurant",
+        montant: ca.find(c => c.name === "Restaurant")?.revenus || 0,
+        type: "Entrée",
+        fill: "#06b6d4",
+      },
+      {
+        name: "Événements",
+        montant: ca.find(c => c.name === "Événements")?.revenus || 0,
+        type: "Entrée",
+        fill: "#8b5cf6",
+      },
+      ...(isRHActive
+        ? [
+            {
+              name: "Salaires RH",
+              montant: cashflowSummary.salairesTotalMois,
+              type: "Sortie",
+              fill: "#f59e0b",
+            },
+            {
+              name: "Acomptes RH",
+              montant: cashflowSummary.avancesPayees,
+              type: "Sortie",
+              fill: "#ef4444",
+            },
+          ]
+        : []),
+    ];
+  }, [ca, cashflowSummary, isRHActive]);
 
   return (
     <Box sx={{ pb: 6 }}>
@@ -1169,6 +1268,97 @@ export default function Financier() {
                 </ResponsiveContainer>
               </Grid>
             </Grid>
+          </Paper>
+
+          {/* SECTION: FLUX DE TRÉSORERIE & SORTIES RH */}
+          <Paper sx={{ p: 3, borderRadius: 3, border: "1px solid #e2e8f0" }}>
+            <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", sm: "center" }} mb={2}>
+              <Box>
+                <Typography variant="h6" fontWeight={800} color="#0f172a">
+                  Flux de Trésorerie : Entrées vs Sorties d'Exploitation
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  Synthèse globale du mois en cours ({format(new Date(), "MMMM yyyy", { locale: fr })})
+                </Typography>
+              </Box>
+              {isRHActive && (
+                <Chip
+                  size="small"
+                  label="Module RH Inclus"
+                  sx={{ bgcolor: "#e0e7ff", color: "#3730a3", fontWeight: 700 }}
+                />
+              )}
+            </Stack>
+
+            <Grid container spacing={2} mb={3}>
+              <Grid item xs={12} sm={6} md={3}>
+                <Paper sx={{ p: 2, borderLeft: "4px solid #10b981", bgcolor: "#f0fdf4" }}>
+                  <Typography variant="caption" fontWeight={700} color="#166534" textTransform="uppercase">
+                    Total Entrées Encaissées
+                  </Typography>
+                  <Typography variant="h5" fontWeight={800} color="#15803d" mt={0.5}>
+                    {cashflowSummary.totalEntrees.toLocaleString('fr-FR')} Ar
+                  </Typography>
+                  <Typography variant="caption" color="#166534">
+                    Factures soldées
+                  </Typography>
+                </Paper>
+              </Grid>
+
+              <Grid item xs={12} sm={6} md={3}>
+                <Paper sx={{ p: 2, borderLeft: "4px solid #f59e0b", bgcolor: "#fffbeb" }}>
+                  <Typography variant="caption" fontWeight={700} color="#92400e" textTransform="uppercase">
+                    Sorties Masse Salariale {isRHActive ? "(RH)" : ""}
+                  </Typography>
+                  <Typography variant="h5" fontWeight={800} color="#b45309" mt={0.5}>
+                    {cashflowSummary.salairesTotalMois.toLocaleString('fr-FR')} Ar
+                  </Typography>
+                  <Typography variant="caption" color="#92400e">
+                    {bulletinsRH.length} salariés ce mois
+                  </Typography>
+                </Paper>
+              </Grid>
+
+              <Grid item xs={12} sm={6} md={3}>
+                <Paper sx={{ p: 2, borderLeft: "4px solid #ef4444", bgcolor: "#fef2f2" }}>
+                  <Typography variant="caption" fontWeight={700} color="#991b1b" textTransform="uppercase">
+                    Acomptes & Avances Versés
+                  </Typography>
+                  <Typography variant="h5" fontWeight={800} color="#b91c1c" mt={0.5}>
+                    {cashflowSummary.avancesPayees.toLocaleString('fr-FR')} Ar
+                  </Typography>
+                  <Typography variant="caption" color="#991b1b">
+                    Avances accordées
+                  </Typography>
+                </Paper>
+              </Grid>
+
+              <Grid item xs={12} sm={6} md={3}>
+                <Paper sx={{ p: 2, borderLeft: `4px solid ${cashflowSummary.soldeNetExploitation >= 0 ? '#4f46e5' : '#ef4444'}`, bgcolor: "#f8fafc" }}>
+                  <Typography variant="caption" fontWeight={700} color="#475569" textTransform="uppercase">
+                    Solde d'Exploitation Net
+                  </Typography>
+                  <Typography variant="h5" fontWeight={800} color={cashflowSummary.soldeNetExploitation >= 0 ? "#4338ca" : "#b91c1c"} mt={0.5}>
+                    {cashflowSummary.soldeNetExploitation.toLocaleString('fr-FR')} Ar
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Entrées — Sorties Salariales
+                  </Typography>
+                </Paper>
+              </Grid>
+            </Grid>
+
+            {/* GRAPHIQUE COMPARATIF ENTRÉES VS CHARGES */}
+            <Typography variant="subtitle2" fontWeight={700} color="text.secondary" mb={1.5}>
+              Ventilation Comparative : Recettes vs Décaissements (Ariary)
+            </Typography>
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={cashflowChartData}>
+                <XAxis dataKey="name" />
+                <Tooltip content={<CustomTooltip />} />
+                <Bar dataKey="montant" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
           </Paper>
         </Stack>
       )}

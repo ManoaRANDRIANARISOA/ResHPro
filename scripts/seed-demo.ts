@@ -34,7 +34,7 @@ async function seed() {
 
   // 2. Create private config
   await db.doc(`${tId}/config/main`).set({
-    modules: { hebergement: true, restaurant: true, stock: true, fichesTechniques: true, analyseEcarts: true },
+    modules: { hebergement: true, restaurant: true, stock: true, fichesTechniques: true, analyseEcarts: true, rhPlanningPaie: true },
     invoicePrefix: "DEMO",
     menuCategories: [
       { id: "entrees", label: "Entrées", type: "nourriture" },

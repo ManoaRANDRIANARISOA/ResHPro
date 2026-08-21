@@ -29,6 +29,7 @@ import AdminPage from "@/pages/Admin";
 import RestoStock from "@/pages/restaurant/Stock";
 import RouteGuard from "@/components/RouteGuard";
 import SuperAdminDashboard from "@/pages/superadmin/Dashboard";
+import RHPage from "@/pages/rh";
 
 const queryClient = new QueryClient();
 
@@ -103,6 +104,9 @@ function AuthenticatedTenantRoutes() {
 
         <Route path="financier" element={
           <RouteGuard allowed={["admin","comptable","comptoir","direction","reception"]}><Financier /></RouteGuard>
+        } />
+        <Route path="rh" element={
+          <RouteGuard allowed={["admin","direction","comptable","resp_hebergement","resp_resto"]}><RHPage /></RouteGuard>
         } />
         <Route path="admin" element={
           <RouteGuard allowed={["admin"]}><AdminPage /></RouteGuard>

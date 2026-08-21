@@ -94,6 +94,38 @@ export function useUpdateUser() {
     mutationFn: async (payload: Partial<Utilisateur> & { id: string; password?: string }) => {
       if (!tenantId) throw new Error("Tenant ID is required");
       const { id, password, ...data } = payload;
+
+      // 1. Tenter la mise à jour complète via le backend Express (Auth email/password/claims + Firestore)
+      try {
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+          const token = await currentUser.getIdToken();
+          const response = await fetch(`/api/users/${id}`, {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              ...payload,
+              tenantId
+            })
+          });
+          if (response.ok) {
+            const resData = await response.json();
+            if (resData.success && resData.user) {
+              return resData.user as Utilisateur;
+            }
+          } else {
+            const errData = await response.json();
+            throw new Error(errData.error || "Erreur lors de la modification de l'utilisateur");
+          }
+        }
+      } catch (err: any) {
+        console.warn("Erreur API Express pour update user, bascule sur Firestore:", err);
+      }
+
+      // 2. Fallback direct Firestore
       await updateTenantDoc(tenantId, "utilisateurs", id, data);
       return { id, ...data };
     },
@@ -107,6 +139,22 @@ export function useDeleteUser() {
   return useMutation({
     mutationFn: async ({ id }: { id: string }) => {
       if (!tenantId) throw new Error("Tenant ID is required");
+
+      try {
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+          const token = await currentUser.getIdToken();
+          await fetch(`/api/users/${id}?tenantId=${tenantId}`, {
+            method: "DELETE",
+            headers: {
+              "Authorization": `Bearer ${token}`
+            }
+          });
+        }
+      } catch (err) {
+        console.warn("Erreur API Express pour delete user:", err);
+      }
+
       await deleteTenantDoc(tenantId, "utilisateurs", id);
       return true;
     },

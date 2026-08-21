@@ -33,6 +33,7 @@ export default function SuperAdminDashboard() {
       stock: true,
       fichesTechniques: true,
       analyseEcarts: true,
+      rhPlanningPaie: true,
     }
   });
 
@@ -181,6 +182,10 @@ export default function SuperAdminDashboard() {
                   control={<Checkbox checked={form.modules.analyseEcarts} onChange={(e) => setForm({...form, modules: {...form.modules, analyseEcarts: e.target.checked}})} />} 
                   label="Analyse Écarts" 
                 />
+                <FormControlLabel 
+                  control={<Checkbox checked={form.modules.rhPlanningPaie} onChange={(e) => setForm({...form, modules: {...form.modules, rhPlanningPaie: e.target.checked}})} />} 
+                  label="Module RH (Planning & Paie)" 
+                />
               </Stack>
 
               <Button 
@@ -241,6 +246,7 @@ export default function SuperAdminDashboard() {
                           {t.config?.modules?.stock && <Chip size="small" label="Stock" />}
                           {t.config?.modules?.fichesTechniques && <Chip size="small" label="Fiches Techniques" />}
                           {t.config?.modules?.analyseEcarts && <Chip size="small" label="Analyse Écarts" />}
+                          {t.config?.modules?.rhPlanningPaie && <Chip size="small" label="RH & Paie" color="primary" />}
                         </Stack>
                         
                         <Button variant="outlined" size="small" fullWidth href={`/${t.id}/login`} target="_blank">

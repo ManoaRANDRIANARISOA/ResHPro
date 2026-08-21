@@ -34,7 +34,7 @@ const tenantsToProvision = [
     logoUrl: "",
     theme: { primary: "#8e44ad", secondary: "#f39c12" },
     invoicePrefix: "KAN",
-    modules: { hebergement: true, restaurant: true, stock: true, fichesTechniques: true, analyseEcarts: true },
+    modules: { hebergement: true, restaurant: true, stock: true, fichesTechniques: true, analyseEcarts: true, rhPlanningPaie: true },
     adminEmail: "admin@kanana.mg",
     adminPass: "kanana2026"
   }

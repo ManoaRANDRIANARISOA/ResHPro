@@ -48,6 +48,7 @@ export interface TenantConfig {
     analyseEcarts: boolean;
     iaPredicitions: boolean;
     multiSite: boolean;
+    rhPlanningPaie?: boolean;
   };
 }
 

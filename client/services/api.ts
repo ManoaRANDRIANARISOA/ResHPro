@@ -10,6 +10,7 @@ export * from "./firestore/clients";
 export * from "./firestore/utilisateurs";
 export * from "./firestore/tables";
 export * from "./firestore/fiches-techniques";
+export * from "./firestore/rh";
 
 // Ensure cloud sync is no longer needed with Firestore (it handles offline syncing automatically)
 export async function ensureCloudSync(forceSeed = false) {
