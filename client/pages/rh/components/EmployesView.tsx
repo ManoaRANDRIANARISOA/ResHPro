@@ -523,9 +523,36 @@ export function EmployesView() {
               {filteredEmployes.length === 0 && !isLoading && (
                 <TableRow>
                   <TableCell colSpan={9} align="center" sx={{ py: 6 }}>
-                    <Typography color="text.secondary" fontWeight={600}>
-                      Aucun salarié trouvé avec ces filtres.
-                    </Typography>
+                    {employes.length === 0 ? (
+                      <Stack spacing={2} alignItems="center">
+                        <Typography color="text.secondary" fontWeight={600}>
+                          Aucun collaborateur enregistré dans cet établissement.
+                        </Typography>
+                        <Stack direction="row" spacing={1.5}>
+                          <Button
+                            variant="contained"
+                            startIcon={<Add />}
+                            onClick={handleOpenCreate}
+                            sx={{ bgcolor: "#4f46e5", fontWeight: 700, textTransform: "none" }}
+                          >
+                            Ajouter un collaborateur
+                          </Button>
+                          <Button
+                            variant="outlined"
+                            startIcon={<Refresh />}
+                            onClick={() => seedDefaultRH.mutate()}
+                            disabled={seedDefaultRH.isPending}
+                            sx={{ textTransform: "none", fontWeight: 700 }}
+                          >
+                            {seedDefaultRH.isPending ? "Initialisation..." : "Initialiser avec des profils types (Démo)"}
+                          </Button>
+                        </Stack>
+                      </Stack>
+                    ) : (
+                      <Typography color="text.secondary" fontWeight={600}>
+                        Aucun salarié trouvé avec ces filtres de recherche.
+                      </Typography>
+                    )}
                   </TableCell>
                 </TableRow>
               )}

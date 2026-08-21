@@ -1464,12 +1464,15 @@ export function printPlanningHebdo(
   tenantConfig?: Partial<TenantConfig & TenantPublicConfig> | null
 ) {
   const etablissementNom = tenantConfig?.nom || "Établissement";
-  const startDate = new Date(dateDebut);
+  const [year, month, day] = dateDebut.split('-').map(Number);
   const days = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(startDate);
-    d.setDate(startDate.getDate() + i);
+    const d = new Date(year, month - 1, day + i);
+    const yStr = d.getFullYear();
+    const mStr = String(d.getMonth() + 1).padStart(2, '0');
+    const dStr = String(d.getDate()).padStart(2, '0');
+    const dateStr = `${yStr}-${mStr}-${dStr}`;
     return {
-      dateStr: d.toISOString().split('T')[0],
+      dateStr,
       dayName: d.toLocaleDateString('fr-FR', { weekday: 'short' }).toUpperCase(),
       dayNum: d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }),
     };
