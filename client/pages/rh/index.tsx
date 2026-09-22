@@ -26,7 +26,7 @@ import { useTenant } from "@/contexts/TenantContext";
 
 export default function RHPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const tabParam = searchParams.get("tab") || "planning";
+  const tabParam = searchParams.get("tab") || "employes";
   const [activeTab, setActiveTab] = useState<string>(tabParam);
 
   const { tenantId } = useTenant();

@@ -1,7 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { setDoc, doc, collection, getDocs, updateDoc } from "firebase/firestore";
+import { setDoc, doc, collection, getDocs, updateDoc, deleteField } from "firebase/firestore";
 import { db } from "@/services/firebase";
 import { TenantConfig, TenantPublicConfig, TenantSubscription } from "@shared/tenant";
+import { cleanData } from "./utils";
 
 export function useAllTenants() {
   return useQuery({
@@ -89,38 +90,38 @@ export function useProvisionTenant() {
       } = payload;
       
       // 1. Créer le publicConfig
-      const publicConfig: TenantPublicConfig = {
+      const publicConfig: any = cleanData({
         nom,
         logoUrl,
         nif: nif?.trim() ? nif.trim() : "À fournir par le client",
         stat: stat?.trim() ? stat.trim() : "À fournir par le client",
-        rcs: rcs?.trim() || undefined,
-        adresse: adresse?.trim() || undefined,
-        telephone: telephone?.trim() || undefined,
-        email: email?.trim() || undefined,
-        subscription: subscription || undefined,
+        rcs: rcs?.trim() || null,
+        adresse: adresse?.trim() || null,
+        telephone: telephone?.trim() || null,
+        email: email?.trim() || null,
+        subscription: subscription || null,
         theme: {
           primary: themePrimary,
           secondary: themeSecondary,
           gradient: `linear-gradient(135deg, ${themePrimary} 0%, ${themeSecondary} 100%)`
         }
-      };
+      });
       
       // 1.5. Créer le document racine
       await setDoc(doc(db, "tenants", tenantId), { createdAt: new Date().toISOString() });
       await setDoc(doc(db, `tenants/${tenantId}/publicConfig/main`), publicConfig);
 
       // 2. Créer la config
-      const config: Partial<TenantConfig> = {
+      const config: any = cleanData({
         nom,
         logoUrl,
         nif: nif?.trim() ? nif.trim() : "À fournir par le client",
         stat: stat?.trim() ? stat.trim() : "À fournir par le client",
-        rcs: rcs?.trim() || undefined,
-        adresse: adresse?.trim() || undefined,
-        telephone: telephone?.trim() || undefined,
-        email: email?.trim() || undefined,
-        subscription: subscription || undefined,
+        rcs: rcs?.trim() || null,
+        adresse: adresse?.trim() || null,
+        telephone: telephone?.trim() || null,
+        email: email?.trim() || null,
+        subscription: subscription || null,
         modules: {
           ...modules,
           fichesTechniques: true,
@@ -139,7 +140,7 @@ export function useProvisionTenant() {
           { id: "boissons", label: "Boissons", icon: "LocalCafeIcon" },
           { id: "tapas", label: "Tapas / Snacks", icon: "RestaurantIcon" }
         ]
-      };
+      });
       await setDoc(doc(db, `tenants/${tenantId}/config/main`), config);
 
       // 3. Créer le premier utilisateur admin
@@ -172,15 +173,21 @@ export function useUpdateTenantSubscription() {
       tenantId: string;
       subscription: TenantSubscription;
     }) => {
+      // Nettoyer les données et supprimer suspendedReason si non défini
+      const cleanSub: any = cleanData({ ...subscription });
+      if (!cleanSub.suspendedReason) {
+        cleanSub.suspendedReason = deleteField();
+      }
+
       // Met à jour à la fois config et publicConfig
       await setDoc(
         doc(db, `tenants/${tenantId}/publicConfig/main`),
-        { subscription },
+        { subscription: cleanSub },
         { merge: true }
       );
       await setDoc(
         doc(db, `tenants/${tenantId}/config/main`),
-        { subscription },
+        { subscription: cleanSub },
         { merge: true }
       );
       return { tenantId, subscription };
@@ -235,9 +242,9 @@ export function useToggleTenantSuspension() {
       const isCurrentlySuspended = currentStatus === "suspended";
       const newStatus = isCurrentlySuspended ? "active" : "suspended";
       
-      const subUpdate: Partial<TenantSubscription> = {
-        status: newStatus as any,
-        suspendedReason: isCurrentlySuspended ? undefined : "Suspension manuelle par le Super-Admin",
+      const subUpdate: any = {
+        status: newStatus,
+        suspendedReason: isCurrentlySuspended ? deleteField() : "Suspension manuelle par le Super-Admin",
       };
 
       await setDoc(

@@ -49,8 +49,12 @@ export async function fetchDoc<T>(tenantId: string, collectionName: string, docI
   return null;
 }
 
-function cleanData(obj: any): any {
+export function cleanData(obj: any): any {
   if (obj === null || obj === undefined) return null;
+  // Préserver les FieldValue Firestore (deleteField, serverTimestamp, etc.)
+  if (typeof obj === 'object' && ('_methodName' in obj || obj.constructor?.name?.includes('FieldValue'))) {
+    return obj;
+  }
   if (Array.isArray(obj)) return obj.map(cleanData);
   if (typeof obj === 'object') {
     const cleaned: any = {};

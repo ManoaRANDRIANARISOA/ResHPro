@@ -44,7 +44,9 @@ import { useTenant } from "@/contexts/TenantContext";
 import { useUsers } from "@/services/api";
 import { SubscriptionBanner } from "@/components/SubscriptionBanner";
 
-const drawerWidth = 280;
+import MenuIcon from "@mui/icons-material/Menu";
+
+const drawerWidth = 224;
 
 const ROLE_BADGES: Record<string, { label: string; bg: string; color: string }> = {
   admin: { label: "Admin", bg: "#e0e7ff", color: "#3730a3" },
@@ -70,6 +72,7 @@ export function AppLayout({ children }: PropsWithChildren) {
   const { tenantId, publicConfig, logo } = useTenant();
   const { logout, user } = useAuth();
   const { data: usersList } = useUsers();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   // Nom d'affichage de l'utilisateur connecté
   const userName = useMemo(() => {
@@ -130,6 +133,139 @@ export function AppLayout({ children }: PropsWithChildren) {
     return <DashboardIcon fontSize="small" />;
   }
 
+  function isRouteActive(itemPath: string) {
+    if (itemPath === "/dashboard") {
+      return (
+        location.pathname === `/${tenantId}/dashboard` ||
+        location.pathname === `/${tenantId}` ||
+        location.pathname === `/${tenantId}/`
+      );
+    }
+
+    if (itemPath.includes("?")) {
+      const [pathPart, queryPart] = itemPath.split("?");
+      const targetParams = new URLSearchParams(queryPart);
+      const currentParams = new URLSearchParams(location.search);
+
+      if (location.pathname === `/${tenantId}${pathPart}`) {
+        const tabTarget = targetParams.get("tab");
+        const currentTab = currentParams.get("tab") || (pathPart === "/rh" ? "employes" : null);
+        return tabTarget === currentTab;
+      }
+      return false;
+    }
+
+    return location.pathname.startsWith(`/${tenantId}${itemPath}`);
+  }
+
+  const drawerContent = (
+    <Box sx={{ overflow: "auto", p: 1 }}>
+      <List sx={{ pt: 0.5, pb: 0.5 }}>
+        {(() => {
+          const isDashboardActive = isRouteActive("/dashboard");
+          return (
+            <ListItemButton
+              component={Link}
+              to={`/${tenantId}/dashboard`}
+              selected={isDashboardActive}
+              onClick={() => setMobileOpen(false)}
+              sx={{
+                borderRadius: "8px",
+                mb: 0.5,
+                px: 1.2,
+                py: 0.7,
+                transition: "all 0.15s ease",
+                color: isDashboardActive ? "primary.main" : "#334155",
+                bgcolor: isDashboardActive ? "rgba(99, 102, 241, 0.1)" : "transparent",
+                borderLeft: isDashboardActive ? "3px solid #6366f1" : "3px solid transparent",
+                "&:hover": {
+                  bgcolor: isDashboardActive ? "rgba(99, 102, 241, 0.15)" : "#f1f5f9",
+                },
+                "& .MuiListItemIcon-root": {
+                  color: isDashboardActive ? "primary.main" : "#64748b",
+                  minWidth: 30,
+                },
+                "& .MuiListItemText-primary": {
+                  fontSize: "0.82rem",
+                  fontWeight: isDashboardActive ? 800 : 600,
+                },
+              }}
+            >
+              <ListItemIcon sx={{ minWidth: 30 }}>
+                <DashboardIcon fontSize="small" />
+              </ListItemIcon>
+              <ListItemText primary="Tableau de bord" />
+            </ListItemButton>
+          );
+        })()}
+      </List>
+      
+      {menu.sections.map((section) => (
+        <List
+          key={section.label}
+          subheader={
+            <ListSubheader
+              sx={{
+                bgcolor: "transparent",
+                color: "#94a3b8",
+                fontSize: "0.68rem",
+                fontWeight: 800,
+                letterSpacing: "0.8px",
+                textTransform: "uppercase",
+                lineHeight: "24px",
+                mt: 0.8,
+                px: 1.2,
+              }}
+            >
+              {section.label}
+            </ListSubheader>
+          }
+          sx={{ py: 0.1 }}
+        >
+          {section.children.map((item) => {
+            const isActive = isRouteActive(item.path);
+            return (
+              <ListItemButton
+                key={item.path}
+                component={Link}
+                to={`/${tenantId}${item.path}`}
+                selected={isActive}
+                onClick={() => setMobileOpen(false)}
+                sx={{
+                  borderRadius: "8px",
+                  mb: 0.3,
+                  px: 1.2,
+                  py: 0.6,
+                  transition: "all 0.15s ease",
+                  color: isActive ? "primary.main" : "#334155",
+                  bgcolor: isActive ? "rgba(99, 102, 241, 0.1)" : "transparent",
+                  borderLeft: isActive ? "3px solid #6366f1" : "3px solid transparent",
+                  "&:hover": {
+                    bgcolor: isActive ? "rgba(99, 102, 241, 0.15)" : "#f1f5f9",
+                    color: isActive ? "primary.main" : "#0f172a",
+                  },
+                  "& .MuiListItemIcon-root": {
+                    color: isActive ? "primary.main" : "#64748b",
+                    minWidth: 30,
+                  },
+                  "& .MuiListItemText-primary": {
+                    fontSize: "0.82rem",
+                    fontWeight: isActive ? 800 : 500,
+                  },
+                }}
+              >
+                <ListItemIcon sx={{ minWidth: 30 }}>
+                  {iconFor(item.path)}
+                </ListItemIcon>
+                <ListItemText primary={item.label} />
+              </ListItemButton>
+            );
+          })}
+        </List>
+      ))}
+    </Box>
+  );
+
   return (
     <Box sx={{ display: "flex" }}>
       <AppBar
@@ -143,15 +279,24 @@ export function AppLayout({ children }: PropsWithChildren) {
         color="inherit"
         elevation={0}
       >
-        <Toolbar sx={{ justifyContent: "space-between", minHeight: 64, px: { xs: 2, md: 3 } }}>
-          {/* LOGO & TENANT NAME */}
-          <Box sx={{ display: 'flex', alignItems: 'center', px: 0.5 }}>
+        <Toolbar sx={{ justifyContent: "space-between", minHeight: 60, px: { xs: 1.5, md: 2.5 } }}>
+          {/* LOGO & TENANT NAME + HAMBURGER ON MOBILE */}
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <IconButton
+              color="inherit"
+              aria-label="open drawer"
+              edge="start"
+              onClick={() => setMobileOpen(!mobileOpen)}
+              sx={{ mr: 1, display: { md: "none" } }}
+            >
+              <MenuIcon />
+            </IconButton>
             <img 
               src={logo} 
               alt="Logo" 
-              style={{ width: 44, height: 44, borderRadius: 12, marginRight: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }} 
+              style={{ width: 38, height: 38, borderRadius: 10, marginRight: 10, boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }} 
             />
-            <Typography variant="h6" fontWeight={800} color="#0f172a" letterSpacing="-0.3px">
+            <Typography variant="subtitle1" fontWeight={800} color="#0f172a" letterSpacing="-0.3px">
               {publicConfig?.nom || "Chargement..."}
             </Typography>
           </Box>
@@ -183,7 +328,7 @@ export function AppLayout({ children }: PropsWithChildren) {
                     height: 32,
                     fontSize: "0.85rem",
                     fontWeight: 800,
-                    background: "linear-gradient(135deg, #4f46e5 0%, #06b6d4 100%)",
+                    bgcolor: "#6366f1",
                     color: "#ffffff",
                     boxShadow: "0 2px 5px rgba(79, 70, 229, 0.2)",
                   }}
@@ -194,8 +339,8 @@ export function AppLayout({ children }: PropsWithChildren) {
                 <Box
                   sx={{
                     position: "absolute",
-                    bottom: -1,
-                    right: -1,
+                    bottom: 0,
+                    right: 0,
                     width: 9,
                     height: 9,
                     bgcolor: "#22c55e",
@@ -250,54 +395,54 @@ export function AppLayout({ children }: PropsWithChildren) {
           </Stack>
         </Toolbar>
       </AppBar>
+
+      {/* Drawer mobile (temporary) */}
       <Drawer
-        variant="permanent"
+        variant="temporary"
+        open={mobileOpen}
+        onClose={() => setMobileOpen(false)}
+        ModalProps={{ keepMounted: true }}
         sx={{
-          width: drawerWidth,
-          [`& .MuiDrawer-paper`]: {
-            width: drawerWidth,
+          display: { xs: "block", md: "none" },
+          "& .MuiDrawer-paper": {
             boxSizing: "border-box",
+            width: drawerWidth,
+            bgcolor: "#fcfdfe",
           },
         }}
       >
         <Toolbar />
-        <Box sx={{ overflow: "auto", p: 1 }}>
-          <List>
-            <ListItemButton
-              component={Link}
-              to={`/${tenantId}/dashboard`}
-              selected={location.pathname.startsWith(`/${tenantId}/dashboard`) || location.pathname === `/${tenantId}`}
-            >
-              <ListItemIcon sx={{ minWidth: 36 }}>
-                <DashboardIcon fontSize="small" />
-              </ListItemIcon>
-              <ListItemText primary="Dashboard" />
-            </ListItemButton>
-          </List>
-          <Divider />
-          {menu.sections.map((section) => (
-            <List
-              key={section.label}
-              subheader={<ListSubheader>{section.label}</ListSubheader>}
-            >
-              {section.children.map((item) => (
-                <ListItemButton
-                  key={item.path}
-                  component={Link}
-                  to={`/${tenantId}${item.path}`}
-                  selected={location.pathname.startsWith(`/${tenantId}${item.path}`)}
-                >
-                  <ListItemIcon sx={{ minWidth: 36 }}>
-                    {iconFor(item.path)}
-                  </ListItemIcon>
-                  <ListItemText primary={item.label} />
-                </ListItemButton>
-              ))}
-            </List>
-          ))}
-        </Box>
+        {drawerContent}
       </Drawer>
-      <Box component="main" sx={{ flexGrow: 1, p: 3 }}>
+
+      {/* Drawer desktop (permanent) */}
+      <Drawer
+        variant="permanent"
+        sx={{
+          display: { xs: "none", md: "block" },
+          width: drawerWidth,
+          flexShrink: 0,
+          [`& .MuiDrawer-paper`]: {
+            width: drawerWidth,
+            boxSizing: "border-box",
+            bgcolor: "#fcfdfe",
+            borderRight: "1px solid #e2e8f0",
+          },
+        }}
+      >
+        <Toolbar />
+        {drawerContent}
+      </Drawer>
+
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          p: { xs: 1.5, sm: 2, md: 2.5 },
+          width: { md: `calc(100% - ${drawerWidth}px)` },
+          minWidth: 0,
+        }}
+      >
         <Toolbar />
         <SubscriptionBanner />
         {children}

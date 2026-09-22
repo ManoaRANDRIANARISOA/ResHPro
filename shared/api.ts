@@ -49,12 +49,49 @@ export interface ChambreMaintenance {
   notes?: string;
 }
 
+export type StayStatus =
+  | "en_attente"
+  | "confirmee"
+  | "arrivee"
+  | "terminee"
+  | "annulee"
+  | "no_show";
+
+export interface Stay {
+  id: string; // Ex: "stay_1", "stay_2"
+  chambreId: string;
+  dateDebut: string; // ISO
+  dateFin: string; // ISO
+  nuits?: number;
+  statut?: StayStatus;
+  nbPersonnes?: number;
+  tarifBase?: number;
+  packId?: string;
+  packNom?: string;
+  packPrix?: number;
+  packTypeCalcul?: "par_personne_nuit" | "par_chambre_nuit" | "forfait_fixe" | string;
+  invoiceId?: string; // ID de la proforma ou facture liée
+  notes?: string;
+}
+
+export interface ReservationChambreDetail {
+  chambreId: string;
+  dateDebut: string; // ISO
+  dateFin: string; // ISO
+  nuits?: number;
+  tarifBase?: number;
+}
+
 export interface Reservation {
   id: string;
   type: "hebergement" | "restaurant" | "evenement";
   clientId?: string;
   chambreId?: string;
+  chambreIds?: string[];
+  chambresDetails?: ReservationChambreDetail[];
+  stays?: Stay[]; // Liste des séjours rattachés au dossier
   tableId?: string;
+  tableIds?: string[];
   dateDebut: string; // ISO
   dateFin?: string; // ISO
   heure?: string; // HH:mm (heures pleines)
@@ -80,7 +117,7 @@ export interface Reservation {
   notes?: string;
 }
 
-export type { HebergementPack } from "./tenant";
+export type { HebergementPack, HebergementTaxe } from "./tenant";
 
 export interface MenuItem {
   id: string;
@@ -147,6 +184,9 @@ export interface MouvementStock {
 }
 
 export interface FactureLigne {
+  id?: string;
+  stayId?: string; // ID du séjour rattaché (traçabilité multi-séjours)
+  stayPeriodText?: string; // Ex: "Séjour du 10/10/2026 au 12/10/2026 — Ch. 101"
   description: string;
   qte: number;
   pu: number;
@@ -158,10 +198,13 @@ export interface FactureLigne {
 export interface Facture {
   id: string;
   numero: string;
+  typeDocument?: "facture" | "proforma" | "devis";
   date: string; // ISO
   dueDate?: string; // ISO - échéance
   datePaiement?: string; // ISO - date de règlement
-  reservationId?: string;
+  reservationId?: string; // Réservation principale (historique)
+  reservationIds?: string[]; // IDs des réservations liées
+  stayIds?: string[]; // IDs des séjours regroupés sur cette facture
   clientId?: string;
   clientNom: string;
   clientTelephone?: string;
@@ -203,17 +246,80 @@ export interface Parametres {
   eventRatePerPerson?: number;
 }
 
-// Événement (fiche minimale)
+// Session d'un événement multi-jours ou dates séparées
+export interface EvenementSession {
+  id: string;
+  date: string; // yyyy-MM-dd
+  heures: string; // HH:mm–HH:mm
+  nb?: number; // Couverts attendus pour cette séance
+  notes?: string;
+}
+
+// Événement (avec support multi-jours et tarif manuel)
 export interface Evenement {
   id: string;
   nom: string;
-  date: string; // yyyy-MM-dd
+  date: string; // yyyy-MM-dd (date principale ou première séance)
   heures: string; // HH:mm–HH:mm
-  nb: number; // couverts attendus
+  nb: number; // couverts attendus totaux (informatif)
   contact: string;
+  sessions?: EvenementSession[]; // Séances multiples ou dates séparées
+  montantTotal?: number; // Montant global convenu avec le client (saisi manuellement par l'établissement)
+  factureId?: string; // Facture ou proforma liée
   notes?: string;
   statut?: "planifie" | "confirme" | "annule";
   type?: string;
+}
+
+/**
+ * Retourne la liste des séjours d'une réservation avec repli transparent pour les réservations historiques
+ */
+export function getReservationStays(r: Reservation): Stay[] {
+  if (r.stays && r.stays.length > 0) return r.stays;
+  if (r.chambresDetails && r.chambresDetails.length > 0) {
+    return r.chambresDetails.map((cd, idx) => ({
+      id: `${r.id}_cd_${idx}`,
+      chambreId: cd.chambreId,
+      dateDebut: cd.dateDebut,
+      dateFin: cd.dateFin,
+      nuits: cd.nuits,
+      tarifBase: cd.tarifBase,
+      statut: r.statut,
+      nbPersonnes: r.nbPersonnes || 1,
+      packId: r.packId,
+      packNom: r.packNom,
+      packPrix: r.packPrix,
+      packTypeCalcul: r.packTypeCalcul,
+    }));
+  }
+  const defaultChambreId = (r.chambreIds && r.chambreIds[0]) || r.chambreId || "";
+  const sStart = new Date(r.dateDebut);
+  const sEnd = r.dateFin ? new Date(r.dateFin) : new Date(sStart.getTime() + 86400000);
+  const diffTime = sEnd.getTime() - sStart.getTime();
+  const calculatedNights = Math.max(1, Math.round(diffTime / 86400000));
+
+  return [
+    {
+      id: `${r.id}_s0`,
+      chambreId: defaultChambreId,
+      dateDebut: r.dateDebut,
+      dateFin: r.dateFin || sEnd.toISOString(),
+      nuits: calculatedNights,
+      statut: r.statut,
+      nbPersonnes: r.nbPersonnes || 1,
+      packId: r.packId,
+      packNom: r.packNom,
+      packPrix: r.packPrix,
+      packTypeCalcul: r.packTypeCalcul,
+    },
+  ];
+}
+
+/**
+ * Détermine si un document de facturation est une proforma ou un devis (non comptabilisé en caisse officielle)
+ */
+export function isProformaDocument(f?: Pick<Facture, "typeDocument"> | null): boolean {
+  return f?.typeDocument === "proforma" || f?.typeDocument === "devis";
 }
 
 // Demo API response used by the starter endpoints

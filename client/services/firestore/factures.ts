@@ -168,3 +168,24 @@ export function useDeleteFacture() {
     onSuccess: () => qc.invalidateQueries({ queryKey: facturesKeys.all }),
   });
 }
+
+export function useValidateProforma() {
+  const qc = useQueryClient();
+  const { tenantId } = useTenant();
+  return useMutation({
+    mutationFn: async ({ id, newDate }: { id: string; newDate?: string }) => {
+      if (!tenantId) throw new Error("Tenant ID is required");
+      const updates: Partial<Facture> = {
+        typeDocument: "facture",
+      };
+      if (newDate) {
+        updates.date = newDate;
+      }
+      await updateTenantDoc(tenantId, "factures", id, updates);
+      return { id, ...updates };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: facturesKeys.all });
+    },
+  });
+}

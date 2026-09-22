@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Facture N° FACT-2026-09-029 - MISSI INOVATION / OKA Forest Lodge</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            color: #1e293b;
+            background-color: #525659;
+            font-size: 11.5px;
+            line-height: 1.45;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        @page {
+            size: A4 portrait;
+            margin: 0;
+        }
+
+        .invoice-sheet {
+            width: 210mm;
+            min-height: 297mm;
+            background: #ffffff;
+            padding: 18mm 20mm 16mm 20mm;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+            position: relative;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+
+            .invoice-sheet {
+                box-shadow: none;
+                margin: 0;
+                width: 210mm;
+                height: 297mm;
+                padding: 16mm 18mm 14mm 18mm;
+            }
+
+            .no-print {
+                display: none !important;
+            }
+        }
+
+        /* HEADER */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 12px;
+        }
+
+        .company-title {
+            font-size: 21px;
+            font-weight: 800;
+            color: #0f172a;
+            letter-spacing: -0.3px;
+        }
+
+        .company-subtitle {
+            font-size: 10px;
+            font-weight: 600;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-top: 1px;
+            margin-bottom: 6px;
+        }
+
+        .company-details {
+            font-size: 11px;
+            color: #475569;
+            line-height: 1.4;
+        }
+
+        .company-contact {
+            font-size: 11px;
+            color: #334155;
+            margin-top: 4px;
+        }
+
+        .fiscal-badge {
+            display: inline-block;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            padding: 4px 10px;
+            margin-top: 8px;
+            font-size: 10.5px;
+            color: #1e293b;
+        }
+
+        .fiscal-badge strong {
+            color: #0f172a;
+            font-weight: 700;
+        }
+
+        .invoice-meta {
+            text-align: right;
+        }
+
+        .invoice-title {
+            font-size: 26px;
+            font-weight: 800;
+            color: #0284c7;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        .invoice-number {
+            font-size: 12px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 2px;
+        }
+
+        .invoice-dates {
+            font-size: 11px;
+            color: #64748b;
+            line-height: 1.35;
+            margin-bottom: 8px;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: #dcfce7;
+            color: #15803d;
+            border: 1px solid #86efac;
+            font-size: 10.5px;
+            font-weight: 700;
+            padding: 3px 10px;
+            border-radius: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
+
+        .status-badge.pending {
+            background: #fef3c7;
+            color: #b45309;
+            border-color: #fde68a;
+        }
+
+        /* 2-COLUMN CARDS */
+        .cards-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-top: 14px;
+            margin-bottom: 18px;
+        }
+
+        .info-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 12px 14px;
+        }
+
+        .card-label {
+            font-size: 9.5px;
+            font-weight: 700;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            margin-bottom: 6px;
+        }
+
+        .card-name {
+            font-size: 13.5px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 3px;
+        }
+
+        .card-content {
+            font-size: 11px;
+            color: #475569;
+            line-height: 1.4;
+        }
+
+        /* TABLE */
+        .table-container {
+            margin-bottom: 16px;
+        }
+
+        .invoice-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .invoice-table th {
+            font-size: 10px;
+            font-weight: 700;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            padding: 8px 6px;
+            border-bottom: 1.5px solid #cbd5e1;
+            text-align: left;
+        }
+
+        .invoice-table th.th-num {
+            text-align: right;
+            width: 14%;
+        }
+
+        .invoice-table th.th-qty {
+            text-align: center;
+            width: 8%;
+        }
+
+        .invoice-table th.th-total {
+            text-align: right;
+            width: 15%;
+        }
+
+        .invoice-table td {
+            padding: 10px 6px;
+            border-bottom: 1px solid #f1f5f9;
+            vertical-align: top;
+            font-size: 11px;
+        }
+
+        .item-title {
+            font-weight: 700;
+            color: #0f172a;
+            font-size: 11.5px;
+            margin-bottom: 3px;
+        }
+
+        .item-desc {
+            font-size: 10px;
+            color: #64748b;
+            line-height: 1.35;
+        }
+
+        .item-paid-tag {
+            display: inline-block;
+            background: #f1f5f9;
+            color: #475569;
+            font-size: 9px;
+            font-weight: 600;
+            padding: 1px 5px;
+            border-radius: 3px;
+            margin-top: 3px;
+        }
+
+        .item-paid-tag.current {
+            background: #eff6ff;
+            color: #1d4ed8;
+            border: 1px solid #bfdbfe;
+        }
+
+        .td-num {
+            text-align: right;
+            font-weight: 500;
+            color: #334155;
+            white-space: nowrap;
+        }
+
+        .td-qty {
+            text-align: center;
+            color: #334155;
+        }
+
+        .td-total {
+            text-align: right;
+            font-weight: 600;
+            color: #0f172a;
+            white-space: nowrap;
+        }
+
+        /* TOTALS AREA */
+        .totals-container {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 6px;
+            margin-bottom: 16px;
+        }
+
+        .totals-box {
+            width: 280px;
+        }
+
+        .totals-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 3px 0;
+            font-size: 11.5px;
+            color: #475569;
+        }
+
+        .totals-row.discount {
+            color: #b91c1c;
+            font-weight: 500;
+        }
+
+        .totals-row.sub-paid {
+            color: #15803d;
+            font-weight: 500;
+            border-bottom: 1px dashed #cbd5e1;
+            padding-bottom: 5px;
+            margin-bottom: 4px;
+        }
+
+        .totals-row.grand-total {
+            border-top: 1.5px solid #0f172a;
+            padding-top: 6px;
+            margin-top: 4px;
+            font-size: 13.5px;
+            font-weight: 800;
+            color: #0f172a;
+        }
+
+        .totals-row.current-due {
+            border-top: 2px solid #0284c7;
+            border-bottom: 2px solid #0284c7;
+            background: #f0f9ff;
+            padding: 6px 8px;
+            margin-top: 6px;
+            font-size: 13px;
+            font-weight: 800;
+            color: #0369a1;
+            border-radius: 4px;
+        }
+
+        /* PAYMENT NOTICE */
+        .payment-box {
+            background: #f0fdf4;
+            border: 1px solid #bbf7d0;
+            border-radius: 6px;
+            padding: 9px 12px;
+            font-size: 10.5px;
+            color: #166534;
+            line-height: 1.45;
+            margin-bottom: 20px;
+        }
+
+        .payment-box strong {
+            color: #14532d;
+        }
+
+        /* FOOTER */
+        .invoice-footer {
+            border-top: 1px solid #e2e8f0;
+            padding-top: 14px;
+            text-align: center;
+            font-size: 10.5px;
+            color: #64748b;
+            line-height: 1.5;
+        }
+
+        .amount-in-words {
+            font-size: 11px;
+            color: #0f172a;
+            margin-bottom: 4px;
+        }
+
+        .amount-in-words strong {
+            font-weight: 700;
+        }
+
+        .tax-exemption {
+            font-style: italic;
+            font-size: 10px;
+            color: #64748b;
+            margin-bottom: 6px;
+        }
+
+        .thank-you {
+            font-size: 10.5px;
+            color: #334155;
+            font-weight: 500;
+            margin-top: 6px;
+        }
+
+        /* ACTIONS */
+        .actions-bar {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+            z-index: 100;
+        }
+
+        .btn {
+            background: #0284c7;
+            color: white;
+            border: none;
+            padding: 9px 16px;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3);
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn:hover {
+            background: #0369a1;
+        }
+
+        .btn-secondary {
+            background: #ffffff;
+            color: #334155;
+            border: 1px solid #cbd5e1;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+        }
+
+        .btn-secondary:hover {
+            background: #f8fafc;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="actions-bar no-print">
+        <button class="btn btn-secondary" onclick="togglePaymentMode()">
+            🔄 Basculer État : <span id="toggle-label">Facture avec Solde du Mois (129 000 Ar)</span>
+        </button>
+        <button class="btn" onclick="window.print()">
+            🖨️ Imprimer / Sauvegarder en PDF
+        </button>
+    </div>
+
+    <div class="invoice-sheet">
+        <div>
+            <!-- HEADER -->
+            <div class="header">
+                <div>
+                    <div class="company-title">MISSI INOVATION</div>
+                    <div class="company-subtitle">INGÉNIERIE LOGICIELLE & SOLUTIONS DIGITALES</div>
+                    <div class="company-details">
+                        Lot H 80 Ter Miadana, Alasora<br>
+                        Antananarivo, Madagascar
+                    </div>
+                    <div class="company-contact">
+                        Tél : <strong>+261 34 71 517 89</strong> &nbsp;|&nbsp; Email : <strong>manoa.wrk@gmail.com</strong>
+                    </div>
+                    <div class="fiscal-badge">
+                        NIF : <strong>5016826858</strong> &nbsp;•&nbsp; STAT : <strong>56103112026007131</strong>
+                    </div>
+                </div>
+
+                <div class="invoice-meta">
+                    <div class="invoice-title">FACTURE</div>
+                    <div class="invoice-number">N° FACT-2026-09-029</div>
+                    <div class="invoice-dates">
+                        Émission : <strong>20 Septembre 2026</strong><br>
+                        Règlement antérieur : <strong>19 Août 2026</strong>
+                    </div>
+                    <div id="main-status-badge" class="status-badge">
+                        ✓ RÉGLÉ (350 000 Ar) + EN COURS
+                    </div>
+                </div>
+            </div>
+
+            <!-- CARDS ROW -->
+            <div class="cards-row">
+                <div class="info-card">
+                    <div class="card-label">FACTURÉ À (CLIENT)</div>
+                    <div class="card-name">OKA Forest Lodge</div>
+                    <div class="card-content">
+                        Andasibe Mpangalatsary<br>
+                        514 Andasibe, Madagascar<br>
+                        Contact Resp. : <strong>+261 32 81 585 71</strong>
+                    </div>
+                </div>
+
+                <div class="info-card">
+                    <div class="card-label">PROJET / SERVICE</div>
+                    <div class="card-name">Plateforme SaaS - ResiPro</div>
+                    <div class="card-content">
+                        Établissement pilote : <strong>OKA Forest Lodge</strong><br>
+                        Modules : <strong>Hébergement, Restaurant & Stocks</strong><br>
+                        Période globale : <strong>20/08/2026 au 20/10/2026</strong>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TABLE -->
+            <div class="table-container">
+                <table class="invoice-table">
+                    <thead>
+                        <tr>
+                            <th>DESCRIPTION</th>
+                            <th class="th-num">P.U (AR)</th>
+                            <th class="th-qty">QTÉ</th>
+                            <th class="th-total">TOTAL (AR)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- PRESTATION 1 (ANCIENNE) -->
+                        <tr>
+                            <td>
+                                <div class="item-title">Frais d'installation technique & intégration sur-mesure</div>
+                                <div class="item-desc">
+                                    Déploiement instance serveur sécurisée, configuration multi-tenant Firestore, adaptation personnalisée de la plateforme aux besoins réels et flux opérationnels du lodge, formation et accompagnement du staff.
+                                </div>
+                                <span class="item-paid-tag">✓ Réglé le 19/08/2026</span>
+                            </td>
+                            <td class="td-num">250 000</td>
+                            <td class="td-qty">1</td>
+                            <td class="td-total">250 000</td>
+                        </tr>
+
+                        <!-- PRESTATION 2 (ANCIENNE) -->
+                        <tr>
+                            <td>
+                                <div class="item-title">Abonnement mensuel SaaS - Pack Partenaire VIP</div>
+                                <div class="item-desc">
+                                    1<sup>er</sup> mois de service (du 20/08/2026 au 19/09/2026) : Hébergement Cloud, maintenance continue et assistance technique prioritaire.
+                                </div>
+                                <span class="item-paid-tag">✓ Réglé le 19/08/2026</span>
+                            </td>
+                            <td class="td-num">129 000</td>
+                            <td class="td-qty">1</td>
+                            <td class="td-total">129 000</td>
+                        </tr>
+
+                        <!-- PRESTATION 3 (NOUVEAU CE MOIS-CI) -->
+                        <tr style="background-color: #fafbfc;">
+                            <td>
+                                <div class="item-title" style="color: #0284c7;">Abonnement mensuel SaaS - Pack Partenaire VIP (Renouvellement)</div>
+                                <div class="item-desc">
+                                    2<sup>e</sup> mois de service (du 20/09/2026 au 20/10/2026) : Hébergement Cloud haute disponibilité, maintenance continue, support réactif 7j/7 et optimisations opérationnelles.
+                                </div>
+                                <span class="item-paid-tag current">📅 Échéance : 20/09/2026</span>
+                            </td>
+                            <td class="td-num">129 000</td>
+                            <td class="td-qty">1</td>
+                            <td class="td-total" style="color: #0284c7; font-weight: 700;">129 000</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- TOTALS -->
+            <div class="totals-container">
+                <div class="totals-box">
+                    <div class="totals-row">
+                        <span>Sous-total normal :</span>
+                        <span>508 000 Ar</span>
+                    </div>
+                    <div class="totals-row discount">
+                        <span>Remise partenaire pilote :</span>
+                        <span>- 29 000 Ar</span>
+                    </div>
+                    <div class="totals-row" style="font-weight: 600; color: #0f172a; border-top: 1px solid #e2e8f0; padding-top: 4px;">
+                        <span>Total des prestations :</span>
+                        <span>479 000 Ar</span>
+                    </div>
+                    <div class="totals-row sub-paid">
+                        <span>Antérieurement acquitté (19/08) :</span>
+                        <span>- 350 000 Ar</span>
+                    </div>
+
+                    <!-- LIGNE DYNAMIQUE : SOLDE DU MOIS OU TOTAL ACQUITTÉ -->
+                    <div id="row-current-due" class="totals-row current-due">
+                        <span>NET À RÉGLER CE MOIS :</span>
+                        <span>129 000 Ar</span>
+                    </div>
+
+                    <div id="row-fully-paid" class="totals-row grand-total" style="display: none;">
+                        <span>TOTAL ACQUITTÉ :</span>
+                        <span>479 000 Ar</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- PAYMENT BOX -->
+            <div id="payment-box" class="payment-box">
+                <strong>Modalités de paiement :</strong> Règlement antérieur de <strong>350 000 Ar</strong> effectué le 19/08/2026 par MVola & Espèces.<br>
+                Renouvellement du 2<sup>e</sup> mois de <strong>129 000 Ar</strong> à régler par <strong>MVola au 034 71 517 89</strong> (Manoa Randrianarisoa) ou par virement bancaire.
+            </div>
+        </div>
+
+        <!-- FOOTER -->
+        <div class="invoice-footer">
+            <div id="footer-amount-text" class="amount-in-words">
+                Arrêtée la présente facture à la somme de : <strong>Cent vingt-neuf mille Ariary (129 000 Ar)</strong> pour le renouvellement du mois en cours.<br>
+                <span style="font-size: 10px; color: #64748b;">(Montant total cumulé des prestations : Quatre cent soixante-dix-neuf mille Ariary - 479 000 Ar).</span>
+            </div>
+            <div class="tax-exemption">
+                Facture émise sous le régime de l'Impôt Synthétique. TVA non applicable.
+            </div>
+            <div class="thank-you">
+                Merci pour votre confiance et plein succès à OKA Forest Lodge !
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let isFullyPaid = false;
+
+        function togglePaymentMode() {
+            isFullyPaid = !isFullyPaid;
+            const badge = document.getElementById("main-status-badge");
+            const rowDue = document.getElementById("row-current-due");
+            const rowPaid = document.getElementById("row-fully-paid");
+            const paymentBox = document.getElementById("payment-box");
+            const footerText = document.getElementById("footer-amount-text");
+            const toggleLabel = document.getElementById("toggle-label");
+
+            if (isFullyPaid) {
+                badge.className = "status-badge";
+                badge.innerHTML = "✓ RÉGLÉ INTÉGRALEMENT";
+                rowDue.style.display = "none";
+                rowPaid.style.display = "flex";
+                paymentBox.innerHTML = "<strong>Modalités de paiement :</strong> Règlement intégral de <strong>479 000 Ar</strong> effectué (350 000 Ar le 19/08/2026 + 129 000 Ar le 20/09/2026 par MVola). <strong>Facture entièrement soldée.</strong>";
+                footerText.innerHTML = "Arrêtée la présente facture à la somme acquittée de : <strong>Quatre cent soixante-dix-neuf mille Ariary (479 000 Ar)</strong>.<br><span style='font-size: 10px; color: #64748b;'>Facture acquittée et soldée pour l'ensemble des prestations.</span>";
+                toggleLabel.innerText = "Facture Entièrement Soldée (479 000 Ar)";
+            } else {
+                badge.className = "status-badge";
+                badge.innerHTML = "✓ RÉGLÉ (350 000 Ar) + EN COURS";
+                rowDue.style.display = "flex";
+                rowPaid.style.display = "none";
+                paymentBox.innerHTML = "<strong>Modalités de paiement :</strong> Règlement antérieur de <strong>350 000 Ar</strong> effectué le 19/08/2026 par MVola & Espèces.<br>Renouvellement du 2<sup>e</sup> mois de <strong>129 000 Ar</strong> à régler par <strong>MVola au 034 71 517 89</strong> (Manoa Randrianarisoa) ou par virement bancaire.";
+                footerText.innerHTML = "Arrêtée la présente facture à la somme de : <strong>Cent vingt-neuf mille Ariary (129 000 Ar)</strong> pour le renouvellement du mois en cours.<br><span style='font-size: 10px; color: #64748b;'>(Montant total cumulé des prestations : Quatre cent soixante-dix-neuf mille Ariary - 479 000 Ar).</span>";
+                toggleLabel.innerText = "Facture avec Solde du Mois (129 000 Ar)";
+            }
+        }
+    </script>
+
+</body>
+
+</html>

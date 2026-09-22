@@ -64,7 +64,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
   const sub = config?.subscription || publicConfig?.subscription;
   const subDetails = getSubscriptionDetails(sub);
 
-  if (subDetails.isExpired && !(user.superAdmin && superAdminBypassed)) {
+  if (subDetails.isBlocked && !(user.superAdmin && superAdminBypassed)) {
     return (
       <SubscriptionBlockedScreen
         onBypass={user.superAdmin ? () => setSuperAdminBypassed(true) : undefined}

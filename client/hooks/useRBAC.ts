@@ -26,26 +26,26 @@ export const useRBAC = () => {
   );
 
   const menu = useMemo(() => {
-    const base = [{ label: "Dashboard", path: "/dashboard" }];
+    const base = [{ label: "Tableau de bord", path: "/dashboard" }];
     const hebergement = [
-      { label: "Gestion des chambres", path: "/hebergement/gestion" },
-      { label: "Clients", path: "/hebergement/clients" },
-      { label: "Stock", path: "/hebergement/stock" },
-      { label: "Tarifs", path: "/hebergement/tarifs" },
+      { label: "Planning des chambres", path: "/hebergement/gestion" },
+      { label: "Fichier Clients", path: "/hebergement/clients" },
+      { label: "Tarifs & Catégories", path: "/hebergement/tarifs" },
+      { label: "Stock Linge & Produits", path: "/hebergement/stock" },
     ];
     
     const resto = [
-      { label: "Plan de salle", path: "/resto/plan" },
-      { label: "Menu", path: "/resto/menu" },
+      { label: "Plan de salle (En direct)", path: "/resto/plan" },
+      { label: "Carte & Menu", path: "/resto/menu" },
     ];
     if (config?.modules?.fichesTechniques) {
-      resto.push({ label: "Fiches Techniques", path: "/resto/fiches-techniques" });
+      resto.push({ label: "Fiches Techniques & Coûts", path: "/resto/fiches-techniques" });
     }
-    resto.push({ label: "Stock", path: "/resto/stock" });
+    resto.push({ label: "Stock Bar & Cuisine", path: "/resto/stock" });
     if (config?.modules?.analyseEcarts) {
-      resto.push({ label: "Qualité et Rentabilité", path: "/resto/ecarts" });
+      resto.push({ label: "Qualité & Rentabilité", path: "/resto/ecarts" });
     }
-    resto.push({ label: "Événements", path: "/resto/evenements" });
+    resto.push({ label: "Événements & Banquets", path: "/resto/evenements" });
     
     const stock = [
       { label: "Stock Hébergement", path: "/hebergement/stock" },
@@ -54,17 +54,16 @@ export const useRBAC = () => {
     if (config?.modules?.analyseEcarts) {
       stock.push({ label: "Qualité et Rentabilité", path: "/resto/ecarts" });
     }
-    const financier = [{ label: "Financier", path: "/financier" }];
+    const financier = [{ label: "Facturation & Caisse", path: "/financier" }];
     const rh = [
+      { label: "Personnel & Contrats", path: "/rh?tab=employes" },
       { label: "Planning & Tâches", path: "/rh?tab=planning" },
-      { label: "Gestion de la Paie", path: "/rh?tab=paie" },
       { label: "Présences & Pointages", path: "/rh?tab=pointages" },
       { label: "Avances sur Salaire", path: "/rh?tab=avances" },
-      { label: "Personnel & Contrats", path: "/rh?tab=employes" },
+      { label: "Gestion de la Paie", path: "/rh?tab=paie" },
     ];
-    const rapports = [{ label: "Rapports", path: "/rapports" }];
     const admin = [
-      { label: "Gestion / Admin", path: "/admin" },
+      { label: "Paramètres & Utilisateurs", path: "/admin" },
     ];
 
     const adminSections = [

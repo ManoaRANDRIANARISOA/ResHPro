@@ -8,13 +8,25 @@ export const chambresKeys = {
   maintenance: ["roomMaintenance"] as const,
 };
 
+export function sortChambres(list: Chambre[]): Chambre[] {
+  return [...list].sort((a, b) => {
+    if (a.ordre !== undefined && b.ordre !== undefined) return a.ordre - b.ordre;
+    if (a.ordre !== undefined) return -1;
+    if (b.ordre !== undefined) return 1;
+    const numA = a.numero || "";
+    const numB = b.numero || "";
+    return numA.localeCompare(numB, undefined, { numeric: true, sensitivity: 'base' });
+  });
+}
+
 export function useChambres() {
   const { tenantId } = useTenant();
   return useQuery({
     queryKey: chambresKeys.all,
     queryFn: async () => {
       if (!tenantId) return [];
-      return fetchCollection<Chambre>(tenantId, "chambres");
+      const list = await fetchCollection<Chambre>(tenantId, "chambres");
+      return sortChambres(list);
     },
     enabled: !!tenantId,
   });

@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Evenement } from "@shared/api";
 import { useTenant } from "@/contexts/TenantContext";
-import { fetchCollection, createDoc, updateTenantDoc } from "./utils";
+import { fetchCollection, createDoc, updateTenantDoc, deleteTenantDoc } from "./utils";
 
 export const eventsKeys = {
   all: ["events"] as const,
@@ -51,3 +51,20 @@ export function useUpdateEvenement() {
     },
   });
 }
+
+export function useDeleteEvenement() {
+  const qc = useQueryClient();
+  const { tenantId } = useTenant();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      if (!tenantId) throw new Error("Tenant ID is required");
+      await deleteTenantDoc(tenantId, "evenements", id);
+      return id;
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: eventsKeys.all });
+      qc.invalidateQueries({ queryKey: ["factures"] });
+    },
+  });
+}
+

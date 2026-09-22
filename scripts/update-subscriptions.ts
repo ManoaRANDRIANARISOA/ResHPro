@@ -29,7 +29,7 @@ async function updateSubscriptions() {
     plan: "premium",
     durationMonths: 1,
     contactCommercial: {
-      telephone: "+261 34 00 000 00",
+      telephone: "034 71 517 89",
       email: "commercial@reshpro.mg",
       nom: "Service Commercial ResiPro",
     },
@@ -40,24 +40,24 @@ async function updateSubscriptions() {
   await db.doc("tenants/kanana/config/main").set({ subscription: kananaSub }, { merge: true });
   console.log("✅ Kanana mis à jour : 1 mois et 1 semaine restants (Échéance: 28/09/2026)");
 
-  // 2. OKA FOREST LODGE : Payé le 20 Août 2026 pour 1 mois (Échéance au 20 Septembre 2026)
+  // 2. OKA FOREST LODGE : Renouvelé le 20 Septembre 2026 pour 1 mois (Échéance au 20 Octobre 2026)
   const okaSub = {
     status: "active",
-    startDate: "2026-08-20",
-    endDate: "2026-09-20", // 1 mois à compter du 20 Août
+    startDate: "2026-09-20",
+    endDate: "2026-10-20", // 1 mois à compter du 20 Septembre 2026
     plan: "premium",
     durationMonths: 1,
     contactCommercial: {
-      telephone: "+261 34 00 000 00",
+      telephone: "034 71 517 89",
       email: "commercial@reshpro.mg",
       nom: "Service Commercial ResiPro",
     },
-    notes: "Abonnement 1 mois payé le 20/08/2026",
+    notes: "Abonnement 1 mois renouvelé le 20/09/2026",
   };
 
   await db.doc("tenants/okalodge/publicConfig/main").set({ subscription: okaSub }, { merge: true });
   await db.doc("tenants/okalodge/config/main").set({ subscription: okaSub }, { merge: true });
-  console.log("✅ Oka Forest Lodge mis à jour : 1 mois payé le 20/08 (Échéance: 20/09/2026)");
+  console.log("✅ Oka Forest Lodge mis à jour : 1 mois renouvelé le 20/09 (Échéance: 20/10/2026)");
 
   // 3. DEMO : 1 an pour confort de test
   const demoSub = {
@@ -67,7 +67,7 @@ async function updateSubscriptions() {
     plan: "premium",
     durationMonths: 12,
     contactCommercial: {
-      telephone: "+261 34 00 000 00",
+      telephone: "034 71 517 89",
       email: "commercial@reshpro.mg",
       nom: "Service Commercial ResiPro",
     },

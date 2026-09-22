@@ -6,19 +6,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Proposition Commerciale - ResiPro</title>
     <link
-        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap"
         rel="stylesheet">
     <style>
         :root {
-            /* Couleurs originales de la proposition */
+            /* Couleurs de la charte ResiPro */
             --rust: #A45A3D;
             --rust-light: #F8EFEA;
-            --text-dark: #2C2C2C;
-            --text-gray: #666666;
-            --text-light: #999999;
+            --rust-dark: #824229;
+            --text-dark: #2A2A2A;
+            --text-gray: #555555;
+            --text-light: #888888;
             --border: #E5DCD5;
-            --green: #4CAF50;
+            --green: #2E7D32;
             --green-light: #E8F5E9;
+            --amber: #B45309;
+            --amber-light: #FEF3C7;
         }
 
         * {
@@ -30,9 +33,10 @@
         body {
             font-family: 'Inter', sans-serif;
             color: var(--text-dark);
-            background-color: #333;
-            font-size: 13.5px;
-            line-height: 1.6;
+            background-color: #3a3a3a;
+            font-size: 11.5px;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
         }
 
         @page {
@@ -43,11 +47,14 @@
         .page {
             width: 210mm;
             min-height: 297mm;
-            padding: 25mm 20mm;
+            max-height: 297mm;
+            padding: 13mm 16mm 14mm 16mm;
             margin: 15mm auto;
             background: white;
             box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
             position: relative;
+            box-sizing: border-box;
+            overflow: hidden;
         }
 
         @media print {
@@ -58,16 +65,17 @@
             }
 
             .page {
-                margin: 0;
-                box-shadow: none;
-                padding: 8mm 15mm;
-                width: 210mm;
-                height: 296mm;
-                /* Safe height for A4 */
-                min-height: 296mm;
-                page-break-after: always;
-                page-break-inside: avoid;
-                overflow: hidden;
+                margin: 0 !important;
+                box-shadow: none !important;
+                padding: 12mm 15mm 12mm 15mm !important;
+                width: 210mm !important;
+                height: 297mm !important;
+                max-height: 297mm !important;
+                min-height: 297mm !important;
+                page-break-after: always !important;
+                page-break-inside: avoid !important;
+                overflow: hidden !important;
+                box-sizing: border-box !important;
             }
 
             .page-footer {
@@ -76,95 +84,8 @@
                 right: 15mm !important;
             }
 
-            /* GLOBAL PRINT ADJUSTMENTS TO FIT A4 */
-            h1.main-title {
-                font-size: 34px !important;
-                margin-bottom: 5px !important;
-            }
-
-            h2.main-subtitle {
-                font-size: 20px !important;
-                margin-bottom: 15px !important;
-            }
-
-            .intro-text {
-                margin-bottom: 15px !important;
-                font-size: 12.5px !important;
-            }
-
-            /* PAGE 1 */
-            .header-top {
-                padding-bottom: 10px !important;
-                margin-bottom: 15px !important;
-            }
-
-            .badges-container {
-                margin-bottom: 15px !important;
-            }
-
-            .guarantee-section {
-                margin-bottom: 15px !important;
-                padding: 15px 20px !important;
-            }
-
-            .section-header {
-                margin-top: 15px !important;
-                margin-bottom: 15px !important;
-            }
-
-            .features-grid {
-                margin-bottom: 10px !important;
-                gap: 15px !important;
-            }
-
-            /* PAGE 2 */
-            .pricing-card {
-                margin-bottom: 15px !important;
-                padding: 15px 20px !important;
-            }
-
-            .pricing-header {
-                margin-bottom: 12px !important;
-                padding-bottom: 10px !important;
-            }
-
-            .recap-box {
-                margin-top: 15px !important;
-                padding: 15px 20px !important;
-            }
-
-            .recap-box h4 {
-                margin-bottom: 10px !important;
-                padding-bottom: 5px !important;
-            }
-
-            .addon-box {
-                margin-top: 10px !important;
-                padding: 10px 15px !important;
-            }
-
-            /* PAGE 3 */
-            .specs-table {
-                margin-bottom: 10px !important;
-            }
-
-            .specs-table th {
-                padding: 4px 0 2px 0 !important;
-                font-size: 13px !important;
-            }
-
-            .specs-table td {
-                padding: 4px 0 !important;
-                font-size: 11px !important;
-                line-height: 1.35 !important;
-            }
-
-            .specs-table td.feature-desc {
-                font-size: 11px !important;
-            }
-
             .no-print {
-                display: none;
+                display: none !important;
             }
         }
 
@@ -178,72 +99,73 @@
             justify-content: space-between;
             align-items: flex-start;
             border-bottom: 1px solid var(--border);
-            padding-bottom: 20px;
-            margin-bottom: 40px;
+            padding-bottom: 8px;
+            margin-bottom: 14px;
         }
 
         .header-left {
             text-transform: uppercase;
-            font-size: 11px;
-            letter-spacing: 1.5px;
-            font-weight: 600;
+            font-size: 10.5px;
+            letter-spacing: 1.2px;
+            font-weight: 700;
             color: var(--rust);
-            margin-top: 5px;
         }
 
         .header-left .sub {
             color: var(--text-gray);
             font-size: 10px;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.3px;
             font-weight: 400;
-            margin-top: 4px;
+            margin-top: 2px;
         }
 
         .header-right {
             text-align: right;
-            font-size: 11px;
+            font-size: 10px;
             color: var(--text-gray);
+            line-height: 1.35;
         }
 
         .header-right strong {
             color: var(--text-dark);
-            font-size: 13px;
+            font-size: 12px;
         }
 
         /* MAIN TITLES */
         h1.main-title {
-            font-size: 42px;
+            font-size: 32px;
             font-weight: 500;
             color: var(--text-dark);
-            line-height: 1.1;
-            margin-bottom: 10px;
+            line-height: 1.15;
+            margin-bottom: 5px;
         }
 
         h2.main-subtitle {
-            font-size: 24px;
+            font-size: 17px;
             font-weight: 400;
             color: var(--rust);
-            margin-bottom: 30px;
+            margin-bottom: 12px;
         }
 
         .intro-text {
             color: var(--text-gray);
-            margin-bottom: 25px;
-            font-size: 14px;
+            margin-bottom: 12px;
+            font-size: 11.5px;
+            line-height: 1.5;
         }
 
         /* BADGES */
         .badges-container {
             display: flex;
             flex-wrap: wrap;
-            gap: 10px;
-            margin-bottom: 30px;
+            gap: 7px;
+            margin-bottom: 14px;
         }
 
         .badge {
-            padding: 6px 14px;
-            border-radius: 30px;
-            font-size: 11px;
+            padding: 4px 11px;
+            border-radius: 20px;
+            font-size: 10.5px;
             font-weight: 500;
         }
 
@@ -255,49 +177,134 @@
 
         .badge.outline-green {
             border: 1px solid var(--green);
-            color: #2E7D32;
+            color: var(--green);
             background: var(--green-light);
+        }
+
+        .badge.outline-amber {
+            border: 1px solid var(--amber);
+            color: var(--amber);
+            background: var(--amber-light);
+        }
+
+        /* GUARANTEE SECTION (4 CARDS) */
+        .guarantee-section {
+            background: linear-gradient(135deg, var(--rust-light) 0%, #FFFFFF 100%);
+            border: 1px solid rgba(164, 90, 61, 0.25);
+            border-radius: 8px;
+            padding: 12px 14px;
+            margin-bottom: 16px;
+        }
+
+        .g-header {
+            margin-bottom: 10px;
+        }
+
+        .g-header h3 {
+            color: var(--text-dark);
+            font-size: 14.5px;
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .badge-gold {
+            background: var(--rust);
+            color: white;
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            padding: 2.5px 8px;
+            border-radius: 3px;
+            font-weight: 700;
+        }
+
+        .g-cards {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 9px;
+        }
+
+        .g-item {
+            display: flex;
+            flex-direction: column;
+            background: white;
+            padding: 9px 11px;
+            border-radius: 6px;
+            box-shadow: 0 2px 7px rgba(0, 0, 0, 0.03);
+            border: 1px solid rgba(0, 0, 0, 0.06);
+        }
+
+        .g-card-top {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            margin-bottom: 5px;
+        }
+
+        .g-icon {
+            font-size: 14px;
+            background: var(--rust-light);
+            width: 26px;
+            height: 26px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 5px;
+            flex-shrink: 0;
+        }
+
+        .g-title {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--rust);
+            line-height: 1.25;
+        }
+
+        .g-desc {
+            font-size: 10px;
+            color: var(--text-gray);
+            line-height: 1.4;
         }
 
         /* SECTION TITLES */
         .section-header {
-            margin-top: 40px;
-            margin-bottom: 25px;
+            margin-top: 14px;
+            margin-bottom: 10px;
         }
 
         .section-header .num {
             color: var(--rust);
-            font-size: 16px;
-            font-weight: 600;
-            margin-right: 8px;
+            font-size: 13.5px;
+            font-weight: 700;
+            margin-right: 7px;
         }
 
         .section-header .title {
-            font-size: 28px;
+            font-size: 20px;
             color: var(--text-dark);
             font-weight: 400;
         }
 
         .section-header .subtitle {
-            font-size: 12px;
+            font-size: 10.5px;
             color: var(--text-light);
-            margin-top: 5px;
-            margin-left: 30px;
+            margin-top: 2px;
+            margin-left: 24px;
         }
 
-        /* GRID / CARDS */
+        /* FEATURES GRID (PAGE 1) */
         .features-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 25px;
-            margin-bottom: 40px;
+            gap: 10px 20px;
+            margin-bottom: 14px;
         }
 
         .text-block h4 {
-            font-size: 15px;
+            font-size: 12.5px;
             font-weight: 600;
             color: var(--text-dark);
-            margin-bottom: 8px;
+            margin-bottom: 3px;
             display: flex;
             align-items: center;
         }
@@ -305,77 +312,89 @@
         .text-block h4::before {
             content: "";
             display: inline-block;
-            width: 4px;
-            height: 16px;
+            width: 3px;
+            height: 13px;
             background: var(--rust);
-            margin-right: 10px;
+            margin-right: 7px;
             border-radius: 2px;
         }
 
         .text-block p {
             color: var(--text-gray);
-            padding-left: 14px;
+            padding-left: 10px;
+            font-size: 11px;
+            line-height: 1.45;
         }
 
-        /* PRICING CARDS */
+        /* PRICING CARDS (PAGE 2) */
         .pricing-card {
             border: 1px solid var(--border);
             border-radius: 8px;
-            padding: 25px;
-            position: relative;
+            padding: 11px 16px;
             background: white;
             display: flex;
             flex-direction: column;
-            margin-bottom: 20px;
+            margin-bottom: 10px;
+        }
+
+        .pricing-card.featured {
+            border-color: var(--rust);
+            border-width: 2px;
+            box-shadow: 0 4px 16px rgba(164, 90, 61, 0.08);
+            background: #FFFAF8;
         }
 
         .pricing-header {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
-            margin-bottom: 20px;
+            margin-bottom: 7px;
             border-bottom: 1px solid var(--border);
-            padding-bottom: 15px;
+            padding-bottom: 6px;
+        }
+
+        .pricing-plan-badge {
+            font-size: 9.5px;
+            color: var(--rust);
+            text-transform: uppercase;
+            font-weight: 700;
+            letter-spacing: 0.8px;
         }
 
         .pricing-title-area h3 {
-            font-size: 20px;
+            font-size: 15.5px;
             color: var(--text-dark);
-            font-weight: 400;
+            font-weight: 600;
+            margin-top: 2px;
         }
 
         .pricing-title-area .sub {
-            font-size: 12px;
+            font-size: 10.5px;
             color: var(--text-light);
-            margin-top: 5px;
+            margin-top: 2px;
+            line-height: 1.3;
         }
 
         .pricing-amount-area {
             text-align: right;
-            white-space: nowrap;
-        }
-
-        sup {
-            font-size: 65%;
-            line-height: 0;
-            position: relative;
-            vertical-align: baseline;
-            top: -0.4em;
+            margin-left: 16px;
+            flex-shrink: 0;
         }
 
         .old-price {
-            font-size: 11.5px;
+            font-size: 10.5px;
             color: var(--text-light);
             text-decoration: line-through;
-            margin-bottom: 2px;
+            margin-bottom: 1px;
+            white-space: nowrap;
         }
 
-        .old-price .discount-tag {
+        .discount-tag {
             display: inline-block;
             background: #FEE2E2;
             color: #991B1B;
-            font-size: 9.5px;
-            font-weight: 600;
+            font-size: 9px;
+            font-weight: 700;
             padding: 1px 5px;
             border-radius: 3px;
             margin-left: 4px;
@@ -384,30 +403,32 @@
         }
 
         .price-main {
-            font-size: 26px;
-            font-weight: 600;
+            font-size: 21px;
+            font-weight: 700;
             color: var(--text-dark);
             line-height: 1.1;
+            white-space: nowrap;
         }
 
         .price-main .price-period {
-            font-size: 12px;
+            font-size: 10.5px;
             font-weight: 400;
             color: var(--text-gray);
         }
 
         .price-badge-sub {
             display: inline-block;
-            margin-top: 4px;
-            font-size: 10px;
-            font-weight: 600;
+            margin-top: 2px;
+            font-size: 8.5px;
+            font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 0.5px;
             color: #166534;
             background: #F0FDF4;
             border: 1px solid #BBF7D0;
-            padding: 2px 8px;
-            border-radius: 4px;
+            padding: 1.5px 6px;
+            border-radius: 3px;
+            white-space: nowrap;
         }
 
         .price-badge-sub.gray {
@@ -416,19 +437,34 @@
             border-color: #E5E5E5;
         }
 
+        .pricing-commitment-note {
+            font-size: 9px;
+            color: var(--text-gray);
+            margin-top: 3px;
+            font-style: italic;
+            white-space: normal;
+            line-height: 1.25;
+            text-align: right;
+        }
+
         .pricing-list {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px 20px;
             list-style: none;
             flex-grow: 1;
         }
 
+        .pricing-list.two-col {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 4px 16px;
+            margin-top: 5px;
+        }
+
         .pricing-list li {
+            font-size: 10.5px;
+            line-height: 1.35;
             position: relative;
-            padding-left: 20px;
+            padding-left: 15px;
             color: var(--text-gray);
-            font-size: 13px;
         }
 
         .pricing-list li::before {
@@ -436,217 +472,224 @@
             position: absolute;
             left: 0;
             color: var(--rust);
-            font-size: 14px;
+            font-size: 11px;
+            font-weight: bold;
         }
 
         .badge-recommended {
             display: inline-block;
             background: var(--green-light);
-            color: #2E7D32;
+            color: var(--green);
             border: 1px solid var(--green);
-            font-size: 10px;
-            font-weight: 600;
-            padding: 3px 10px;
-            border-radius: 20px;
-            margin-left: 15px;
+            font-size: 8.5px;
+            font-weight: 700;
+            padding: 1.5px 7px;
+            border-radius: 12px;
+            margin-left: 6px;
             vertical-align: middle;
             text-transform: uppercase;
         }
 
-        /* ADDON BOX */
-        .addon-box {
+        /* OPTIONS CARD (2x2 GRID) */
+        .options-card {
             background: #FAFAFA;
-            border: 1px dashed var(--text-light);
+            border: 1px dashed var(--rust);
             border-radius: 8px;
-            padding: 15px 20px;
+            padding: 9px 14px;
+            margin-bottom: 10px;
+        }
+
+        .options-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            margin-bottom: 6px;
+            padding-bottom: 4px;
+            border-bottom: 1px solid var(--border);
         }
 
-        .addon-content h4 {
-            font-size: 14px;
-            color: var(--text-gray);
-            margin-bottom: 5px;
-        }
-
-        .addon-content p {
+        .options-header h4 {
             font-size: 11px;
-            color: var(--text-gray);
-            line-height: 1.4;
+            text-transform: uppercase;
+            letter-spacing: 0.7px;
+            color: var(--rust);
+            font-weight: 700;
         }
 
-        .addon-price {
-            font-size: 16px;
-            font-weight: 600;
-            color: var(--text-light);
-            text-align: right;
+        .options-subtitle {
+            font-size: 9.5px;
+            color: var(--text-gray);
+            font-style: italic;
+        }
+
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 6px 18px;
+        }
+
+        .option-item {
+            padding: 3px 0;
+            border-bottom: 1px dashed #E5DCD5;
+        }
+
+        .option-item:nth-last-child(-n+2) {
+            border-bottom: none;
+        }
+
+        .option-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 8px;
+        }
+
+        .option-header-row strong {
+            font-size: 11px;
+            color: #1a1a1a;
+        }
+
+        .option-price {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--rust);
             white-space: nowrap;
         }
 
-        .addon-price span {
-            display: block;
-            font-size: 10px;
-            color: var(--text-light);
+        .option-price span {
+            font-size: 9px;
             font-weight: 400;
-            text-transform: uppercase;
+            color: var(--text-gray);
         }
 
-        /* RECAP TABLE */
+        .option-desc {
+            font-size: 10px;
+            color: var(--text-gray);
+            line-height: 1.3;
+            margin-top: 2px;
+        }
+
+        .option-desc .benefit-tag {
+            font-size: 9px;
+            color: var(--rust);
+            font-style: italic;
+            display: block;
+            margin-top: 1px;
+        }
+
+        .bundle-banner {
+            margin-top: 6px;
+            background: #F8EFEA;
+            border-radius: 5px;
+            padding: 4px 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 10px;
+        }
+
+        /* RECAP BOX */
         .recap-box {
             background: var(--rust-light);
             border: 1px solid var(--border);
             border-radius: 8px;
-            padding: 25px;
-            margin-top: 25px;
+            padding: 9px 14px;
+            margin-top: 0;
         }
 
         .recap-box h4 {
             font-size: 11px;
             text-transform: uppercase;
-            letter-spacing: 1px;
+            letter-spacing: 0.7px;
             color: var(--rust);
-            margin-bottom: 15px;
-            border-bottom: 1px solid rgba(164, 90, 61, 0.2);
-            padding-bottom: 10px;
+            margin-bottom: 5px;
+            border-bottom: 1px solid rgba(164, 90, 61, 0.25);
+            padding-bottom: 3px;
+            font-weight: 700;
         }
 
-        .recap-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 10px 0;
-            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-            font-size: 13px;
+        .recap-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 6px;
         }
 
-        .recap-note {
-            font-size: 11px;
-            color: var(--text-light);
-            margin-top: 15px;
-            font-style: italic;
+        .recap-col {
+            font-size: 10px;
+            color: var(--text-dark);
+            line-height: 1.35;
         }
 
-        /* MINIMAL TABLES FOR CAHIER DES CHARGES */
+        .recap-col strong {
+            color: var(--rust);
+            display: block;
+            margin-bottom: 2px;
+            font-size: 10.5px;
+        }
+
+        .recap-comparison {
+            background: white;
+            border-radius: 5px;
+            padding: 5px 9px;
+            border: 1px solid rgba(164, 90, 61, 0.2);
+            font-size: 9.5px;
+            color: var(--text-gray);
+            line-height: 1.35;
+        }
+
+        .recap-comparison strong {
+            color: var(--rust);
+        }
+
+        /* SPECS TABLE (PAGE 3) */
         .specs-table {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 25px;
+            margin-bottom: 10px;
         }
 
         .specs-table th {
-            background: transparent;
-            color: var(--rust);
-            font-size: 14px;
-            font-weight: 500;
             text-align: left;
-            padding: 8px 0 4px 0;
-            border-bottom: 1px solid var(--rust);
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--rust);
+            border-bottom: 1.5px solid var(--rust);
+            padding: 4px 0 3px 0;
         }
 
         .specs-table td {
-            padding: 8px 0;
+            padding: 4px 0;
             border-bottom: 1px solid var(--border);
             vertical-align: top;
         }
 
         .specs-table td.feature-name {
-            width: 35%;
-            font-weight: 500;
+            width: 32%;
+            font-weight: 600;
             color: var(--text-dark);
+            font-size: 11px;
         }
 
         .specs-table td.feature-desc {
-            width: 65%;
+            width: 68%;
             color: var(--text-gray);
-            font-size: 12px;
+            font-size: 10.5px;
+            line-height: 1.4;
         }
 
         /* FOOTER */
         .page-footer {
             position: absolute;
-            bottom: 20mm;
-            left: 20mm;
-            right: 20mm;
+            bottom: 8mm;
+            left: 16mm;
+            right: 16mm;
             display: flex;
             justify-content: space-between;
             border-top: 1px solid var(--border);
-            padding-top: 15px;
-            font-size: 10px;
+            padding-top: 5px;
+            font-size: 9.5px;
             color: var(--text-light);
-        }
-
-        .guarantee-section {
-            background: linear-gradient(135deg, var(--rust-light) 0%, #FFFFFF 100%);
-            border: 1px solid rgba(164, 90, 61, 0.2);
-            border-radius: 8px;
-            padding: 25px 30px;
-            margin-bottom: 40px;
-            margin-top: 10px;
-        }
-
-        .g-header {
-            margin-bottom: 20px;
-        }
-
-        .g-header h3 {
-            color: var(--text-dark);
-            font-size: 18px;
-            margin-top: 8px;
-            font-weight: 500;
-        }
-
-        .badge-gold {
-            background: var(--rust);
-            color: white;
-            font-size: 10px;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            padding: 4px 10px;
-            border-radius: 4px;
-            font-weight: 600;
-        }
-
-        .g-cards {
-            display: flex;
-            gap: 20px;
-        }
-
-        .g-item {
-            flex: 1;
-            display: flex;
-            align-items: flex-start;
-            gap: 12px;
-            background: white;
-            padding: 15px;
-            border-radius: 6px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
-            border: 1px solid rgba(0, 0, 0, 0.04);
-        }
-
-        .g-icon {
-            font-size: 20px;
-            background: var(--rust-light);
-            width: 36px;
-            height: 36px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 50%;
-            flex-shrink: 0;
-        }
-
-        .g-content strong {
-            display: block;
-            font-size: 13px;
-            color: var(--rust);
-            margin-bottom: 3px;
-        }
-
-        .g-content span {
-            display: block;
-            font-size: 11.5px;
-            color: var(--text-gray);
-            line-height: 1.4;
         }
     </style>
 </head>
@@ -658,7 +701,7 @@
         <div class="header-top">
             <div class="header-left">
                 PROPOSITION COMMERCIALE — ÉTABLISSEMENTS HÔTELIERS
-                <div class="sub">ResiPro - Solution Interne Intégrée</div>
+                <div class="sub">ResiPro - Solution Interne Intégrée Madagascar</div>
             </div>
             <div class="header-right">
                 Émis en<br>
@@ -673,46 +716,57 @@
         <p class="intro-text">
             Ce document détaille notre application web interne sur-mesure pour <strong>votre établissement</strong>.
             Conçue pour remplacer les processus manuels (cahiers, Excel), elle s'articule autour de priorités absolues :
-            <strong>centraliser les données en un seul point</strong>, <strong>fluidifier la communication des
-                équipes</strong>, et
-            <strong>maîtriser la facturation et les stocks</strong>.
+            <strong>centraliser vos opérations en un seul point</strong>, <strong>éliminer les gaspillages et erreurs de caisse</strong>, et
+            <strong>garantir une facturation irréprochable conforme aux normes fiscales locales</strong>.
         </p>
 
         <div class="badges-container">
-            <span class="badge outline-rust">Hébergement & Planning</span>
-            <span class="badge outline-rust">Restaurant & Commandes</span>
-            <span class="badge outline-rust">Gestion Stocks & Linge</span>
-            <span class="badge outline-green">Facturation & Tableau de bord</span>
+            <span class="badge outline-rust">Hébergement & Multi-Séjours</span>
+            <span class="badge outline-rust">Restaurant & Tables</span>
+            <span class="badge outline-amber">Devis Proforma & Factures NIF/STAT</span>
+            <span class="badge outline-green">Stocks, Linge & Événements</span>
         </div>
 
         <div class="guarantee-section">
             <div class="g-header">
                 <span class="badge-gold">Les Avantages ResiPro</span>
-                <h3 class="serif">Un gain d'efficacité immédiat pour votre établissement</h3>
+                <h3 class="serif">Un gain d'efficacité et une rentabilité immédiate pour votre établissement</h3>
             </div>
             <div class="g-cards">
                 <div class="g-item">
-                    <div class="g-icon">📱</div>
-                    <div class="g-content">
-                        <strong>Zéro Papier</strong>
-                        <span>Réception, intendance et cuisine partagent la même information en temps réel, sur PC ou
-                            smartphone.</span>
+                    <div class="g-card-top">
+                        <div class="g-icon">📱</div>
+                        <div class="g-title">Zéro Papier & Mobilité</div>
+                    </div>
+                    <div class="g-desc">
+                        Réception, intendance et cuisine connectées en direct sur PC, tablette ou smartphone. Fini les carnets égarés.
                     </div>
                 </div>
                 <div class="g-item">
-                    <div class="g-icon">📈</div>
-                    <div class="g-content">
-                        <strong>Contrôle Financier</strong>
-                        <span>Taux d'occupation, facturation des chambres selon consommations : suivez vos revenus en un
-                            clic.</span>
+                    <div class="g-card-top">
+                        <div class="g-icon">📈</div>
+                        <div class="g-title">Amorti dès la 1<sup>ère</sup> Nuitée</div>
+                    </div>
+                    <div class="g-desc">
+                        Une seule chambre louée (60 000 à 180 000 Ar) suffit à rentabiliser le logiciel pour tout le mois ! Coût absorbé immédiatement.
                     </div>
                 </div>
                 <div class="g-item">
-                    <div class="g-icon">🛡️</div>
-                    <div class="g-content">
-                        <strong>Sécurité des Données</strong>
-                        <span>Accès sécurisé par identifiants, permissions ciblées par département, et sauvegardes
-                            régulières.</span>
+                    <div class="g-card-top">
+                        <div class="g-icon">🇲🇬</div>
+                        <div class="g-title">100% Conforme Madagascar</div>
+                    </div>
+                    <div class="g-desc">
+                        Facturation aux normes NIF/STAT, devis proforma déconnectés du CA, règlements Mobile Money (MVola) et fiscalité locale.
+                    </div>
+                </div>
+                <div class="g-item">
+                    <div class="g-card-top">
+                        <div class="g-icon">🛡️</div>
+                        <div class="g-title">Sécurité & Anti-Coulage</div>
+                    </div>
+                    <div class="g-desc">
+                        Permissions ciblées par employé (réception, chef, économe), traçabilité de caisse et protection de vos recettes.
                     </div>
                 </div>
             </div>
@@ -721,34 +775,31 @@
         <!-- SECTION 01 -->
         <div class="section-header">
             <span class="num">01</span><span class="title serif">Les piliers de la solution</span>
-            <div class="subtitle">Organisation, productivité et suivi stratégique</div>
+            <div class="subtitle">Organisation, productivité et suivi stratégique en temps réel</div>
         </div>
 
         <div class="features-grid">
             <div class="text-block">
-                <h4>Gestion Visuelle de l'Hébergement</h4>
-                <p>Un calendrier clair pour voir les disponibilités, valider les réservations, ajuster les tarifs, et
-                    suivre l'historique de chaque client.</p>
+                <h4>Hébergement & Multi-Séjours Intelligents</h4>
+                <p>Calendrier dynamique des chambres. Un client peut réserver plusieurs séjours non contigus sous le même dossier, avec libération automatique des jours intermédiaires.</p>
             </div>
             <div class="text-block">
-                <h4>Restauration & Événements</h4>
-                <p>Gestion précise des couverts, suivi des réservations, et encadrement des événements (séminaires,
-                    mariages).</p>
+                <h4>Restauration & Événements Sur-Mesure</h4>
+                <p>Plan de salle interactif (couverts, état des tables). Gestion des événements multi-dates avec montant forfaitaire négocié et devis proforma dédiés.</p>
             </div>
             <div class="text-block">
-                <h4>Maîtrise Complète des Stocks</h4>
-                <p>Suivi en direct du linge de maison (envoi pressing), des produits de cuisine et du petit-déjeuner.
-                    Alertes pour éviter les ruptures.</p>
+                <h4>Maîtrise des Stocks, Linge & Intendance</h4>
+                <p>Suivi en direct du linge hôtelier (envois/retours pressing), stock petit-déjeuner et économat cuisine/bar avec alertes préventives anti-rupture.</p>
             </div>
             <div class="text-block">
-                <h4>Gestion RH & Tableaux de Bord</h4>
-                <p>Création de comptes pour le staff, gestion des plannings de présence, et dashboard résumé (paiements,
-                    chambres libres/occupées).</p>
+                <h4>Facturation Fiscale & Tableaux de Bord</h4>
+                <p>Facturation certifiée A4 (NIF/STAT, cachet/signature), devis proformas séparés du CA, caisse en direct et pilotage du taux d'occupation.</p>
             </div>
         </div>
 
         <div class="page-footer">
             <span>01</span>
+            <span>ResiPro — Proposition Commerciale 2026</span>
         </div>
     </div>
 
@@ -756,109 +807,144 @@
     <div class="page">
         <!-- SECTION 02 -->
         <div class="section-header">
-            <span class="num">02</span><span class="title serif">Abonnements Logiciel</span>
-            <div class="subtitle">Choisissez la couverture idéale pour votre établissement.</div>
+            <span class="num">02</span><span class="title serif">Abonnements Logiciel & Rentabilité</span>
+            <div class="subtitle">Deux formules ciblées pour s'adapter à la taille de votre structure.</div>
         </div>
 
-        <p class="intro-text" style="margin-bottom: 20px;">
-            Les <strong>frais d'installation uniques sont réduits à 250 000 Ar</strong> <span style="text-decoration: line-through; color: var(--text-light); font-size: 12px;">(au lieu de 350 000 Ar)</span>, incluant la configuration du serveur, la création de votre base de données et <strong>la formation complète de votre personnel offerte</strong>.
+        <p class="intro-text" style="margin-bottom: 10px;">
+            Les <strong>frais de mise en service et paramétrage initial sont réduits à 250 000 Ar</strong> <span style="text-decoration: line-through; color: var(--text-light); font-size: 11px;">(au lieu de 350 000 Ar)</span>, incluant la configuration de votre serveur sécurisé, la création de vos espaces (chambres, tables, tarifs) et <strong>la formation complète sur place de vos équipes offerte</strong>.
         </p>
 
-        <!-- CARD 1: MODULE SPÉCIALISÉ -->
+        <!-- CARD 1: MODULE SPÉCIALISÉ (FULL WIDTH) -->
         <div class="pricing-card">
             <div class="pricing-header">
                 <div class="pricing-title-area">
-                    <span style="font-size: 10px; color: var(--rust); text-transform: uppercase; font-weight: 600; letter-spacing: 1px;">Formule 1</span>
+                    <span class="pricing-plan-badge">Formule 1</span>
                     <h3 class="serif">Module Spécialisé au Choix</h3>
-                    <div class="sub">Idéal si vous souhaitez gérer <strong>uniquement</strong> l'Hébergement OU <strong>uniquement</strong> le Restaurant.</div>
+                    <div class="sub">Idéal si vous souhaitez informatiser <strong>uniquement</strong> l'Hébergement OU <strong>uniquement</strong> le Restaurant.</div>
                 </div>
                 <div class="pricing-amount-area">
                     <div class="old-price">109 000 Ar/mois</div>
                     <div class="price-main">79 000 Ar <span class="price-period">/ mois</span></div>
-                    <span class="price-badge-sub gray">Tarif 1<sup>er</sup> Mois</span>
+                    <span class="price-badge-sub gray">Tarif 1<sup>er</sup> Mois Découverte</span>
                 </div>
             </div>
-            <ul class="pricing-list">
-                <li>Au choix : <strong>Hébergement</strong> (Planning, Clients, Linge)</li>
-                <li>Au choix : <strong>Restaurant</strong> (Tables, Menus, Stocks plats)</li>
-                <li>Facturation dédiée au module choisi</li>
-                <li>Comptes Utilisateurs du département</li>
+            <ul class="pricing-list two-col">
+                <li>Au choix : <strong>Hébergement</strong> (Planning, Clients, Multi-Séjours, Linge)</li>
+                <li>Au choix : <strong>Restaurant</strong> (Tables, Menus, Stocks plats, Événements)</li>
+                <li>Facturation officielle & Devis Proforma dédiée au module</li>
+                <li>Comptes Utilisateurs sécurisés avec permissions par fonction</li>
             </ul>
         </div>
 
-        <!-- CARD 2: PACK INTÉGRAL -->
-        <div class="pricing-card" style="border-color: var(--rust); border-width: 2px; box-shadow: 0 8px 25px rgba(164, 90, 61, 0.08);">
+        <!-- CARD 2: PACK INTÉGRAL (FULL WIDTH) -->
+        <div class="pricing-card featured">
             <div class="pricing-header">
                 <div class="pricing-title-area">
-                    <span style="font-size: 10px; color: var(--rust); text-transform: uppercase; font-weight: 600; letter-spacing: 1px;">Formule 2</span>
-                    <span class="badge-recommended">Offre Partenaire VIP</span>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <span class="pricing-plan-badge">Formule 2</span>
+                        <span class="badge-recommended">Recommandé · Partenaire VIP</span>
+                    </div>
                     <h3 class="serif">Pack Intégral Établissement</h3>
-                    <div class="sub">La gestion complète (Hébergement + Restauration + Stocks globaux) synchronisée.</div>
+                    <div class="sub">La gestion globale et synchronisée (Hébergement + Restauration + Stocks + Trésorerie).</div>
                 </div>
                 <div class="pricing-amount-area">
                     <div class="old-price">179 000 Ar/mois <span class="discount-tag">-28%</span></div>
                     <div class="price-main" style="color: var(--rust);">129 000 Ar <span class="price-period">/ mois</span></div>
                     <span class="price-badge-sub">Tarif 1<sup>er</sup> Trimestre</span>
-                    <div style="font-size: 9.5px; color: var(--text-gray); margin-top: 4px; font-style: italic; white-space: normal; max-width: 180px; margin-left: auto; line-height: 1.2;">
-                        Dès le 4<sup>ème</sup> mois : 179 000 Ar/mois sans engagement (ou 139 000 Ar/mois sur engagement annuel)
+                    <div class="pricing-commitment-note">
+                        Dès le 4<sup>e</sup> mois : 179 000 Ar/mois<br>(ou 139 000 Ar/mois sur engagement annuel)
                     </div>
                 </div>
             </div>
-            <ul class="pricing-list">
-                <li><strong>Hébergement & Calendrier Client</strong></li>
-                <li><strong>Restauration & Menus (Salles entières)</strong></li>
-                <li>Facturation automatisée globale (Chambre + Repas)</li>
-                <li>Gestion du stock total (Linge, Cuisine, Petit-Déj)</li>
-                <li>Suivi du service pressing & intendance</li>
-                <li>Module des événements (Mariages, Séminaires)</li>
-                <li>Dashboard Complet (Taux d'occupation, Revenus)</li>
-                <li>Multi-rôles avancés (Admin, Économe, Chef, Réception) et planning</li>
+            <ul class="pricing-list two-col">
+                <li><strong>Hébergement & Multi-Séjours</strong> (dates non contiguës)</li>
+                <li><strong>Restauration & Événements Multi-Dates</strong> (salles et banquets)</li>
+                <li><strong>Facturation Fiscale (NIF & STAT)</strong> & Devis Proforma séparés</li>
+                <li>Facturation croisée automatique (Chambre + Repas + Extras au client)</li>
+                <li>Gestion globale des stocks (Linge hôtel, Pressing, Cuisine, Bar)</li>
+                <li>Tableau de bord financier en temps réel (Taux d'occupation, CA, Caisse)</li>
+                <li>Multi-rôles avancés (Admin, Direction, Économe, Chef, Réception)</li>
+                <li>Assistance prioritaire 7j/7 et sauvegardes Cloud automatiques</li>
             </ul>
         </div>
 
-        <!-- ROADMAP / UPCOMING MODULES -->
-        <div style="background: #FAFAFA; border: 1px dashed var(--text-light); border-radius: 8px; padding: 15px 20px; margin-bottom: 20px;">
-            <h4 style="font-size: 13px; text-transform: uppercase; letter-spacing: 0.8px; color: var(--rust); margin-bottom: 12px; font-weight: 600;">
-                🚀 Perspectives d'Évolution & Modules Optionnels
-            </h4>
-            <div style="display: flex; flex-direction: column; gap: 8px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed #E5DCD5; padding-bottom: 6px;">
-                    <div style="font-size: 12px; color: var(--text-dark);">
-                        <strong>1. Fiches Techniques Avancées :</strong> Recettes, coût de revient & calcul des marges par plat.
+        <!-- PERSPECTIVES D'ÉVOLUTION & MODULES OPTIONNELS (2x2 GRID) -->
+        <div class="options-card">
+            <div class="options-header">
+                <h4>🚀 Perspectives d'Évolution & Modules Optionnels (À la carte)</h4>
+                <span class="options-subtitle">Activables à tout moment selon vos besoins</span>
+            </div>
+            <div class="options-grid">
+                <div class="option-item">
+                    <div class="option-header-row">
+                        <strong>1. Fiches Techniques & Coût de Revient</strong>
+                        <span class="option-price">+ 19 000 Ar <span>/ mois</span></span>
                     </div>
-                    <div style="font-size: 12.5px; font-weight: 600; color: var(--rust); white-space: nowrap; margin-left: 15px;">
-                        + 19 000 Ar <span style="font-size: 10px; font-weight: 400; color: var(--text-gray);">/ mois</span>
-                    </div>
-                </div>
-                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px dashed #E5DCD5; padding-bottom: 6px;">
-                    <div style="font-size: 12px; color: var(--text-dark);">
-                        <strong>2. Analyse des Écarts (Anti-vol) :</strong> Comparaison consommation théorique vs inventaire réel.
-                    </div>
-                    <div style="font-size: 12.5px; font-weight: 600; color: var(--rust); white-space: nowrap; margin-left: 15px;">
-                        + 29 000 Ar <span style="font-size: 10px; font-weight: 400; color: var(--text-gray);">/ mois</span>
+                    <div class="option-desc">
+                        Recettes standardisées, grammages précis et marge brute calculée en temps réel.
+                        <span class="benefit-tag">💡 Pour maîtriser le ratio matière de chaque plat servi en salle.</span>
                     </div>
                 </div>
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <div style="font-size: 12px; color: var(--text-dark);">
-                        <strong>3. Intelligence Artificielle :</strong> Prédiction des besoins & optimisation automatique des achats.
+                <div class="option-item">
+                    <div class="option-header-row">
+                        <strong>2. Contrôle Qualité & Traçabilité des Écarts</strong>
+                        <span class="option-price">+ 29 000 Ar <span>/ mois</span></span>
                     </div>
-                    <div style="font-size: 12.5px; font-weight: 600; color: var(--rust); white-space: nowrap; margin-left: 15px;">
-                        + 39 000 Ar <span style="font-size: 10px; font-weight: 400; color: var(--text-gray);">/ mois</span>
+                    <div class="option-desc">
+                        Inventaire rapide à l'aveugle sur tablette, historique des casses et alertes.
+                        <span class="benefit-tag">🛡️ Identifiez les écarts avant qu'ils ne pèsent sur votre résultat.</span>
+                    </div>
+                </div>
+                <div class="option-item">
+                    <div class="option-header-row">
+                        <strong>3. Gestion Sociale & Paie Conforme</strong>
+                        <span class="option-price">+ 39 000 Ar <span>/ mois</span></span>
+                    </div>
+                    <div class="option-desc">
+                        Fiches de paie légales (<strong>CNAPS, OSTIE/AMIT, IRSA</strong>) et registre des <strong>avances</strong>.
+                        <span class="benefit-tag">⚖️ Gestion sociale intégrée évitant un logiciel de paie externe.</span>
+                    </div>
+                </div>
+                <div class="option-item">
+                    <div class="option-header-row">
+                        <strong>4. Intelligence Artificielle Prédictive</strong>
+                        <span class="option-price">+ 39 000 Ar <span>/ mois</span></span>
+                    </div>
+                    <div class="option-desc">
+                        Anticipation des approvisionnements selon réservations et taux d'occupation.
+                        <span class="benefit-tag">🤖 Optimisez vos commandes fournisseurs et évitez les ruptures.</span>
                     </div>
                 </div>
             </div>
+            <div class="bundle-banner">
+                <span>🌟 <strong>Pack Sérénité Complet (Les 4 modules optionnels activés) :</strong></span>
+                <span style="color: var(--rust); font-weight: 700;">+ 89 000 Ar / mois <span style="text-decoration: line-through; color: var(--text-light); font-weight: 400; font-size: 9.5px;">(au lieu de 126 000 Ar)</span> · Économie de 30%</span>
+            </div>
         </div>
 
-        <!-- RECAP -->
+        <!-- RECAP MARKETING & ROI -->
         <div class="recap-box">
-            <h4>💡 Pourquoi choisir le Pack Intégral dès aujourd'hui ?</h4>
-            <p style="font-size: 13.5px; color: var(--text-dark); line-height: 1.6; font-weight: 500;">
-                Le Pack Intégral vous fait bénéficier d'une <strong>réduction immédiate de 28%</strong> tout en centralisant toute votre activité en un seul outil : la réception suit les chambres, la cuisine gère ses commandes et la direction contrôle la facturation et le chiffre d'affaires en temps réel.
-            </p>
+            <h4>💡 L'Investissement le Plus Rentable pour Votre Établissement</h4>
+            <div class="recap-grid">
+                <div class="recap-col">
+                    <strong>⚡ Le Seuil d'Amortissement Immédiat</strong>
+                    L'abonnement mensuel représente l'équivalent d'<strong>une seule nuitée occupée dans le mois</strong> (60 000 à 180 000 Ar). Dès votre deuxième réservation, la plateforme est intégralement rentabilisée et génère un gain net.
+                </div>
+                <div class="recap-col">
+                    <strong>🛡️ Sécurisation des Marges & Zéro Coulage</strong>
+                    En automatisant la traçabilité des stocks (cuisine, bar, linge) et la facturation directe, vous éliminez les pertes invisibles de marchandises et les oublis d'encaissement qui pèsent sur votre résultat net.
+                </div>
+            </div>
+            <div class="recap-comparison">
+                <strong>Pourquoi ResiPro plutôt qu'une solution étrangère ?</strong>
+                Contrairement aux outils internationaux facturés en devises (400 000 à 1 000 000 Ar / mois) et inadaptés au contexte local, ResiPro est le seul outil pensé pour Madagascar : conformité fiscale NIF & STAT, paiements Mobile Money (MVola), support réactif et accompagnement direct sur place.
+            </div>
         </div>
 
         <div class="page-footer">
             <span>02</span>
+            <span>ResiPro — Proposition Commerciale 2026</span>
         </div>
     </div>
 
@@ -867,8 +953,7 @@
         <!-- SECTION 03 -->
         <div class="section-header">
             <span class="num">03</span><span class="title serif">Périmètre Fonctionnel Exhaustif</span>
-            <div class="subtitle">Détail technique des fonctionnalités couvertes par le Pack Intégral de la plateforme
-                ResiPro.</div>
+            <div class="subtitle">Détail technique des fonctionnalités couvertes par la plateforme ResiPro.</div>
         </div>
 
         <table class="specs-table">
@@ -879,24 +964,20 @@
             </thead>
             <tbody>
                 <tr>
-                    <td class="feature-name">Calendrier Visuel & Réservations</td>
-                    <td class="feature-desc">Suivi des disponibilités par catégorie, ajout/modif/annulation, statuts
-                        (confirmé/en attente).</td>
+                    <td class="feature-name">Calendrier Visuel & Multi-Séjours</td>
+                    <td class="feature-desc">Disponibilités en direct par catégorie. Prise en charge des <strong>multi-séjours</strong> (dates discontinues sous un même dossier) avec libération automatique des jours intermédiaires. Code couleur d'état (devis/ambre, réservé, occupé, maintenance).</td>
                 </tr>
                 <tr>
-                    <td class="feature-name">Base de Données Clients</td>
-                    <td class="feature-desc">Historique des séjours, préférences alimentaires, contacts, horaires
-                        d'arrivée/départ.</td>
+                    <td class="feature-name">Fichier Clients & Agences</td>
+                    <td class="feature-desc">Historique complet des séjours, préférences alimentaires, canal de réservation et rattachement aux agences de voyage partenaires (Booking, réceptifs).</td>
                 </tr>
                 <tr>
-                    <td class="feature-name">Tarification Flexible</td>
-                    <td class="feature-desc">Modification facile des tarifs des chambres selon les saisons ou
-                        promotions.</td>
+                    <td class="feature-name">Tarification & Formules Modulaires</td>
+                    <td class="feature-desc">Configuration des tarifs par saison et gestion des formules de séjour : <em>Chambre seule, B&B (Petit-déjeuner), Demi-Pension, Pension Complète ou Forfaits sur-mesure</em> calculés par personne ou par nuitée.</td>
                 </tr>
                 <tr>
-                    <td class="feature-name">Stocks Hébergement & Linge</td>
-                    <td class="feature-desc">Gestion des draps/serviettes, suivi facile des envois au pressing, stock du
-                        petit-déjeuner.</td>
+                    <td class="feature-name">Stocks Hébergement & Maintenance</td>
+                    <td class="feature-desc">Gestion des linges de lit, serviettes, suivi des départs/retours pressing, consommables et planification des chambres hors service pour réparations.</td>
                 </tr>
             </tbody>
         </table>
@@ -904,27 +985,25 @@
         <table class="specs-table">
             <thead>
                 <tr>
-                    <th colspan="2" class="serif">2. Gestion du Restaurant & Événementiel</th>
+                    <th colspan="2" class="serif">2. Restauration, Événements & Options Cuisine</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
-                    <td class="feature-name">Suivi des Tables & Réservations</td>
-                    <td class="feature-desc">Gestion du nombre de couverts de salle, avec détails des clients (date,
-                        heure, personnes).</td>
+                    <td class="feature-name">Plan de Salle & Couverts</td>
+                    <td class="feature-desc">Organisation visuelle des tables, suivi des couverts par service, réservations clients avec horaires et affectation des serveurs.</td>
                 </tr>
                 <tr>
-                    <td class="feature-name">Catalogue & Fiches Techniques</td>
-                    <td class="feature-desc">Menus du jour, produits avec photos, et fiches techniques des plats pour la
-                        cuisine.</td>
+                    <td class="feature-name">Événements Multi-Séances & Banquets</td>
+                    <td class="feature-desc">Planification de mariages, séminaires ou anniversaires sur plusieurs dates avec saisie d'un <strong>montant forfaitaire convenu</strong> et ventilation des prestations.</td>
                 </tr>
                 <tr>
                     <td class="feature-name">Stocks Cuisine & Économat</td>
-                    <td class="feature-desc">Suivi des ingrédients et définition du stock d'alerte.</td>
+                    <td class="feature-desc">Suivi en direct des denrées, viandes, légumes et boissons avec seuil d'alerte critique anti-rupture.</td>
                 </tr>
                 <tr>
-                    <td class="feature-name">Module Événements</td>
-                    <td class="feature-desc">Organisation et facturation de mariages, séminaires ou anniversaires.</td>
+                    <td class="feature-name">Fiches Techniques & Contrôle (Option)</td>
+                    <td class="feature-desc">Recettes complètes avec coût matière par portion, <strong>inventaire à l'aveugle sur tablette</strong> et détection instantanée du Top 5 des pertes en Ariary.</td>
                 </tr>
             </tbody>
         </table>
@@ -932,35 +1011,38 @@
         <table class="specs-table">
             <thead>
                 <tr>
-                    <th colspan="2" class="serif">3. Finances, Rapports & Administration</th>
+                    <th colspan="2" class="serif">3. Finances, Fiscalité Locale & Gestion Sociale</th>
                 </tr>
             </thead>
             <tbody>
                 <tr>
-                    <td class="feature-name">Facturation Automatisée</td>
-                    <td class="feature-desc">Factures internes croisées (Chambre + Consommations additionnelles générées
-                        rapidement).</td>
+                    <td class="feature-name">Facturation Conforme NIF & STAT</td>
+                    <td class="feature-desc">Édition de factures officielles avec mentions fiscales obligatoires (NIF, STAT), taux de remise encadré à 10% maximum et impression A4 prête pour signature et tampon.</td>
                 </tr>
                 <tr>
-                    <td class="feature-name">Tableau de Bord (Dashboard)</td>
-                    <td class="feature-desc">Alertes paiements, résumé des chambres libres/occupées, statistiques de
-                        revenus par activité.</td>
+                    <td class="feature-name">Workflow Devis Proforma ➔ Facture</td>
+                    <td class="feature-desc">Émission de devis / proformas pour les clients et entreprises sans fausser la comptabilité ni la caisse, validables en Facture Définitive en un clic.</td>
                 </tr>
                 <tr>
-                    <td class="feature-name">Gestion du Staff & RH</td>
-                    <td class="feature-desc">Comptes sécurisés, planning visuel par département, et pointage de présence
-                        des employés.</td>
+                    <td class="feature-name">Tableau de Bord & Caisse en Direct</td>
+                    <td class="feature-desc">Suivi en temps réel du taux d'occupation, des encaissements (espèces, Mobile Money MVola, virement, carte) et du chiffre d'affaires réel de l'établissement.</td>
                 </tr>
                 <tr>
-                    <td class="feature-name">Rôles & Permissions</td>
-                    <td class="feature-desc">Vues restreintes (ex: L'économe voit l'économat, l'admin voit tout, le chef
-                        voit le resto).</td>
+                    <td class="feature-name">Gestion Sociale & Paie Conforme (Option)</td>
+                    <td class="feature-desc">Planning visuel par département, pointage des présences, et en option : <strong>fiches de paie conformes aux normes légales et fiscales (CNAPS, OSTIE / AMIT, IRSA et suivi des avances)</strong>.</td>
                 </tr>
             </tbody>
         </table>
 
+        <div style="margin-top: 10px; padding: 7px 11px; border: 1px solid var(--border); border-radius: 5px; background: #FAFAFA; display: flex; justify-content: space-between; align-items: center; font-size: 10px; color: var(--text-gray); flex-wrap: wrap; gap: 6px;">
+            <div><strong>Déploiement & Assistance :</strong> Équipe locale à Madagascar · Mise en service sous 48h</div>
+            <div><strong>Fiabilité locale :</strong> Conçu pour les réseaux instables · Sauvegardes Cloud automatisées</div>
+            <div><strong>Règlement :</strong> Virement bancaire ou Mobile Money (MVola)</div>
+        </div>
+
         <div class="page-footer">
             <span>03</span>
+            <span>ResiPro — Proposition Commerciale 2026</span>
         </div>
     </div>
 

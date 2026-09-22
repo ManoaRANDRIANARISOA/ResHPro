@@ -79,12 +79,20 @@ export function SubscriptionBlockedScreen({ onBypass }: { onBypass?: () => void 
           </Typography>
 
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3, lineHeight: 1.6 }}>
-            La période de souscription active pour <b>{establishmentName}</b> est arrivée à son terme le{" "}
-            <b>{subDetails.endDateFormatted || "récemment"}</b>.
-            {subDetails.suspendedReason && (
-              <span style={{ display: "block", marginTop: 6, color: "#b91c1c", fontWeight: 600 }}>
-                Motif : {subDetails.suspendedReason}
-              </span>
+            {subDetails.status === "suspended" ? (
+              <>
+                L'accès pour <b>{establishmentName}</b> a été temporairement suspendu par l'administration.
+                {subDetails.suspendedReason && (
+                  <span style={{ display: "block", marginTop: 6, color: "#b91c1c", fontWeight: 600 }}>
+                    Motif : {subDetails.suspendedReason}
+                  </span>
+                )}
+              </>
+            ) : (
+              <>
+                La période de souscription active pour <b>{establishmentName}</b> ainsi que la période de grâce de 5 jours sont arrivées à leur terme (échéance initiale le{" "}
+                <b>{subDetails.endDateFormatted || "récemment"}</b>).
+              </>
             )}
           </Typography>
 
@@ -119,12 +127,13 @@ export function SubscriptionBlockedScreen({ onBypass }: { onBypass?: () => void 
             <Button
               variant="contained"
               startIcon={<PhoneInTalkIcon />}
-              href={`tel:${subDetails.contactCommercial.telephone}`}
+              href={`tel:${subDetails.contactCommercial.telephone.replace(/\s+/g, "")}`}
               sx={{
                 bgcolor: "#2563eb",
                 fontWeight: 700,
                 textTransform: "none",
                 borderRadius: 2.5,
+                whiteSpace: "nowrap",
                 py: 1,
                 "&:hover": { bgcolor: "#1d4ed8" },
               }}

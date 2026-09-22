@@ -3,14 +3,25 @@ import { addDays, addHours, eachDayOfInterval, endOfMonth, endOfWeek, format, is
 import { fr } from "date-fns/locale";
 import { Fragment } from "react";
 import type { Reservation, Chambre, ChambreMaintenance } from "@shared/api";
+import { sortChambres } from "@/services/firestore/chambres";
+import {
+  getReservationRoomInterval,
+  isRoomReservedDuring,
+  reservationHasRoom,
+} from "@/services/firestore/reservations";
 
 type View = "month" | "week" | "day";
 
-function reservationColor(r: Reservation, cellDate: Date) {
+function reservationColor(r: Reservation, _cellDate: Date, roomId?: string) {
   const now = new Date();
-  const dStart = new Date(r.dateDebut);
-  const dEnd = new Date(r.dateFin || r.dateDebut);
-  const nowInStay = now >= dStart && now < dEnd;
+  const { resDebut, resFin } = getReservationRoomInterval(r, roomId);
+  const nowInStay = now >= resDebut && now < resFin;
+
+  // Brouillon / En attente / Proforma : Jaune / Ambre
+  if (r.statut === "en_attente") return "#F59E0B";
+  const stay = r.stays?.find((s) => s.chambreId === roomId);
+  if (stay?.statut === "en_attente") return "#F59E0B";
+
   if (r.statut === "arrivee" && nowInStay) return "#EF5350"; // occupée - rouge (en cours)
   return "#66BB6A"; // réservée - vert (futur ou confirmé)
 }
@@ -61,33 +72,31 @@ export function RoomCalendar({
 }: RoomCalendarProps) {
   const range = intervalFor(view, dateRef);
 
-  const roomsData = chambres ?? [];
+  const roomsData = sortChambres(chambres ?? []);
 
   function hasMaintenance(roomId: string, rangeStart: Date, rangeEnd: Date) {
-    return (maintenance || []).some(m => m.chambreId === roomId && new Date(m.dateDebut) < rangeEnd && new Date(m.dateFin) > rangeStart);
+    return (maintenance || []).some((m: any) => {
+      if (m.chambreId !== roomId) return false;
+      const start = new Date(m.dateDebut || m.start);
+      const rawEnd = m.dateFin || m.end;
+      let end = rawEnd ? new Date(rawEnd) : addDays(start, 1);
+      if (end <= start) end = addDays(start, 1);
+      return start < rangeEnd && end > rangeStart;
+    });
   }
 
   function roomDerivedStatus(roomId: string) {
     const room = roomsData.find(c => c.id === roomId)!;
-    if (room.statut === "maintenance") return "maintenance" as const;
+    if (room?.statut === "maintenance") return "maintenance" as const;
     if (hasMaintenance(roomId, range.start, range.end)) return "maintenance" as const;
-    const hasOverlap = reservations.some(r => {
-      if (r.type !== 'hebergement' || r.chambreId !== roomId) return false;
-      const resDebut = new Date(r.dateDebut);
-      const resFinBase = r.dateFin ? new Date(r.dateFin) : addDays(resDebut, 1);
-      const resFin = addDays(resFinBase, 1);
-      const rangeStart = range.start;
-      const rangeEnd = range.end;
-      return resDebut < rangeEnd && resFin > rangeStart;
-    });
+    const hasOverlap = reservations.some(r => isRoomReservedDuring(r, roomId, range.start, range.end));
     if (hasOverlap) {
       const now = new Date();
       const inStayNow = reservations.some(r => {
-        if (r.type !== 'hebergement' || r.chambreId !== roomId) return false;
-        const resDebut = new Date(r.dateDebut);
-        const resFinBase = r.dateFin ? new Date(r.dateFin) : addDays(resDebut, 1);
-        const resFin = addDays(resFinBase, 1);
-        return r.statut === 'arrivee' && now >= resDebut && now < resFin;
+        if (r.statut !== 'arrivee') return false;
+        if (!reservationHasRoom(r, roomId)) return false;
+        const { resDebut, resFin } = getReservationRoomInterval(r, roomId);
+        return now >= resDebut && now < resFin;
       });
       return inStayNow ? 'occupee' : 'reservee';
     }
@@ -101,13 +110,7 @@ export function RoomCalendar({
   function hasReservation(cId: string, dStart: Date, dEnd: Date) {
     const inMaint = hasMaintenance(cId, dStart, dEnd);
     if (inMaint) return { type: "maintenance" } as any;
-    const r = reservations.find(rr => {
-      if (rr.type !== 'hebergement' || rr.chambreId !== cId) return false;
-      const resDebut = new Date(rr.dateDebut);
-      const resFinBase = rr.dateFin ? new Date(rr.dateFin) : addDays(resDebut, 1);
-      const resFin = addDays(resFinBase, 1);
-      return resDebut < dEnd && resFin > dStart;
-    });
+    const r = reservations.find(rr => isRoomReservedDuring(rr, cId, dStart, dEnd));
     return r;
   }
 
@@ -177,7 +180,7 @@ export function RoomCalendar({
                     }}
                     sx={{ 
                       height: compact ? 20 : 32,
-                      bgcolor: r ? (r as any).type === 'maintenance' ? '#9E9E9E' : reservationColor(r as Reservation, d) : roomStatusColor(c.statut),
+                      bgcolor: r ? (r as any).type === 'maintenance' ? '#9E9E9E' : reservationColor(r as Reservation, d, c.id) : roomStatusColor(c.statut),
                       border: '1px solid',
                       borderColor: 'divider',
                       '&:hover': { opacity: 0.8, cursor: (onSelectReservation || onCellClick) ? 'pointer' : 'default' }
@@ -257,7 +260,7 @@ export function RoomCalendar({
                     }}
                     sx={{ 
                       height: compact ? 32 : 32,
-                      bgcolor: r ? (r as any).type === 'maintenance' ? '#9E9E9E' : reservationColor(r as Reservation, d) : roomStatusColor(c.statut),
+                      bgcolor: r ? (r as any).type === 'maintenance' ? '#9E9E9E' : reservationColor(r as Reservation, d, c.id) : roomStatusColor(c.statut),
                       border: '1px solid',
                       borderColor: 'divider',
                       '&:hover': { opacity: 0.8, cursor: (onSelectReservation || onCellClick) ? 'pointer' : 'default' }
@@ -337,7 +340,7 @@ export function RoomCalendar({
                   }}
                   sx={{ 
                     height: compact ? 24 : 32,
-                    bgcolor: r ? (r as any).type === 'maintenance' ? '#9E9E9E' : reservationColor(r as Reservation, h) : roomStatusColor(c.statut),
+                    bgcolor: r ? (r as any).type === 'maintenance' ? '#9E9E9E' : reservationColor(r as Reservation, h, c.id) : roomStatusColor(c.statut),
                     border: '1px solid',
                     borderColor: 'divider',
                     '&:hover': { opacity: 0.8, cursor: (onSelectReservation || onCellClick) ? 'pointer' : 'default' }

@@ -7,8 +7,38 @@ export interface HebergementPack {
   isDefault?: boolean;
 }
 
+export interface HebergementTaxe {
+  id: string;
+  nom: string;
+  description?: string;
+  typeCalcul: "fixe" | "par_nuitee" | "par_chambre_nuitee" | "par_personne_nuitee";
+  montant: number; // Prix en Ariary (Ar)
+  actif: boolean;
+}
+
+export const DEFAULT_HEBERGEMENT_TAXES: HebergementTaxe[] = [
+  {
+    id: "taxe_communale",
+    nom: "Taxe Communale",
+    description: "Taxe communale forfaitaire par séjour.",
+    typeCalcul: "fixe",
+    montant: 4000,
+    actif: true,
+  },
+  {
+    id: "vignette_touristique",
+    nom: "Vignette Touristique",
+    description: "Vignette touristique par nuitée de séjour.",
+    typeCalcul: "par_nuitee",
+    montant: 5000,
+    actif: true,
+  },
+];
+
+export const GRACE_PERIOD_DAYS = 5;
+
 export interface TenantSubscription {
-  status: "active" | "trial" | "expiring_soon" | "expired" | "suspended";
+  status: "active" | "trial" | "expiring_soon" | "grace_period" | "expired" | "suspended";
   startDate: string; // Format YYYY-MM-DD
   endDate: string; // Format YYYY-MM-DD
   plan: "standard" | "premium" | "custom";
@@ -51,6 +81,7 @@ export interface TenantConfig {
   };
   hebergementTypes: string[];
   hebergementPacks?: HebergementPack[];
+  hebergementTaxes?: HebergementTaxe[];
   menuCategories: { id: string; label: string; icon?: string }[];
   tableZones: string[];
   stockFamilles: string[];
@@ -89,21 +120,26 @@ export interface TenantPublicConfig {
 }
 
 /**
- * Calcul dynamique et sécurisé du statut d'abonnement et du nombre de jours restants
+ * Calcul dynamique et sécurisé du statut d'abonnement, période de grâce et jours restants
  */
 export function getSubscriptionDetails(sub?: TenantSubscription) {
+  const defaultCommercial = {
+    telephone: "034 71 517 89",
+    email: "commercial@reshpro.mg",
+    nom: "Service Commercial ResiPro",
+  };
+
   if (!sub || !sub.endDate) {
     return {
       status: "active" as const,
       daysRemaining: 999,
       isExpired: false,
       isExpiringSoon: false,
+      isGracePeriod: false,
+      graceDaysRemaining: 0,
+      isBlocked: false,
       endDateFormatted: "",
-      contactCommercial: {
-        telephone: "+261 34 00 000 00",
-        email: "contact@reshpro.mg",
-        nom: "Service Commercial ResiPro",
-      },
+      contactCommercial: defaultCommercial,
       suspendedReason: undefined,
     };
   }
@@ -117,30 +153,49 @@ export function getSubscriptionDetails(sub?: TenantSubscription) {
   const daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
   const isSuspended = sub.status === "suspended";
-  const isExpired = isSuspended || daysRemaining < 0;
-  const isExpiringSoon = !isExpired && daysRemaining <= 10;
+  const isPastEndDate = daysRemaining < 0;
 
-  let calculatedStatus: "active" | "trial" | "expiring_soon" | "expired" | "suspended" = "active";
+  // Période de grâce B2B : 5 jours après l'échéance sans couper le service opérationnel
+  const isGracePeriod = !isSuspended && isPastEndDate && Math.abs(daysRemaining) <= GRACE_PERIOD_DAYS;
+  const graceDaysRemaining = isGracePeriod ? Math.max(0, GRACE_PERIOD_DAYS - Math.abs(daysRemaining) + 1) : 0;
+
+  // Blocage d'accès effectif (ferme) : suspension manuelle ou dépassement total de la période de grâce
+  const isBlocked = isSuspended || (isPastEndDate && !isGracePeriod);
+  const isExpired = isPastEndDate;
+  const isExpiringSoon = !isPastEndDate && daysRemaining <= 10;
+
+  let calculatedStatus: "active" | "trial" | "expiring_soon" | "grace_period" | "expired" | "suspended" = "active";
   if (isSuspended) {
     calculatedStatus = "suspended";
-  } else if (isExpired) {
+  } else if (isBlocked) {
     calculatedStatus = "expired";
+  } else if (isGracePeriod) {
+    calculatedStatus = "grace_period";
   } else if (isExpiringSoon) {
     calculatedStatus = "expiring_soon";
   } else if (sub.status === "trial") {
     calculatedStatus = "trial";
   }
 
+  // Si le numéro en base est le numéro temporaire (00 000 00) ou vide, utiliser le vrai numéro officiel
+  const commercialTel =
+    sub.contactCommercial?.telephone && !sub.contactCommercial.telephone.includes("00 000 00")
+      ? sub.contactCommercial.telephone
+      : "034 71 517 89";
+
   return {
     status: calculatedStatus,
     daysRemaining: Math.max(0, daysRemaining),
     isExpired,
     isExpiringSoon,
+    isGracePeriod,
+    graceDaysRemaining,
+    isBlocked,
     endDateFormatted: sub.endDate,
-    contactCommercial: sub.contactCommercial || {
-      telephone: "+261 34 00 000 00",
-      email: "contact@reshpro.mg",
-      nom: "Service Commercial ResiPro",
+    contactCommercial: {
+      telephone: commercialTel,
+      email: sub.contactCommercial?.email || "commercial@reshpro.mg",
+      nom: sub.contactCommercial?.nom || "Service Commercial ResiPro",
     },
     suspendedReason: sub.suspendedReason,
   };

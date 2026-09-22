@@ -21,6 +21,8 @@ import {
   Tabs,
   Tab,
   InputAdornment,
+  Switch,
+  FormControlLabel,
 } from "@mui/material";
 import AddIcon from "@mui/icons-material/Add";
 import DeleteIcon from "@mui/icons-material/Delete";
@@ -29,10 +31,14 @@ import BedIcon from "@mui/icons-material/Bed";
 import RestaurantIcon from "@mui/icons-material/Restaurant";
 import CardGiftcardIcon from "@mui/icons-material/CardGiftcard";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
+import AccountBalanceIcon from "@mui/icons-material/AccountBalance";
+import LockIcon from "@mui/icons-material/Lock";
 import { useEffect, useState, useMemo } from "react";
 import { useChambres, useCreateChambre, useUpdateChambre, useDeleteChambre } from "@/services/api";
 import type { Chambre, HebergementPack } from "@shared/api";
+import { HebergementTaxe, DEFAULT_HEBERGEMENT_TAXES } from "@shared/tenant";
 import { useTenant } from "@/contexts/TenantContext";
+import { useRBAC } from "@/hooks/useRBAC";
 import { doc, updateDoc, setDoc } from "firebase/firestore";
 import { db } from "@/services/firebase";
 
@@ -188,6 +194,20 @@ export default function HebergementTarifs() {
     prix: 0,
   });
 
+  const { role } = useRBAC();
+  const isDirectionOrAdmin = role === "direction" || role === "admin";
+
+  const [taxes, setTaxes] = useState<HebergementTaxe[]>(DEFAULT_HEBERGEMENT_TAXES);
+  const [taxModalOpen, setTaxModalOpen] = useState(false);
+  const [editingTax, setEditingTax] = useState<HebergementTaxe | null>(null);
+  const [taxForm, setTaxForm] = useState<Omit<HebergementTaxe, "id">>({
+    nom: "",
+    description: "",
+    typeCalcul: "par_nuitee",
+    montant: 0,
+    actif: true,
+  });
+
   // Synchronisation avec les données Firestore
   useEffect(() => {
     if (config?.hebergementTypes && config.hebergementTypes.length > 0) {
@@ -200,6 +220,12 @@ export default function HebergementTarifs() {
       setPacks(config.hebergementPacks);
     } else {
       setPacks(DEFAULT_PACKS);
+    }
+
+    if (config?.hebergementTaxes && config.hebergementTaxes.length > 0) {
+      setTaxes(config.hebergementTaxes);
+    } else {
+      setTaxes(DEFAULT_HEBERGEMENT_TAXES);
     }
   }, [config]);
 
@@ -399,6 +425,95 @@ export default function HebergementTarifs() {
     saveConfigToFirestore(categories, updated);
   }
 
+  // Gestion des taxes de séjour
+  async function saveTaxesToFirestore(newTaxesList?: HebergementTaxe[]) {
+    if (!tenantId || !isDirectionOrAdmin) return;
+    try {
+      const toSave = newTaxesList || taxes;
+      const ref = doc(db, `tenants/${tenantId}/config/main`);
+      await setDoc(ref, { hebergementTaxes: toSave }, { merge: true });
+      await refreshConfig();
+      setSuccessMsg("Taxes & vignettes de séjour enregistrées avec succès !");
+      setTimeout(() => setSuccessMsg(null), 4000);
+    } catch (err) {
+      console.error("Erreur lors de la sauvegarde des taxes hébergement:", err);
+    }
+  }
+
+  function handleToggleTaxActif(taxId: string, actif: boolean) {
+    if (!isDirectionOrAdmin) return;
+    const updated = taxes.map((t) => (t.id === taxId ? { ...t, actif } : t));
+    setTaxes(updated);
+    saveTaxesToFirestore(updated);
+  }
+
+  function openAddTax() {
+    if (!isDirectionOrAdmin) return;
+    setEditingTax(null);
+    setTaxForm({
+      nom: "",
+      description: "",
+      typeCalcul: "par_nuitee",
+      montant: 0,
+      actif: true,
+    });
+    setTaxModalOpen(true);
+  }
+
+  function openEditTax(tax: HebergementTaxe) {
+    if (!isDirectionOrAdmin) return;
+    setEditingTax(tax);
+    setTaxForm({
+      nom: tax.nom,
+      description: tax.description || "",
+      typeCalcul: tax.typeCalcul,
+      montant: tax.montant,
+      actif: tax.actif,
+    });
+    setTaxModalOpen(true);
+  }
+
+  function handleSaveTax() {
+    if (!isDirectionOrAdmin || !taxForm.nom.trim()) return;
+    let updated: HebergementTaxe[];
+    if (editingTax) {
+      updated = taxes.map((t) =>
+        t.id === editingTax.id
+          ? {
+              ...t,
+              nom: taxForm.nom.trim(),
+              description: taxForm.description.trim(),
+              typeCalcul: taxForm.typeCalcul,
+              montant: taxForm.montant,
+              actif: taxForm.actif,
+            }
+          : t
+      );
+    } else {
+      const newTax: HebergementTaxe = {
+        id: `taxe_${Date.now()}`,
+        nom: taxForm.nom.trim(),
+        description: taxForm.description.trim(),
+        typeCalcul: taxForm.typeCalcul,
+        montant: taxForm.montant,
+        actif: taxForm.actif,
+      };
+      updated = [...taxes, newTax];
+    }
+    setTaxes(updated);
+    saveTaxesToFirestore(updated);
+    setTaxModalOpen(false);
+  }
+
+  function handleDeleteTax(taxId: string) {
+    if (!isDirectionOrAdmin) return;
+    if (confirm("Confirmez-vous la suppression de cette taxe ?")) {
+      const updated = taxes.filter((t) => t.id !== taxId);
+      setTaxes(updated);
+      saveTaxesToFirestore(updated);
+    }
+  }
+
   return (
     <Box sx={{ maxWidth: 1200, mx: "auto", pb: 6 }}>
       {/* HEADER */}
@@ -439,6 +554,7 @@ export default function HebergementTarifs() {
           <Tab icon={<BedIcon />} iconPosition="start" label="Chambres & Tarifs de Base" />
           <Tab icon={<CardGiftcardIcon />} iconPosition="start" label="Formules & Packs de Séjour" />
           <Tab icon={<RestaurantIcon />} iconPosition="start" label="Gestion des Catégories" />
+          <Tab icon={<AccountBalanceIcon />} iconPosition="start" label="Taxes & Vignettes de Séjour" />
         </Tabs>
       </Paper>
 
@@ -684,6 +800,138 @@ export default function HebergementTarifs() {
         </Paper>
       )}
 
+      {/* TAB 3: TAXES & VIGNETTES DE SÉJOUR */}
+      {tabValue === 3 && (
+        <Paper sx={{ p: 3, borderRadius: 2, border: "1px solid #e2e8f0" }} elevation={0}>
+          <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", sm: "center" }} mb={2} gap={1}>
+            <Box>
+              <Typography variant="h6" fontWeight={800} color="#0f172a">
+                Taxes de Séjour & Vignettes Touristiques
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Configurez les taxes appliquées automatiquement sur les factures d'hébergement (taxe communale fixe, vignette touristique par nuitée, etc.).
+              </Typography>
+            </Box>
+            {isDirectionOrAdmin && (
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={openAddTax}
+                sx={{ fontWeight: 800, textTransform: "none", bgcolor: "#4f46e5", "&:hover": { bgcolor: "#4338ca" } }}
+              >
+                Ajouter une taxe
+              </Button>
+            )}
+          </Stack>
+
+          {!isDirectionOrAdmin && (
+            <Alert severity="info" icon={<LockIcon />} sx={{ mb: 3, borderRadius: 2 }}>
+              <strong>Accès sécurisé :</strong> Seule la Direction Générale et les Administrateurs sont autorisés à modifier les libellés, tarifs et modes de calcul des taxes de séjour. Vous pouvez consulter les paramètres actifs ci-dessous.
+            </Alert>
+          )}
+
+          <Grid container spacing={2}>
+            {taxes.map((taxe) => (
+              <Grid item xs={12} sm={6} md={6} key={taxe.id}>
+                <Card
+                  variant="outlined"
+                  sx={{
+                    borderRadius: 2,
+                    borderColor: taxe.actif ? "#c7d2fe" : "#e2e8f0",
+                    bgcolor: taxe.actif ? "#ffffff" : "#f8fafc",
+                    transition: "all 0.2s ease-in-out",
+                    opacity: taxe.actif ? 1 : 0.7,
+                  }}
+                >
+                  <CardContent sx={{ p: 2.5 }}>
+                    <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={1}>
+                      <Box>
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <Typography variant="subtitle1" fontWeight={800} color="#1e293b">
+                            {taxe.nom}
+                          </Typography>
+                          <Chip
+                            size="small"
+                            label={taxe.actif ? "Active" : "Inactive"}
+                            color={taxe.actif ? "success" : "default"}
+                            sx={{ height: 22, fontSize: "0.7rem", fontWeight: 700 }}
+                          />
+                        </Stack>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.5 }}>
+                          {taxe.description || (taxe.typeCalcul === "fixe" ? "Taxe forfaitaire par séjour" : "Calculée au prorata des nuitées")}
+                        </Typography>
+                      </Box>
+                      {isDirectionOrAdmin && (
+                        <FormControlLabel
+                          control={
+                            <Switch
+                              size="small"
+                              checked={taxe.actif}
+                              onChange={(e) => handleToggleTaxActif(taxe.id, e.target.checked)}
+                            />
+                          }
+                          label={<Typography variant="caption" fontWeight={600}>{taxe.actif ? "Activée" : "Désactivée"}</Typography>}
+                          sx={{ m: 0 }}
+                        />
+                      )}
+                    </Stack>
+
+                    <Box sx={{ my: 1.5, p: 1.5, bgcolor: taxe.actif ? "#eef2ff" : "#f1f5f9", borderRadius: 1.5, border: "1px solid", borderColor: taxe.actif ? "#e0e7ff" : "#e2e8f0" }}>
+                      <Stack direction="row" justifyContent="space-between" alignItems="center">
+                        <Box>
+                          <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                            Mode de calcul :
+                          </Typography>
+                          <Typography variant="body2" fontWeight={700} color="#334155">
+                            {taxe.typeCalcul === "fixe"
+                              ? "Montant fixe par séjour"
+                              : taxe.typeCalcul === "par_nuitee"
+                              ? "Par nuitée de séjour"
+                              : taxe.typeCalcul === "par_chambre_nuitee"
+                              ? "Par chambre × nuitée"
+                              : "Par personne × nuitée"}
+                          </Typography>
+                        </Box>
+                        <Box sx={{ textAlign: "right" }}>
+                          <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                            Tarif :
+                          </Typography>
+                          <Typography variant="h6" fontWeight={900} color="#4f46e5">
+                            {taxe.montant.toLocaleString("fr-FR")} Ar
+                          </Typography>
+                        </Box>
+                      </Stack>
+                    </Box>
+
+                    {isDirectionOrAdmin && (
+                      <Stack direction="row" justifyContent="flex-end" spacing={1} sx={{ mt: 1 }}>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          startIcon={<EditIcon />}
+                          onClick={() => openEditTax(taxe)}
+                          sx={{ textTransform: "none", fontWeight: 700 }}
+                        >
+                          Modifier
+                        </Button>
+                        <IconButton
+                          size="small"
+                          color="error"
+                          onClick={() => handleDeleteTax(taxe.id)}
+                          sx={{ border: "1px solid #fee2e2", "&:hover": { bgcolor: "#fef2f2" } }}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Stack>
+                    )}
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+        </Paper>
+      )}
+
       {/* MODAL AJOUT CATÉGORIE */}
       <Dialog open={openCatModal} onClose={() => setOpenCatModal(false)} maxWidth="xs" fullWidth>
         <DialogTitle sx={{ fontWeight: 800 }}>Ajouter une Catégorie de Chambre</DialogTitle>
@@ -766,6 +1014,89 @@ export default function HebergementTarifs() {
           <Button onClick={() => setPackModalOpen(false)}>Annuler</Button>
           <Button variant="contained" onClick={handleSavePack} disabled={!packForm.nom.trim()} sx={{ fontWeight: 800 }}>
             {editingPack ? "Enregistrer les modifications" : "Créer le Pack"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* MODAL CONFIGURATION TAXE / VIGNETTE */}
+      <Dialog open={taxModalOpen} onClose={() => setTaxModalOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800 }}>
+          {editingTax ? "Modifier la Taxe / Vignette" : "Ajouter une Taxe ou Vignette de Séjour"}
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={2.5} sx={{ mt: 1 }}>
+            <TextField
+              label="Nom de la taxe / vignette"
+              fullWidth
+              required
+              placeholder="Ex: Taxe Communale, Vignette Touristique, Éco-Taxe..."
+              value={taxForm.nom}
+              onChange={(e) => setTaxForm({ ...taxForm, nom: e.target.value })}
+            />
+
+            <Select
+              label="Mode d'application"
+              fullWidth
+              value={taxForm.typeCalcul}
+              onChange={(e) => setTaxForm({ ...taxForm, typeCalcul: e.target.value as any })}
+            >
+              <MenuItem value="fixe">Montant fixe forfaitaire (par séjour)</MenuItem>
+              <MenuItem value="par_nuitee">Par nuitée de séjour (ex: 5 000 Ar × nombre de nuits)</MenuItem>
+              <MenuItem value="par_chambre_nuitee">Par chambre × nuitée</MenuItem>
+              <MenuItem value="par_personne_nuitee">Par personne × nuitée</MenuItem>
+            </Select>
+
+            <TextField
+              label="Tarif en Ariary (Ar)"
+              fullWidth
+              required
+              type="number"
+              value={taxForm.montant}
+              onChange={(e) => setTaxForm({ ...taxForm, montant: Math.max(0, parseInt(e.target.value || "0", 10)) })}
+              InputProps={{
+                endAdornment: <InputAdornment position="end">Ar</InputAdornment>,
+              }}
+              helperText={
+                taxForm.typeCalcul === "fixe"
+                  ? "Montant unique appliqué une seule fois sur la facture."
+                  : "Montant multiplié par le nombre d'unités de séjour."
+              }
+            />
+
+            <TextField
+              label="Description (Optionnelle)"
+              fullWidth
+              multiline
+              rows={2}
+              placeholder="Ex: Reversée à la commune urbaine pour chaque séjour..."
+              value={taxForm.description}
+              onChange={(e) => setTaxForm({ ...taxForm, description: e.target.value })}
+            />
+
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={taxForm.actif}
+                  onChange={(e) => setTaxForm({ ...taxForm, actif: e.target.checked })}
+                />
+              }
+              label={
+                <Typography variant="body2" fontWeight={700}>
+                  {taxForm.actif ? "Taxe active (appliquée automatiquement)" : "Taxe inactive"}
+                </Typography>
+              }
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setTaxModalOpen(false)}>Annuler</Button>
+          <Button
+            variant="contained"
+            onClick={handleSaveTax}
+            disabled={!taxForm.nom.trim()}
+            sx={{ fontWeight: 800, bgcolor: "#4f46e5", "&:hover": { bgcolor: "#4338ca" } }}
+          >
+            {editingTax ? "Enregistrer" : "Ajouter la Taxe"}
           </Button>
         </DialogActions>
       </Dialog>

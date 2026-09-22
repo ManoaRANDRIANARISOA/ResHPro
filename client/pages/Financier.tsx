@@ -50,7 +50,10 @@ import {
   AccountBalanceWallet,
   People,
   Inventory2,
+  Lock,
 } from "@mui/icons-material";
+import { useAppSelector } from "@/store";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   useCreateFacture,
   useFactures,
@@ -58,6 +61,7 @@ import {
   useUpdateFactureStatut,
   useUpdateFacture,
   useDeleteFacture,
+  useValidateProforma,
   useChambres,
   useHebergementReservations,
   useRestoReservations,
@@ -65,7 +69,7 @@ import {
   useAvancesSalaire,
   useStockProduits,
 } from "@/services/api";
-import { Facture, FactureLigne, Client } from "@shared/api";
+import { Facture, FactureLigne, Client, isProformaDocument } from "@shared/api";
 import { exportToCSV, exportToPDF, printFacturePro } from "@/lib/export";
 import {
   ResponsiveContainer,
@@ -123,6 +127,9 @@ function getPaymentLabel(mode?: string) {
 }
 
 function StatutBadge({ f }: { f: Facture }) {
+  if (isProformaDocument(f)) {
+    return <Chip size="small" sx={{ bgcolor: "#fef3c7", color: "#b45309", fontWeight: 700, border: "1px solid #fde68a" }} label={f.typeDocument === "devis" ? "📝 Devis" : "📋 Proforma"} />;
+  }
   if (f.statut === "payee") {
     return <Chip size="small" sx={{ bgcolor: "#dcfce7", color: "#166534", fontWeight: 700, border: "1px solid #bbf7d0" }} label="Payée" />;
   }
@@ -134,7 +141,7 @@ function StatutBadge({ f }: { f: Facture }) {
   if (overdue) {
     return <Chip size="small" sx={{ bgcolor: "#fee2e2", color: "#991b1b", fontWeight: 700, border: "1px solid #fecaca" }} label="En retard" />;
   }
-  return <Chip size="small" sx={{ bgcolor: "#fef3c7", color: "#92400e", fontWeight: 700, border: "1px solid #fde68a" }} label="Envoyée" />;
+  return <Chip size="small" sx={{ bgcolor: "#e0f2fe", color: "#0369a1", fontWeight: 700, border: "1px solid #bae6fd" }} label="Envoyée" />;
 }
 
 export default function Financier() {
@@ -157,7 +164,13 @@ export default function Financier() {
   const updateStatut = useUpdateFactureStatut();
   const updateFacture = useUpdateFacture();
   const deleteFacture = useDeleteFacture();
+  const validateProforma = useValidateProforma();
   const [searchParams] = useSearchParams();
+
+  // Droits d'accès : seuls Direction et Admin ont le droit de modifier une facture déjà émise, changer son type, la supprimer ou modifier la fiscalité
+  const role = useAppSelector((s) => s.session.role);
+  const { user } = useAuth();
+  const canModifyInvoice = role === "admin" || role === "direction" || Boolean(user?.superAdmin);
 
   // Configuration de l'établissement dynamique
   const tenantFiscalConfig = useMemo(() => {
@@ -180,7 +193,7 @@ export default function Financier() {
 
   // Filtres
   const [q, setQ] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "emise" | "payee" | "annulee" | "retard">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "emise" | "payee" | "annulee" | "retard" | "proforma">("all");
   const [sourceFilter, setSourceFilter] = useState<"all" | "Hebergement" | "Restaurant" | "Evenement">("all");
   const [agencyFilter, setAgencyFilter] = useState<"all" | "with_agency" | "direct">("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -242,6 +255,7 @@ export default function Financier() {
   });
 
   const [formMeta, setFormMeta] = useState<{
+    typeDocument: "facture" | "proforma" | "devis";
     source: Facture["source"];
     modePaiement: string;
     statut: Facture["statut"];
@@ -251,6 +265,7 @@ export default function Financier() {
     remisePourcentage: number;
     notes: string;
   }>({
+    typeDocument: "facture",
     source: "Hebergement",
     modePaiement: "especes",
     statut: "emise",
@@ -294,8 +309,11 @@ export default function Financier() {
       base = base.filter((f) => {
         const now = new Date();
         const due = f.dueDate ? new Date(f.dueDate) : null;
-        if (statusFilter === "retard") return f.statut === "emise" && !!due && now > due;
-        if (statusFilter === "emise") return f.statut === "emise" && (!due || now <= due);
+        const isProf = isProformaDocument(f);
+        if (statusFilter === "proforma") return isProf;
+        if (statusFilter === "retard") return !isProf && f.statut === "emise" && !!due && now > due;
+        if (statusFilter === "emise") return !isProf && f.statut === "emise" && (!due || now <= due);
+        if (statusFilter === "payee") return !isProf && f.statut === "payee";
         return f.statut === statusFilter;
       });
     }
@@ -327,15 +345,19 @@ export default function Financier() {
   // Calculs KPIs
   const kpis = useMemo(() => {
     const all = factures || [];
-    const totalFacture = all.reduce((s, f) => s + f.totalTTC, 0);
-    const payees = all.filter(f => f.statut === "payee");
+    const officialFactures = all.filter((f) => !isProformaDocument(f));
+    const proformas = all.filter((f) => isProformaDocument(f) && f.statut !== "annulee");
+
+    const totalFacture = officialFactures.filter((f) => f.statut !== "annulee").reduce((s, f) => s + f.totalTTC, 0);
+    const payees = officialFactures.filter((f) => f.statut === "payee");
     const totalPaye = payees.reduce((s, f) => s + f.totalTTC, 0);
     const now = new Date();
-    const enRetardList = all.filter(f => f.statut === "emise" && !!f.dueDate && now > new Date(f.dueDate));
+    const enRetardList = officialFactures.filter((f) => f.statut === "emise" && !!f.dueDate && now > new Date(f.dueDate));
     const totalRetard = enRetardList.reduce((s, f) => s + f.totalTTC, 0);
-    const enAttenteList = all.filter(f => f.statut === "emise" && (!f.dueDate || now <= new Date(f.dueDate)));
+    const enAttenteList = officialFactures.filter((f) => f.statut === "emise" && (!f.dueDate || now <= new Date(f.dueDate)));
     const totalEnAttente = enAttenteList.reduce((s, f) => s + f.totalTTC, 0);
-    const totalRemises = all.reduce((s, f) => s + (f.remiseMontant || 0), 0);
+    const totalRemises = officialFactures.reduce((s, f) => s + (f.remiseMontant || 0), 0);
+    const totalProformas = proformas.reduce((s, f) => s + f.totalTTC, 0);
 
     return {
       totalFacture,
@@ -344,7 +366,9 @@ export default function Financier() {
       totalRetard,
       totalRemises,
       countPaye: payees.length,
-      countTotal: all.length,
+      countTotal: officialFactures.length,
+      totalProformas,
+      countProformas: proformas.length,
     };
   }, [factures]);
 
@@ -375,6 +399,7 @@ export default function Financier() {
       agenceVoyage: "",
     });
     setFormMeta({
+      typeDocument: "facture",
       source: "Hebergement",
       modePaiement: "especes",
       statut: "emise",
@@ -392,6 +417,10 @@ export default function Financier() {
 
   // Ouvrir modal d'édition
   function openEditModal(f: Facture) {
+    if (!canModifyInvoice) {
+      alert("Action réservée : Seuls la Direction et l'Administrateur ont le droit de modifier une facture existante.");
+      return;
+    }
     setIsEditing(true);
     setEditingFactureId(f.id);
     const cli = (clients || []).find(c => c.id === f.clientId || c.nom === f.clientNom);
@@ -404,6 +433,7 @@ export default function Financier() {
       agenceVoyage: f.agenceVoyage || cli?.agenceVoyage || "",
     });
     setFormMeta({
+      typeDocument: f.typeDocument || "facture",
       source: f.source,
       modePaiement: f.modePaiement || "especes",
       statut: f.statut,
@@ -419,6 +449,10 @@ export default function Financier() {
 
   // Sauvegarde Facture
   function saveFacture() {
+    if (isEditing && !canModifyInvoice) {
+      alert("Action réservée : Seuls la Direction et l'Administrateur peuvent modifier une facture existante.");
+      return;
+    }
     if (!formClient.clientNom.trim()) {
       alert("Veuillez renseigner le nom du client");
       return;
@@ -429,6 +463,7 @@ export default function Financier() {
     }
 
     const payload: any = {
+      typeDocument: formMeta.typeDocument || "facture",
       clientId: formClient.clientId || undefined,
       clientNom: formClient.clientNom.trim(),
       clientTelephone: formClient.clientTelephone.trim() || undefined,
@@ -476,6 +511,10 @@ export default function Financier() {
   // Sauvegarde rapide du NIF / STAT établissement
   async function saveTenantSettings() {
     if (!tenantId) return;
+    if (!canModifyInvoice) {
+      alert("Action réservée : Seuls la Direction et l'Administrateur peuvent modifier la configuration fiscale.");
+      return;
+    }
     try {
       const updateData = {
         nom: tenantForm.nom.trim() || tenantFiscalConfig.nom,
@@ -573,13 +612,19 @@ export default function Financier() {
     (hebergementAll || [])
       .filter((r) => r.statut !== "annulee" && r.statut !== "no_show")
       .forEach((r) => {
-        if (!r.chambreId || !(r.chambreId in counts)) return;
+        const roomIds = r.chambreIds && r.chambreIds.length > 0 ? r.chambreIds : (r.chambreId ? [r.chambreId] : []);
+        if (roomIds.length === 0) return;
         const s = new Date(r.dateDebut);
         const e = new Date(r.dateFin ?? r.dateDebut);
         const start = s < mStart ? mStart : s;
         const end = e > mEnd ? mEnd : e;
+        if (end <= start) return;
         const days = eachDayOfInterval({ start, end });
-        counts[r.chambreId] = (counts[r.chambreId] || 0) + days.length;
+        roomIds.forEach((rid) => {
+          if (rid in counts) {
+            counts[rid] = (counts[rid] || 0) + days.length;
+          }
+        });
       });
     return allRooms.map((ch) => ({
       name: `Ch. ${ch.numero}`,
@@ -590,7 +635,7 @@ export default function Financier() {
   const ca = useMemo(() => {
     const sum = (src: Facture["source"]) =>
       (factures || [])
-        .filter((f) => f.source === src && f.statut === "payee")
+        .filter((f) => f.source === src && f.statut === "payee" && !isProformaDocument(f))
         .reduce((s, f) => s + f.totalTTC, 0);
     return [
       { name: "Hébergement", revenus: sum("Hebergement") },
@@ -687,7 +732,7 @@ export default function Financier() {
       {/* HEADER SECTION */}
       <Stack direction={{ xs: "column", sm: "row" }} justifyContent="space-between" alignItems={{ xs: "flex-start", sm: "center" }} spacing={2} mb={3}>
         <Box>
-          <Stack direction="row" alignItems="center" spacing={1.5}>
+          <Stack direction="row" alignItems="center" spacing={1.5} flexWrap="wrap" rowGap={1}>
             <Typography variant="h4" fontWeight={800} color="#0f172a">
               Facturation & Finances
             </Typography>
@@ -697,6 +742,15 @@ export default function Financier() {
               label={`${knownAgencies.length} Agences partenaires`} 
               sx={{ bgcolor: "#e0e7ff", color: "#3730a3", fontWeight: 700 }} 
             />
+            {!canModifyInvoice && (
+              <Chip
+                size="small"
+                icon={<Lock fontSize="small" />}
+                label="Consultation & Encaissement"
+                title="Modification et suppression réservées à la Direction et l'Admin"
+                sx={{ bgcolor: "#f8fafc", color: "#475569", border: "1px solid #cbd5e1", fontWeight: 700 }}
+              />
+            )}
           </Stack>
           <Typography variant="body2" color="text.secondary" mt={0.5}>
             Établissement : <strong>{tenantFiscalConfig.nom}</strong> &nbsp;·&nbsp; NIF : <strong style={{ color: "#4f46e5" }}>{tenantFiscalConfig.nif}</strong> &nbsp;·&nbsp; STAT : <strong style={{ color: "#4f46e5" }}>{tenantFiscalConfig.stat}</strong>
@@ -704,15 +758,17 @@ export default function Financier() {
         </Box>
 
         <Stack direction="row" spacing={1.5} flexWrap="wrap">
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<Settings />}
-            onClick={() => setSettingsOpen(true)}
-            sx={{ borderColor: "#cbd5e1", color: "#475569" }}
-          >
-            NIF / STAT Établissement
-          </Button>
+          {canModifyInvoice && (
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<Settings />}
+              onClick={() => setSettingsOpen(true)}
+              sx={{ borderColor: "#cbd5e1", color: "#475569" }}
+            >
+              NIF / STAT Établissement
+            </Button>
+          )}
           <Button
             variant="outlined"
             size="small"
@@ -814,6 +870,29 @@ export default function Financier() {
         </Grid>
       </Grid>
 
+      {/* BANNIÈRE PROFORMAS / DEVIS EN COURS */}
+      {kpis.countProformas > 0 && (
+        <Box sx={{ mb: 2.5, p: 1.5, borderRadius: 2, bgcolor: "#fffbeb", border: "1px solid #fde68a", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 1 }}>
+          <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap">
+            <Chip label="Devis & Proformas" size="small" sx={{ bgcolor: "#f59e0b", color: "#fff", fontWeight: 800 }} />
+            <Typography variant="body2" fontWeight={600} color="#92400e">
+              <strong>{kpis.countProformas} document(s)</strong> proforma / devis en cours pour un montant de <strong>{kpis.totalProformas.toLocaleString('fr-FR')} Ar</strong>.
+            </Typography>
+            <Typography variant="caption" color="#b45309">
+              (Non comptabilisés dans le CA officiel avant validation)
+            </Typography>
+          </Stack>
+          <Button
+            size="small"
+            variant="outlined"
+            onClick={() => setStatusFilter(statusFilter === "proforma" ? "all" : "proforma")}
+            sx={{ borderColor: "#f59e0b", color: "#b45309", fontWeight: 700, fontSize: "0.75rem" }}
+          >
+            {statusFilter === "proforma" ? "Afficher tous les documents" : "Filtrer les Proformas"}
+          </Button>
+        </Box>
+      )}
+
       {/* TABS VIEW */}
       <Tabs value={activeTab} onChange={(_, val) => setActiveTab(val)} sx={{ mb: 2.5, borderBottom: 1, borderColor: "divider" }}>
         <Tab label="📋 Facturier & Aperçu Pro" sx={{ fontWeight: 700, textTransform: "none" }} />
@@ -843,8 +922,9 @@ export default function Financier() {
               />
 
               <Stack direction="row" spacing={0.8} sx={{ mb: 1, flexWrap: "wrap", gap: 0.5 }}>
-                <Chip size="small" label="Tous statuts" onClick={() => setStatusFilter("all")} color={statusFilter === "all" ? "primary" : "default"} variant={statusFilter === "all" ? "filled" : "outlined"} />
-                <Chip size="small" label="Envoyée" onClick={() => setStatusFilter("emise")} color={statusFilter === "emise" ? "warning" : "default"} variant={statusFilter === "emise" ? "filled" : "outlined"} />
+                <Chip size="small" label="Tous" onClick={() => setStatusFilter("all")} color={statusFilter === "all" ? "primary" : "default"} variant={statusFilter === "all" ? "filled" : "outlined"} />
+                <Chip size="small" label="📋 Proformas (Devis)" onClick={() => setStatusFilter("proforma")} color={statusFilter === "proforma" ? "warning" : "default"} variant={statusFilter === "proforma" ? "filled" : "outlined"} />
+                <Chip size="small" label="Factures en cours" onClick={() => setStatusFilter("emise")} color={statusFilter === "emise" ? "info" : "default"} variant={statusFilter === "emise" ? "filled" : "outlined"} />
                 <Chip size="small" label="Payée" onClick={() => setStatusFilter("payee")} color={statusFilter === "payee" ? "success" : "default"} variant={statusFilter === "payee" ? "filled" : "outlined"} />
                 <Chip size="small" label="En retard" onClick={() => setStatusFilter("retard")} color={statusFilter === "retard" ? "error" : "default"} variant={statusFilter === "retard" ? "filled" : "outlined"} />
                 <Chip size="small" label="Annulée" onClick={() => setStatusFilter("annulee")} color={statusFilter === "annulee" ? "default" : "default"} variant={statusFilter === "annulee" ? "filled" : "outlined"} />
@@ -903,6 +983,14 @@ export default function Financier() {
                               {f.numero}
                             </Typography>
                             <Chip size="small" label={f.source} variant="outlined" sx={{ fontSize: "0.68rem", height: 20 }} />
+                            {f.typeDocument && f.typeDocument !== "facture" && (
+                              <Chip
+                                size="small"
+                                label={f.typeDocument === "proforma" ? "Proforma" : "Devis"}
+                                color={f.typeDocument === "proforma" ? "info" : "secondary"}
+                                sx={{ fontSize: "0.65rem", height: 20, fontWeight: 800 }}
+                              />
+                            )}
                           </Stack>
 
                           <Typography fontWeight={700} color="#1e293b" fontSize="0.9rem" mt={0.4}>
@@ -962,7 +1050,7 @@ export default function Financier() {
                     <StatutBadge f={selected} />
                   </Stack>
 
-                  <Stack direction="row" spacing={1}>
+                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap alignItems="center">
                     <FormControlLabel
                       control={
                         <Checkbox 
@@ -974,6 +1062,27 @@ export default function Financier() {
                       label={<Typography variant="caption" fontWeight={600}>Inclure signature</Typography>}
                       sx={{ mr: 1, color: "text.secondary" }}
                     />
+                    <Select
+                      size="small"
+                      disabled={!canModifyInvoice}
+                      value={selected.typeDocument || "facture"}
+                      onChange={(e) => {
+                        if (!canModifyInvoice) return;
+                        const newType = e.target.value as "facture" | "proforma" | "devis";
+                        updateFacture.mutate({ id: selected.id, typeDocument: newType });
+                      }}
+                      sx={{
+                        height: 31,
+                        fontSize: "0.78rem",
+                        fontWeight: 700,
+                        bgcolor: canModifyInvoice ? "#f8fafc" : "#f1f5f9",
+                        "& .MuiSelect-select": { py: 0.5, px: 1 },
+                      }}
+                    >
+                      <MenuItem value="facture">📄 Facture</MenuItem>
+                      <MenuItem value="proforma">📋 Proforma</MenuItem>
+                      <MenuItem value="devis">📝 Devis</MenuItem>
+                    </Select>
                     <Button
                       size="small"
                       variant="contained"
@@ -983,14 +1092,35 @@ export default function Financier() {
                     >
                       Imprimer / PDF A4
                     </Button>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      startIcon={<Edit />}
-                      onClick={() => openEditModal(selected)}
-                    >
-                      Modifier
-                    </Button>
+                    {isProformaDocument(selected) && (
+                      <Button
+                        size="small"
+                        variant="contained"
+                        startIcon={<CheckCircle />}
+                        onClick={() => {
+                          if (
+                            confirm(
+                              `Confirmez-vous la validation de ce devis/proforma ${selected.numero} en Facture Définitive ?\n\nCe document sera désormais comptabilisé dans le chiffre d'affaires officiel et le suivi financier.`
+                            )
+                          ) {
+                            validateProforma.mutate({ id: selected.id });
+                          }
+                        }}
+                        sx={{ bgcolor: "#16a34a", "&:hover": { bgcolor: "#15803d" }, fontWeight: 800 }}
+                      >
+                        Valider en Facture Définitive
+                      </Button>
+                    )}
+                    {canModifyInvoice && (
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        startIcon={<Edit />}
+                        onClick={() => openEditModal(selected)}
+                      >
+                        Modifier
+                      </Button>
+                    )}
                     {selected.statut !== "payee" && (
                       <Button
                         size="small"
@@ -1002,17 +1132,20 @@ export default function Financier() {
                         Marquer Payée
                       </Button>
                     )}
-                    <IconButton
-                      size="small"
-                      color="error"
-                      onClick={() => {
-                        if (confirm(`Confirmez-vous la suppression de la facture ${selected.numero} ?`)) {
-                          deleteFacture.mutate(selected.id);
-                        }
-                      }}
-                    >
-                      <Delete fontSize="small" />
-                    </IconButton>
+                    {canModifyInvoice && (
+                      <IconButton
+                        size="small"
+                        color="error"
+                        title="Supprimer la facture (Réservé Direction & Admin)"
+                        onClick={() => {
+                          if (confirm(`Confirmez-vous la suppression de la facture ${selected.numero} ?`)) {
+                            deleteFacture.mutate(selected.id);
+                          }
+                        }}
+                      >
+                        <Delete fontSize="small" />
+                      </IconButton>
+                    )}
                   </Stack>
                 </Stack>
 
@@ -1058,7 +1191,11 @@ export default function Financier() {
 
                     <Box sx={{ textAlign: "right" }}>
                       <Typography variant="h6" fontWeight={900} color="#1e293b">
-                        FACTURE
+                        {selected.typeDocument === "devis"
+                          ? "DEVIS"
+                          : selected.typeDocument === "proforma"
+                          ? "FACTURE PROFORMA"
+                          : "FACTURE"}
                       </Typography>
                       <Typography variant="body2" fontWeight={800} color="#4f46e5">
                         {selected.numero}
@@ -1160,6 +1297,11 @@ export default function Financier() {
                           <Typography variant="body2" fontWeight={600} color="#0f172a" fontSize="0.82rem">
                             {l.description}
                           </Typography>
+                          {l.stayPeriodText && (
+                            <Typography variant="caption" sx={{ color: "#4f46e5", fontWeight: 700, display: "block" }}>
+                              📅 Séjour : {l.stayPeriodText}
+                            </Typography>
+                          )}
                           {l.noteSpeciale && (
                             <Typography variant="caption" color="text.secondary" sx={{ fontStyle: "italic" }}>
                               {l.noteSpeciale}
@@ -1488,9 +1630,24 @@ export default function Financier() {
             {/* SECTION 2: MODALITÉS & DATES */}
             <Box>
               <Typography variant="subtitle2" fontWeight={800} color="#0f172a" mb={1.5}>
-                2. Source, Dates & Règlement
+                2. Type, Source, Dates & Règlement
               </Typography>
               <Grid container spacing={2}>
+                <Grid item xs={12} sm={3}>
+                  <TextField
+                    size="small"
+                    select
+                    label="Type de Document"
+                    fullWidth
+                    value={formMeta.typeDocument || "facture"}
+                    onChange={(e) => setFormMeta(prev => ({ ...prev, typeDocument: e.target.value as any }))}
+                  >
+                    <MenuItem value="facture">📄 Facture (Standard)</MenuItem>
+                    <MenuItem value="proforma">📋 Facture Proforma</MenuItem>
+                    <MenuItem value="devis">📝 Devis</MenuItem>
+                  </TextField>
+                </Grid>
+
                 <Grid item xs={12} sm={3}>
                   <TextField
                     size="small"

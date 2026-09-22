@@ -202,9 +202,15 @@ export function printFacturePro(
   const methodePaiementAccompte = (facture as any).methodePaiementAccompte || "";
   const resteAPayer = totalNet - accompte;
 
-  // Statut
+  // Statut & Type de Document
   const isPayee = facture.statut === "payee";
   const isAnnulee = facture.statut === "annulee";
+  const docType = facture.typeDocument || "facture";
+  const docTitle = docType === "devis"
+    ? "DEVIS"
+    : docType === "proforma"
+    ? "FACTURE PROFORMA"
+    : "FACTURE";
 
   const htmlContent = `
     <!DOCTYPE html>
@@ -212,7 +218,7 @@ export function printFacturePro(
     <head>
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <title>Facture ${facture.numero} - ${etablissementNom}</title>
+      <title>${docTitle} ${facture.numero} - ${etablissementNom}</title>
       <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
@@ -593,11 +599,11 @@ export function printFacturePro(
             </div>
           </div>
           <div class="invoice-meta">
-            <div class="invoice-title">FACTURE</div>
+            <div class="invoice-title">${docTitle}</div>
             <div class="invoice-number">${facture.numero}</div>
             <div>
               <span class="status-badge ${isPayee ? 'status-paid' : isAnnulee ? 'status-cancelled' : 'status-pending'}">
-                ${isPayee ? '✓ ACQUITTÉE' : isAnnulee ? 'ANNULÉE' : 'EN ATTENTE'}
+                ${isPayee ? '✓ ACQUITTÉE' : isAnnulee ? 'ANNULÉE' : docType === 'devis' ? 'PROPOSITION' : docType === 'proforma' ? 'PROFORMA' : 'EN ATTENTE'}
               </span>
             </div>
             <p style="font-size: 11.5px; color: #64748b; margin: 6px 0 0 0;">
@@ -661,6 +667,7 @@ export function printFacturePro(
                 <tr>
                   <td>
                     <div class="item-desc">${l.description}</div>
+                    ${l.stayPeriodText ? `<div style="color: #4f46e5; font-size: 11px; font-weight: 600; margin-top: 2px;">📅 Séjour : ${l.stayPeriodText}</div>` : ''}
                     ${l.noteSpeciale ? `<div class="item-note">Note : ${l.noteSpeciale}</div>` : ''}
                   </td>
                   <td style="text-align: center; font-weight: 600;">${l.qte}</td>

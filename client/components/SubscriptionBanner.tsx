@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { Box, Paper, Typography, Button, Stack, Chip, IconButton } from "@mui/material";
 import NotificationsActiveIcon from "@mui/icons-material/NotificationsActive";
+import WarningAmberIcon from "@mui/icons-material/WarningAmber";
 import PhoneInTalkIcon from "@mui/icons-material/PhoneInTalk";
+import EmailIcon from "@mui/icons-material/Email";
 import CloseIcon from "@mui/icons-material/Close";
 import { getSubscriptionDetails } from "@shared/tenant";
 import { useTenant } from "@/contexts/TenantContext";
@@ -15,7 +17,121 @@ export function SubscriptionBanner() {
   const sub = config?.subscription || publicConfig?.subscription;
   const subDetails = getSubscriptionDetails(sub);
 
-  // N'afficher la bannière que si l'abonnement expire bientôt (J-10 à J-1) et n'est pas encore bloqué
+  // 1. CAS PRIORITAIRE : PÉRIODE DE GRÂCE (J+1 à J+5)
+  // Bannière rouge urgente et persistante (non masquable) pour avertir l'équipe
+  if (subDetails.isGracePeriod) {
+    const graceDays = subDetails.graceDaysRemaining;
+    const graceText =
+      graceDays === 0
+        ? "Dernier jour aujourd'hui !"
+        : graceDays === 1
+        ? "Dernier jour demain !"
+        : `${graceDays} jours restants`;
+
+    return (
+      <Paper
+        elevation={0}
+        sx={{
+          p: 2,
+          mb: 2.5,
+          borderRadius: 2.5,
+          bgcolor: "#fef2f2",
+          border: "1.5px solid #f87171",
+          boxShadow: "0 4px 12px -2px rgba(220, 38, 38, 0.15)",
+        }}
+      >
+        <Stack
+          direction={{ xs: "column", md: "row" }}
+          alignItems={{ xs: "flex-start", md: "center" }}
+          justifyContent="space-between"
+          spacing={2}
+        >
+          <Stack direction="row" alignItems="flex-start" spacing={1.5}>
+            <Box
+              sx={{
+                width: 42,
+                height: 42,
+                borderRadius: "50%",
+                bgcolor: "#fee2e2",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                color: "#dc2626",
+                flexShrink: 0,
+                mt: 0.3,
+              }}
+            >
+              <WarningAmberIcon />
+            </Box>
+            <Box>
+              <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap" mb={0.5}>
+                <Typography variant="subtitle2" fontWeight={800} color="#991b1b">
+                  Période de Grâce Active — Régularisation Requise
+                </Typography>
+                <Chip
+                  label={`Coupure dans : ${graceText}`}
+                  size="small"
+                  sx={{
+                    bgcolor: "#fee2e2",
+                    color: "#991b1b",
+                    fontWeight: 800,
+                    border: "1px solid #fca5a5",
+                    height: 22,
+                  }}
+                />
+              </Stack>
+              <Typography variant="caption" color="#7f1d1d" sx={{ display: "block", lineHeight: 1.5 }}>
+                L'abonnement de cet établissement a expiré le <b>{subDetails.endDateFormatted}</b>. Vos services restent ouverts pendant la période de grâce de 5 jours. Veuillez régulariser votre abonnement immédiatement pour éviter le blocage complet de votre établissement.
+              </Typography>
+            </Box>
+          </Stack>
+
+          <Stack direction="row" alignItems="center" spacing={1.5} sx={{ alignSelf: { xs: "flex-end", md: "center" }, flexShrink: 0 }}>
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={<PhoneInTalkIcon />}
+              href={`tel:${subDetails.contactCommercial.telephone.replace(/\s+/g, "")}`}
+              sx={{
+                bgcolor: "#dc2626",
+                color: "#ffffff",
+                textTransform: "none",
+                fontWeight: 700,
+                fontSize: "0.82rem",
+                borderRadius: 2,
+                whiteSpace: "nowrap",
+                px: 2,
+                "&:hover": { bgcolor: "#b91c1c" },
+              }}
+            >
+              {subDetails.contactCommercial.telephone}
+            </Button>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<EmailIcon />}
+              href={`mailto:${subDetails.contactCommercial.email}?subject=Régularisation%20Abonnement%20${encodeURIComponent(publicConfig?.nom || "")}`}
+              sx={{
+                borderColor: "#f87171",
+                color: "#991b1b",
+                textTransform: "none",
+                fontWeight: 700,
+                fontSize: "0.82rem",
+                borderRadius: 2,
+                whiteSpace: "nowrap",
+                px: 1.5,
+                "&:hover": { bgcolor: "#fee2e2" },
+              }}
+            >
+              Email
+            </Button>
+          </Stack>
+        </Stack>
+      </Paper>
+    );
+  }
+
+  // 2. CAS PRÉVENTIF : ÉCHÉANCE PROCHE (J-10 à J-0)
   if (dismissed || !subDetails.isExpiringSoon || subDetails.isExpired) {
     return null;
   }
@@ -85,19 +201,22 @@ export function SubscriptionBanner() {
           </Box>
         </Stack>
 
-        <Stack direction="row" alignItems="center" spacing={1} sx={{ alignSelf: { xs: "flex-end", sm: "center" } }}>
+        <Stack direction="row" alignItems="center" spacing={1} sx={{ alignSelf: { xs: "flex-end", sm: "center" }, flexShrink: 0 }}>
           <Button
             variant="outlined"
             size="small"
             startIcon={<PhoneInTalkIcon />}
-            href={`tel:${subDetails.contactCommercial.telephone}`}
+            href={`tel:${subDetails.contactCommercial.telephone.replace(/\s+/g, "")}`}
             sx={{
               borderColor: "#d97706",
               color: "#92400e",
               textTransform: "none",
               fontWeight: 700,
-              fontSize: "0.78rem",
+              fontSize: "0.82rem",
               borderRadius: 2,
+              whiteSpace: "nowrap",
+              flexShrink: 0,
+              px: 1.5,
               "&:hover": {
                 bgcolor: "#fef3c7",
                 borderColor: "#b45309",

@@ -58,7 +58,7 @@ export default function SuperAdminDashboard() {
 
   // Recherche & Filtres de locataires
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "expiring_soon" | "expired" | "suspended">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "expiring_soon" | "grace_period" | "expired" | "suspended">("all");
 
   // Formulaire de provisionnement d'un nouveau locataire
   const todayStr = format(new Date(), "yyyy-MM-dd");
@@ -145,7 +145,7 @@ export default function SuperAdminDashboard() {
       plan: form.subscriptionPlan,
       durationMonths: Number(form.subscriptionDuration) || 12,
       contactCommercial: {
-        telephone: "+261 34 00 000 00",
+        telephone: "034 71 517 89",
         email: "commercial@reshpro.mg",
         nom: "ResiPro Commercial",
       },
@@ -197,11 +197,10 @@ export default function SuperAdminDashboard() {
       plan: currentSub?.plan || "premium",
       durationMonths: Number(renewMonths) || 12,
       contactCommercial: currentSub?.contactCommercial || {
-        telephone: "+261 34 00 000 00",
+        telephone: "034 71 517 89",
         email: "commercial@reshpro.mg",
         nom: "ResiPro Commercial",
       },
-      suspendedReason: undefined,
     };
 
     updateSubscription.mutate({
@@ -292,6 +291,7 @@ export default function SuperAdminDashboard() {
     let total = tenants.length;
     let active = 0;
     let expiringSoon = 0;
+    let gracePeriod = 0;
     let expired = 0;
     let rhCount = 0;
 
@@ -300,6 +300,7 @@ export default function SuperAdminDashboard() {
       const details = getSubscriptionDetails(sub);
       if (details.status === "active" || details.status === "trial") active++;
       else if (details.status === "expiring_soon") expiringSoon++;
+      else if (details.status === "grace_period") gracePeriod++;
       else if (details.status === "expired" || details.status === "suspended") expired++;
 
       if (t.config?.modules?.rhPlanningPaie || t.id === "kanana" || t.id === "demo") {
@@ -307,7 +308,7 @@ export default function SuperAdminDashboard() {
       }
     }
 
-    return { total, active, expiringSoon, expired, rhCount };
+    return { total, active, expiringSoon, gracePeriod, expired, rhCount };
   }, [tenants]);
 
   // Filtrage des locataires
@@ -654,7 +655,7 @@ export default function SuperAdminDashboard() {
               </Box>
 
               {/* FILTRE PAR STATUT D'ABONNEMENT */}
-              <FormControl size="small" sx={{ minWidth: 170 }}>
+              <FormControl size="small" sx={{ minWidth: 180 }}>
                 <Select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value as any)}
@@ -662,6 +663,7 @@ export default function SuperAdminDashboard() {
                   <MenuItem value="all">Tous les statuts</MenuItem>
                   <MenuItem value="active">🟢 Actifs</MenuItem>
                   <MenuItem value="expiring_soon">🟡 Échéance J-10</MenuItem>
+                  <MenuItem value="grace_period">🟠 Période de grâce (5j)</MenuItem>
                   <MenuItem value="expired">🔴 Expirés / Bloqués</MenuItem>
                   <MenuItem value="suspended">⚫ Suspendus</MenuItem>
                 </Select>
@@ -756,6 +758,14 @@ export default function SuperAdminDashboard() {
                                 label={`Expire dans ${subDetails.daysRemaining}j`}
                                 size="small"
                                 sx={{ bgcolor: "#fffbeb", color: "#b45309", fontWeight: 800, border: "1px solid #fde68a" }}
+                              />
+                            )}
+                            {subDetails.status === "grace_period" && (
+                              <Chip
+                                icon={<WarningAmberIcon fontSize="small" />}
+                                label={`Grâce (${subDetails.graceDaysRemaining}j restants)`}
+                                size="small"
+                                sx={{ bgcolor: "#fff7ed", color: "#c2410c", fontWeight: 800, border: "1px solid #fed7aa" }}
                               />
                             )}
                             {subDetails.status === "expired" && (
