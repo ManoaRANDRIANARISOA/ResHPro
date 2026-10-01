@@ -276,11 +276,15 @@ function ReservationForm({
       onUpdate(updatedReservation);
       
     } else if (mode === "new") {
-      // Mode création: créer une nouvelle réservation
-      const client = await createClient.mutateAsync({
-        nom: form.nom,
-        telephone: form.telephone,
-      });
+      // Mode création: créer ou réutiliser un client existant
+      const cleanNom = form.nom.trim();
+      const existingClient = (clients || []).find(
+        (c) => c.nom.trim().toLowerCase() === cleanNom.toLowerCase()
+      );
+      const client = existingClient || (await createClient.mutateAsync({
+        nom: cleanNom,
+        telephone: form.telephone.trim() || undefined,
+      }));
       const date = new Date(form.date + "T" + form.heure + ":00");
       await createResa.mutateAsync({
         clientId: client.id,

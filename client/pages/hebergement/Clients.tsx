@@ -24,6 +24,7 @@ import {
   useClients,
   useCreateClient,
   useUpdateClient,
+  useDeleteClient,
   useHebergementReservations,
   useChambres,
 } from "@/services/api";
@@ -40,6 +41,9 @@ export default function HebergementClients() {
   const { data: clientsData } = useClients();
   const updateClient = useUpdateClient();
   const createClient = useCreateClient();
+  const deleteClient = useDeleteClient();
+  const [isSubmittingNewClient, setIsSubmittingNewClient] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const { data: reservationsData } = useHebergementReservations();
   const { data: chambres } = useChambres();
   const [q, setQ] = useState("");
@@ -141,10 +145,30 @@ export default function HebergementClients() {
   }, [formData, selected]);
 
   async function handleCreateNewClient() {
-    if (isReadOnly || !newClientForm.nom.trim()) return;
+    if (isReadOnly || !newClientForm.nom.trim() || isSubmittingNewClient) return;
+    setIsSubmittingNewClient(true);
     try {
+      const cleanNom = newClientForm.nom.trim();
+      const existing = (clientsData || []).find(
+        (c) => c.nom.trim().toLowerCase() === cleanNom.toLowerCase()
+      );
+      if (existing) {
+        setSelectedId(existing.id);
+        setNewClientModalOpen(false);
+        setNewClientForm({
+          nom: "",
+          telephone: "",
+          email: "",
+          agenceVoyage: "",
+          origine: "",
+          type: "Particulier",
+        });
+        alert(`Le client "${existing.nom}" existe déjà dans le fichier clients. Sa fiche a été automatiquement sélectionnée.`);
+        return;
+      }
+
       const created = await createClient.mutateAsync({
-        nom: newClientForm.nom.trim(),
+        nom: cleanNom,
         telephone: newClientForm.telephone.trim() || undefined,
         email: newClientForm.email.trim() || undefined,
         agenceVoyage: newClientForm.agenceVoyage.trim() || undefined,
@@ -165,6 +189,24 @@ export default function HebergementClients() {
       }
     } catch (e) {
       console.error("Erreur création client:", e);
+    } finally {
+      setIsSubmittingNewClient(false);
+    }
+  }
+
+  async function handleDeleteClient() {
+    if (!selectedId || isReadOnly) return;
+    try {
+      await deleteClient.mutateAsync(selectedId);
+      setDeleteConfirmOpen(false);
+      const remaining = (clientsData || []).filter((c) => c.id !== selectedId);
+      if (remaining.length > 0) {
+        setSelectedId(remaining[0].id);
+      } else {
+        setSelectedId("");
+      }
+    } catch (e: any) {
+      alert(e.message || "Erreur lors de la suppression du client.");
     }
   }
 
@@ -497,6 +539,17 @@ export default function HebergementClients() {
                 >
                   Voir les factures
                 </Button>
+                {!isReadOnly && history.length === 0 && (
+                  <Button
+                    variant="outlined"
+                    color="error"
+                    size="small"
+                    onClick={() => setDeleteConfirmOpen(true)}
+                    sx={{ ml: "auto" }}
+                  >
+                    Supprimer la fiche
+                  </Button>
+                )}
               </Stack>
 
               <Divider />
@@ -650,14 +703,40 @@ export default function HebergementClients() {
             <Button onClick={() => setNewClientModalOpen(false)}>Annuler</Button>
             <Button
               variant="contained"
-              disabled={!newClientForm.nom.trim() || createClient.isPending}
+              disabled={!newClientForm.nom.trim() || isSubmittingNewClient || createClient.isPending}
               onClick={handleCreateNewClient}
             >
-              {createClient.isPending ? "Création..." : "Créer le client"}
+              {isSubmittingNewClient || createClient.isPending ? "Création..." : "Créer le client"}
             </Button>
           </DialogActions>
         </Dialog>
       )}
+
+      {/* Modal Confirmation Suppression Client */}
+      <Dialog open={deleteConfirmOpen} onClose={() => setDeleteConfirmOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle fontWeight={800} color="error.main">
+          Supprimer la fiche client ?
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            Êtes-vous sûr de vouloir supprimer définitivement le client <strong>{selected?.nom}</strong> ?
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
+            Cette action est irréversible. Elle permet de nettoyer les fiches créées par inadvertance ou en double. Seuls les clients sans réservation ni facture peuvent être supprimés.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeleteConfirmOpen(false)}>Annuler</Button>
+          <Button
+            variant="contained"
+            color="error"
+            disabled={deleteClient.isPending}
+            onClick={handleDeleteClient}
+          >
+            {deleteClient.isPending ? "Suppression..." : "Confirmer la suppression"}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

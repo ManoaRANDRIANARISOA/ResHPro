@@ -1052,19 +1052,27 @@ function CreateReservationForm({
     let clientId = form.clientId;
 
     if (!clientId && form.clientNom) {
-      try {
-        const newClient = await createClient.mutateAsync({
-          nom: form.clientNom.trim(),
-          telephone: form.clientTelephone.trim() || undefined,
-          agenceVoyage: form.clientAgenceVoyage.trim() || undefined,
-          origine: form.clientOrigine.trim() || undefined,
-          ...(isDircom && userEmail ? { createdBy: userEmail } : {}),
-        });
-        clientId = newClient.id;
-      } catch (error) {
-        console.error("Erreur lors de la création du client:", error);
-        setIsSubmitting(false);
-        return;
+      const cleanNom = form.clientNom.trim();
+      const existingClient = (clients || []).find(
+        (c) => c.nom.trim().toLowerCase() === cleanNom.toLowerCase()
+      );
+      if (existingClient) {
+        clientId = existingClient.id;
+      } else {
+        try {
+          const newClient = await createClient.mutateAsync({
+            nom: cleanNom,
+            telephone: form.clientTelephone.trim() || undefined,
+            agenceVoyage: form.clientAgenceVoyage.trim() || undefined,
+            origine: form.clientOrigine.trim() || undefined,
+            ...(isDircom && userEmail ? { createdBy: userEmail } : {}),
+          });
+          clientId = newClient.id;
+        } catch (error) {
+          console.error("Erreur lors de la création du client:", error);
+          setIsSubmitting(false);
+          return;
+        }
       }
     } else if (clientId) {
       const existingClient = clients?.find((c) => c.id === clientId);
@@ -1947,17 +1955,25 @@ function EditReservation({
 
     let clientId = form.clientId;
     if (!clientId && form.clientNom) {
-      try {
-        const newClient = await createClient.mutateAsync({
-          nom: form.clientNom.trim(),
-          telephone: form.clientTelephone.trim() || undefined,
-          agenceVoyage: form.clientAgenceVoyage.trim() || undefined,
-          origine: form.clientOrigine.trim() || undefined,
-          ...(isDircom && userEmail ? { createdBy: userEmail } : {}),
-        });
-        clientId = newClient.id;
-      } catch (error) {
-        console.error("Erreur création client:", error);
+      const cleanNom = form.clientNom.trim();
+      const existingClient = (clients || []).find(
+        (c) => c.nom.trim().toLowerCase() === cleanNom.toLowerCase()
+      );
+      if (existingClient) {
+        clientId = existingClient.id;
+      } else {
+        try {
+          const newClient = await createClient.mutateAsync({
+            nom: cleanNom,
+            telephone: form.clientTelephone.trim() || undefined,
+            agenceVoyage: form.clientAgenceVoyage.trim() || undefined,
+            origine: form.clientOrigine.trim() || undefined,
+            ...(isDircom && userEmail ? { createdBy: userEmail } : {}),
+          });
+          clientId = newClient.id;
+        } catch (error) {
+          console.error("Erreur création client:", error);
+        }
       }
     } else if (clientId) {
       const existingClient = clients?.find((c) => c.id === clientId);
