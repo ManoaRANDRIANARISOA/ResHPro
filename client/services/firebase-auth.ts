@@ -8,7 +8,7 @@ import {
 } from "firebase/auth";
 import { app } from "./firebase";
 import { useEffect, useState } from "react";
-import { Role } from "@/hooks/useRBAC";
+import { Role, normalizeRole } from "@/hooks/useRBAC";
 
 export const auth = getAuth(app);
 
@@ -20,16 +20,17 @@ export interface AuthUser {
   tenantId: string | null;
   role: Role | null;
   superAdmin: boolean;
+  statut?: string;
 }
 
 /**
  * Extracts custom claims from a Firebase user
  */
-export async function getAuthUser(user: FirebaseUser | null): Promise<AuthUser | null> {
+export async function getAuthUser(user: FirebaseUser | null, forceRefresh: boolean = false): Promise<AuthUser | null> {
   if (!user) return null;
   
   try {
-    const tokenResult: IdTokenResult = await user.getIdTokenResult();
+    const tokenResult: IdTokenResult = await user.getIdTokenResult(forceRefresh);
     const claims = tokenResult.claims;
     
     return {
@@ -38,7 +39,7 @@ export async function getAuthUser(user: FirebaseUser | null): Promise<AuthUser |
       displayName: user.displayName || user.email?.split('@')[0] || "Utilisateur",
       photoURL: user.photoURL || null,
       tenantId: (claims.tenantId as string) || null,
-      role: (claims.role as Role) || null,
+      role: claims.role ? normalizeRole(claims.role as string) : null,
       superAdmin: !!claims.superAdmin
     };
   } catch (error) {

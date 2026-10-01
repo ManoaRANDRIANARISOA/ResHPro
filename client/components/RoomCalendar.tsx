@@ -12,18 +12,18 @@ import {
 
 type View = "month" | "week" | "day";
 
-function reservationColor(r: Reservation, _cellDate: Date, roomId?: string) {
+function reservationColor(r: Reservation, cellDate: Date, roomId?: string) {
   const now = new Date();
-  const { resDebut, resFin } = getReservationRoomInterval(r, roomId);
+  const { resDebut, resFin, stay: matchedStay } = getReservationRoomInterval(r, roomId, cellDate);
   const nowInStay = now >= resDebut && now < resFin;
 
-  // Brouillon / En attente / Proforma : Jaune / Ambre
-  if (r.statut === "en_attente") return "#F59E0B";
-  const stay = r.stays?.find((s) => s.chambreId === roomId);
-  if (stay?.statut === "en_attente") return "#F59E0B";
+  // Brouillon / En attente / Devis : Jaune / Ambre (seulement si aucun acompte n'est versé)
+  const hasAcompte = Number((r as any).accompte || 0) > 0;
+  if (r.statut === "en_attente" && !hasAcompte) return "#F59E0B";
+  if (matchedStay?.statut === "en_attente" && !hasAcompte) return "#F59E0B";
 
   if (r.statut === "arrivee" && nowInStay) return "#EF5350"; // occupée - rouge (en cours)
-  return "#66BB6A"; // réservée - vert (futur ou confirmé)
+  return "#66BB6A"; // réservée / confirmée - vert
 }
 
 function roomStatusColor(statut: string) {

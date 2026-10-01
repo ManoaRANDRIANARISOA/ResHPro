@@ -1,24 +1,58 @@
 import { useMemo } from "react";
 import { useAppSelector } from "@/store";
 import { useTenant } from "@/contexts/TenantContext";
+import { Role } from "@shared/api";
 
-export type Role =
-  | "admin"
-  | "resp_hebergement"
-  | "resp_resto"
-  | "staff_resto"
-  | "comptable"
-  | "reception"
-  | "chef_salle"
-  | "serveur"
-  | "cuisine"
-  | "bar"
-  | "comptoir"
-  | "economat"
-  | "direction";
+export type { Role };
+
+export const normalizeRole = (r?: string | null): Role => {
+  if (!r) return "serveur";
+  const clean = r.toLowerCase().trim();
+  const map: Record<string, Role> = {
+    admin: "admin",
+    direction: "direction",
+    dircom: "dircom",
+    "dir. commerciale": "dircom",
+    "dir. commerciale / ventes": "dircom",
+    "direction commerciale": "dircom",
+    "directeur commercial": "dircom",
+    "commercial": "dircom",
+    "commerciale": "dircom",
+    resp_hebergement: "resp_hebergement",
+    "responsable hebergement": "resp_hebergement",
+    "responsable hébergement": "resp_hebergement",
+    reception: "reception",
+    "réception": "reception",
+    "réception / accueil": "reception",
+    resp_resto: "resp_resto",
+    "responsable restaurant": "resp_resto",
+    chef_salle: "chef_salle",
+    "chef de salle": "chef_salle",
+    "chef de salle / maître d'hôtel": "chef_salle",
+    serveur: "serveur",
+    "staff restaurant / serveur": "serveur",
+    staff_resto: "serveur",
+    staff_restaurant: "serveur",
+    cuisine: "cuisine",
+    "chef cuisinier": "cuisine",
+    "chef cuisinier / cuisine": "cuisine",
+    bar: "bar",
+    "barman": "bar",
+    "barman / bar": "bar",
+    comptoir: "comptoir",
+    "comptoir / caisse": "comptoir",
+    economat: "economat",
+    "économat": "economat",
+    "économat / gestionnaire stock": "economat",
+    comptable: "comptable",
+    "comptable / trésorerie": "comptable",
+  };
+  return map[clean] || (clean as Role);
+};
 
 export const useRBAC = () => {
-  const role = useAppSelector((s) => s.session.role);
+  const rawRole = useAppSelector((s) => s.session.role);
+  const role = normalizeRole(rawRole);
   const { config, tenantId } = useTenant();
 
   const isRHActive = Boolean(
@@ -69,6 +103,7 @@ export const useRBAC = () => {
     const adminSections = [
       { label: "Hébergement", children: hebergement },
       { label: "Restaurant", children: resto },
+      { label: "Stock", children: stock },
       { label: "Financier", children: financier },
     ];
     if (isRHActive) {
@@ -79,6 +114,7 @@ export const useRBAC = () => {
     const directionSections = [
       { label: "Hébergement", children: hebergement },
       { label: "Restaurant", children: resto },
+      { label: "Stock", children: stock },
       { label: "Financier", children: financier },
     ];
     if (isRHActive) {
@@ -106,9 +142,24 @@ export const useRBAC = () => {
       respRestoSections.push({ label: "Ressources Humaines", children: rh });
     }
 
+    const dircomSections = [
+      {
+        label: "Hébergement",
+        children: [
+          { label: "Planning des chambres", path: "/hebergement/gestion" },
+          { label: "Fichier Clients", path: "/hebergement/clients" },
+        ],
+      },
+      {
+        label: "Financier",
+        children: [{ label: "Mes Factures & Devis", path: "/financier" }],
+      },
+    ];
+
     const map: Record<Role, { label: string; children: { label: string; path: string }[] }[]> = {
       admin: adminSections,
       direction: directionSections,
+      dircom: dircomSections,
       resp_hebergement: respHebergementSections,
       resp_resto: respRestoSections,
       staff_resto: [{ label: "Restaurant", children: resto }],
@@ -125,5 +176,10 @@ export const useRBAC = () => {
     return { base, sections: map[role] ?? [] };
   }, [role, config, isRHActive]);
 
-  return { role, menu };
+  const isDircom = role === "dircom";
+  const isAdmin = role === "admin";
+  const isDirection = role === "direction";
+
+  return { role, menu, isDircom, isAdmin, isDirection };
 };
+

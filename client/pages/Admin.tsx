@@ -20,6 +20,7 @@ import {
 import { useMemo, useState } from "react";
 import { useUsers, useCreateUser, useUpdateUser, useDeleteUser, useGenerateDefaultUsers } from "@/services/api";
 import { useTenant } from "@/contexts/TenantContext";
+import { normalizeRole } from "@/hooks/useRBAC";
 
 type User = {
   id: string;
@@ -153,6 +154,15 @@ const initialRoles: Omit<Role, "utilisateurs">[] = [
     facturation: "Total",
     rapports: "Total",
   },
+  {
+    id: "r13",
+    nom: "Dir. Commerciale / Ventes",
+    hebergement: "Modif.",
+    restaurant: "Aucun",
+    stock: "Aucun",
+    facturation: "Lecture",
+    rapports: "Aucun",
+  },
 ];
 
 export default function AdminPage() {
@@ -170,6 +180,7 @@ export default function AdminPage() {
       const map: Record<string, string> = {
         admin: "Admin",
         direction: "Direction",
+        dircom: "Dir. Commerciale / Ventes",
         resp_hebergement: "Responsable Hébergement",
         "responsable hebergement": "Responsable Hébergement",
         reception: "Réception / Accueil",
@@ -276,6 +287,7 @@ export default function AdminPage() {
       const map: Record<string, string> = {
         "Admin": "admin",
         "Direction": "direction",
+        "Dir. Commerciale / Ventes": "dircom",
         "Responsable Hébergement": "resp_hebergement",
         "Réception / Accueil": "reception",
         "Responsable Restaurant": "resp_resto",
@@ -287,11 +299,13 @@ export default function AdminPage() {
         "Économat / Gestionnaire Stock": "economat",
         "Comptable / Trésorerie": "comptable",
       };
-      return map[userForm.role] || userForm.role;
+      return map[userForm.role] || normalizeRole(userForm.role);
     })();
 
+    const cleanEmail = userForm.email.toLowerCase().trim();
+
     if (isCreating) {
-      createUser.mutate({ nom: userForm.nom, login: userForm.email, role: roleKey as any, password }, {
+      createUser.mutate({ nom: userForm.nom.trim(), login: cleanEmail, role: roleKey as any, statut: userForm.statut, password } as any, {
         onSuccess: () => {
           setModalOpen(false);
           setEditingUser(null);
@@ -305,7 +319,7 @@ export default function AdminPage() {
       });
     } else {
       if (!editingUser) return;
-      updateUser.mutate({ id: editingUser.id, nom: userForm.nom, login: userForm.email, role: roleKey as any, password }, {
+      updateUser.mutate({ id: editingUser.id, nom: userForm.nom.trim(), login: cleanEmail, role: roleKey as any, statut: userForm.statut, password } as any, {
         onSuccess: () => {
           setModalOpen(false);
           setEditingUser(null);
@@ -684,6 +698,7 @@ export default function AdminPage() {
                 <MenuItem value="" disabled><em>-- Choisir un rôle métier --</em></MenuItem>
                 <MenuItem value="Admin">Admin (Supervision & Technique)</MenuItem>
                 <MenuItem value="Direction">Direction (Supervision Globale)</MenuItem>
+                <MenuItem value="Dir. Commerciale / Ventes">Dir. Commerciale / Ventes</MenuItem>
                 <MenuItem value="Responsable Hébergement">Responsable Hébergement</MenuItem>
                 <MenuItem value="Réception / Accueil">Réception / Accueil</MenuItem>
                 <MenuItem value="Responsable Restaurant">Responsable Restaurant</MenuItem>

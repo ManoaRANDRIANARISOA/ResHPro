@@ -1,5 +1,21 @@
 // Types partagés pour ResiPro (Multi-tenant)
 
+export type Role =
+  | "admin"
+  | "direction"
+  | "dircom"
+  | "resp_hebergement"
+  | "reception"
+  | "resp_resto"
+  | "chef_salle"
+  | "serveur"
+  | "staff_resto"
+  | "cuisine"
+  | "bar"
+  | "comptoir"
+  | "economat"
+  | "comptable";
+
 export interface Client {
   id: string;
   nom: string;
@@ -13,6 +29,7 @@ export interface Client {
   preferences_alimentaires?: string;
   agenceVoyage?: string;
   origine?: string;
+  createdBy?: string;
 }
 
 export interface Chambre {
@@ -115,6 +132,7 @@ export interface Reservation {
     | "no_show";
   gracePeriodMinutes: number;
   notes?: string;
+  createdBy?: string;
 }
 
 export type { HebergementPack, HebergementTaxe } from "./tenant";
@@ -222,6 +240,10 @@ export interface Facture {
   modePaiement?: "especes" | "mobile_money" | "carte" | "virement" | "cheque" | string;
   statut: "emise" | "payee" | "annulee";
   notes?: string;
+  createdBy?: string;
+  numeroProformaInitiale?: string; // Référence du devis / proforma initial si converti
+  dateProformaInitiale?: string; // Date d'émission du devis initial
+  updatedAt?: string; // Date ISO de dernière mise à jour
 }
 
 export interface Utilisateur {
@@ -275,8 +297,30 @@ export interface Evenement {
  * Retourne la liste des séjours d'une réservation avec repli transparent pour les réservations historiques
  */
 export function getReservationStays(r: Reservation): Stay[] {
-  if (r.stays && r.stays.length > 0) return r.stays;
-  if (r.chambresDetails && r.chambresDetails.length > 0) {
+  const staysCount = r.stays?.length || 0;
+  const detailsCount = r.chambresDetails?.length || 0;
+
+  // Si chambresDetails contient plus de séjours que stays (ex: cas historique où un ancien bug avait tronqué stays à 1 seul élément),
+  // on privilégie chambresDetails pour ne perdre aucun segment de séjour.
+  if (detailsCount > staysCount && r.chambresDetails) {
+    return r.chambresDetails.map((cd, idx) => ({
+      id: `${r.id}_cd_${idx}`,
+      chambreId: cd.chambreId,
+      dateDebut: cd.dateDebut,
+      dateFin: cd.dateFin,
+      nuits: cd.nuits,
+      tarifBase: cd.tarifBase,
+      statut: r.statut,
+      nbPersonnes: r.nbPersonnes || 1,
+      packId: r.packId,
+      packNom: r.packNom,
+      packPrix: r.packPrix,
+      packTypeCalcul: r.packTypeCalcul,
+    }));
+  }
+
+  if (staysCount > 0 && r.stays) return r.stays;
+  if (detailsCount > 0 && r.chambresDetails) {
     return r.chambresDetails.map((cd, idx) => ({
       id: `${r.id}_cd_${idx}`,
       chambreId: cd.chambreId,
@@ -318,8 +362,21 @@ export function getReservationStays(r: Reservation): Stay[] {
 /**
  * Détermine si un document de facturation est une proforma ou un devis (non comptabilisé en caisse officielle)
  */
-export function isProformaDocument(f?: Pick<Facture, "typeDocument"> | null): boolean {
-  return f?.typeDocument === "proforma" || f?.typeDocument === "devis";
+export function isProformaDocument(f?: Pick<Facture, "typeDocument" | "numero"> | null): boolean {
+  if (!f) return false;
+  if (f.typeDocument === "proforma" || f.typeDocument === "devis") return true;
+  if (f.numero && String(f.numero).startsWith("PRO-")) return true;
+  return false;
+}
+
+/**
+ * Détermine si un document est une facture officielle active (comptabilisée dans le CA et le suivi fiscal)
+ */
+export function isOfficialInvoice(f?: Pick<Facture, "typeDocument" | "numero" | "statut"> | null): boolean {
+  if (!f) return false;
+  if (isProformaDocument(f)) return false;
+  if (f.statut === "annulee") return false;
+  return !f.typeDocument || f.typeDocument === "facture";
 }
 
 // Demo API response used by the starter endpoints

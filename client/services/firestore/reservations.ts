@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Reservation, Stay, getReservationStays, FactureLigne } from "@shared/api";
+import { Reservation, Stay, getReservationStays, FactureLigne, isProformaDocument, isOfficialInvoice } from "@shared/api";
 import { useTenant } from "@/contexts/TenantContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { fetchCollection, createDoc, updateTenantDoc, deleteTenantDoc } from "./utils";
 import { where, runTransaction, doc } from "firebase/firestore";
 import { db } from "@/services/firebase";
@@ -221,7 +222,7 @@ export async function generateHebergementInvoice(
       const nights = Math.max(1, eachDayOfInterval({ start: sStart, end: sEnd }).length - 1);
       const tarif = stay.tarifBase ?? room?.tarif_base ?? 0;
       const roomNumber = room?.numero ?? stay.chambreId;
-      const stayPeriodLabel = `Séjour du ${sStart.toLocaleDateString("fr-FR")} au ${sEnd.toLocaleDateString("fr-FR")} — Ch. ${roomNumber}`;
+      const stayPeriodLabel = `Séjour du ${sStart.toLocaleDateString("fr-FR")} au ${sEnd.toLocaleDateString("fr-FR")} — ${roomNumber}`;
 
       // Ligne Nuitée
       const roomMontant = tarif * nights;
@@ -229,7 +230,7 @@ export async function generateHebergementInvoice(
       roomLines.push({
         stayId: stay.id,
         stayPeriodText: stayPeriodLabel,
-        description: `Nuitée Chambre ${roomNumber} (${sStart.toLocaleDateString("fr-FR")} – ${sEnd.toLocaleDateString("fr-FR")})`,
+        description: `Nuitée ${roomNumber} (${sStart.toLocaleDateString("fr-FR")} – ${sEnd.toLocaleDateString("fr-FR")})`,
         qte: nights,
         pu: tarif,
       });
@@ -306,6 +307,152 @@ export async function generateHebergementInvoice(
     const total = roomsTotal + formulaTotal + taxesTotal;
     const lignes = [...roomLines, ...formulaLines, ...taxLines];
 
+    const docType = options?.typeDocument || (reservation as any).typeDocument || "proforma";
+    const targetedStayIds = targetedStays.map((s) => s.id);
+
+    // 1. Détection stricte des documents existants pour cette réservation afin d'éviter tout doublon
+    const allFactures = await fetchCollection<any>(tenantId, "factures");
+    const linkedFactures = allFactures.filter((f) =>
+      f.reservationId === reservation.id ||
+      f.reservationIds?.includes(reservation.id) ||
+      (f.stayIds && Array.isArray(f.stayIds) && targetedStayIds.some((id) => f.stayIds.includes(id))) ||
+      allStays.some((s) => s.invoiceId === f.id && targetedStayIds.includes(s.id))
+    );
+
+    const existingFacture = linkedFactures.find((f) => !isProformaDocument(f) && f.statut !== "annulee");
+    const existingProformas = linkedFactures.filter((f) => isProformaDocument(f) && f.statut !== "annulee");
+
+    // CAS A : Une facture définitive active existe déjà pour cette réservation
+    if (existingFacture) {
+      // Annuler toute proforma obsolète restante pour éliminer les doublons d'affichage
+      for (const p of existingProformas) {
+        try {
+          await updateTenantDoc(tenantId, "factures", p.id, {
+            statut: "annulee",
+            notes: `Proforma remplacée par la Facture Définitive ${existingFacture.numero}`,
+          });
+        } catch (e) {}
+      }
+
+      // Synchroniser la facture existante avec les derniers séjours/montants
+      const updates: any = {
+        lignes,
+        sousTotal: total,
+        totalTTC: total,
+        stayIds: targetedStayIds,
+        updatedAt: new Date().toISOString(),
+      };
+      if (reservation.clientId) updates.clientId = reservation.clientId;
+      // Si la facture est déjà soldée / payée, on ne modifie pas ses montants comptables
+      if (existingFacture.statut !== "payee") {
+        await updateTenantDoc(tenantId, "factures", existingFacture.id, updates);
+      }
+
+      try {
+        const updatedStays = allStays.map((s) => {
+          if (targetedStays.some((ts) => ts.id === s.id)) {
+            return { ...s, invoiceId: existingFacture.id };
+          }
+          return s;
+        });
+        await updateTenantDoc(tenantId, "reservations", reservation.id, { stays: updatedStays });
+      } catch (err) {}
+
+      return { ...existingFacture, ...updates };
+    }
+
+    // CAS B : L'utilisateur veut une FACTURE DÉFINITIVE et une proforma existe -> CONVERSION EN PLACE (Évite le doublon)
+    if (docType === "facture" && existingProformas.length > 0) {
+      const proformaToConvert = existingProformas[0];
+
+      // Annuler d'éventuelles autres proformas orphelines
+      for (let i = 1; i < existingProformas.length; i++) {
+        try {
+          await updateTenantDoc(tenantId, "factures", existingProformas[i].id, {
+            statut: "annulee",
+            notes: `Proforma doublon annulée au profit de ${proformaToConvert.numero}`,
+          });
+        } catch (e) {}
+      }
+
+      const updates: any = {
+        typeDocument: "facture",
+        numeroProformaInitiale: proformaToConvert.numeroProformaInitiale || proformaToConvert.numero,
+        dateProformaInitiale: proformaToConvert.dateProformaInitiale || proformaToConvert.date,
+        lignes,
+        sousTotal: total,
+        totalTTC: total,
+        stayIds: targetedStayIds,
+        reservationId: reservation.id,
+        accompte: (reservation as any).accompte ?? proformaToConvert.accompte ?? 0,
+        methodePaiementAccompte: (reservation as any).methodePaiementAccompte || proformaToConvert.methodePaiementAccompte || "especes",
+        updatedAt: new Date().toISOString(),
+      };
+      if (reservation.clientId) updates.clientId = reservation.clientId;
+      if (cli?.nom) updates.clientNom = cli.nom;
+      if (cli?.telephone) updates.clientTelephone = cli.telephone;
+      if (cli?.email) updates.clientEmail = cli.email;
+      if (cli?.adresse) updates.clientAdresse = cli.adresse;
+      if (cli?.agenceVoyage) updates.agenceVoyage = cli.agenceVoyage;
+
+      await updateTenantDoc(tenantId, "factures", proformaToConvert.id, updates);
+
+      try {
+        const updatedStays = allStays.map((s) => {
+          if (targetedStays.some((ts) => ts.id === s.id)) {
+            return { ...s, invoiceId: proformaToConvert.id };
+          }
+          return s;
+        });
+        await updateTenantDoc(tenantId, "reservations", reservation.id, { stays: updatedStays });
+      } catch (err) {}
+
+      return { ...proformaToConvert, ...updates };
+    }
+
+    // CAS C : L'utilisateur demande une PROFORMA et une proforma existe déjà -> MISE À JOUR EN PLACE (Pas de nouvelle proforma)
+    if (docType === "proforma" && existingProformas.length > 0) {
+      const activeProforma = existingProformas[0];
+
+      // Annuler d'éventuels doublons de proforma
+      for (let i = 1; i < existingProformas.length; i++) {
+        try {
+          await updateTenantDoc(tenantId, "factures", existingProformas[i].id, {
+            statut: "annulee",
+            notes: `Proforma doublon annulée`,
+          });
+        } catch (e) {}
+      }
+
+      const updates: any = {
+        lignes,
+        sousTotal: total,
+        totalTTC: total,
+        stayIds: targetedStayIds,
+        reservationId: reservation.id,
+        accompte: (reservation as any).accompte ?? activeProforma.accompte ?? 0,
+        methodePaiementAccompte: (reservation as any).methodePaiementAccompte || activeProforma.methodePaiementAccompte || "especes",
+        updatedAt: new Date().toISOString(),
+      };
+      if (reservation.clientId) updates.clientId = reservation.clientId;
+      if (cli?.nom) updates.clientNom = cli.nom;
+
+      await updateTenantDoc(tenantId, "factures", activeProforma.id, updates);
+
+      try {
+        const updatedStays = allStays.map((s) => {
+          if (targetedStays.some((ts) => ts.id === s.id)) {
+            return { ...s, invoiceId: activeProforma.id };
+          }
+          return s;
+        });
+        await updateTenantDoc(tenantId, "reservations", reservation.id, { stays: updatedStays });
+      } catch (err) {}
+
+      return { ...activeProforma, ...updates };
+    }
+
+    // CAS D : Aucun document existant -> Création officielle avec suite séquentielle
     const prefix = configDoc?.invoicePrefix || "RESI";
     const dFirst = targetedStays.length > 0 ? new Date(targetedStays[0].dateDebut) : new Date();
     const year = dFirst.getFullYear();
@@ -330,7 +477,6 @@ export async function generateHebergementInvoice(
     }
 
     const numero = `${yearPrefix}${String(nextSequence).padStart(4, "0")}`;
-    const docType = options?.typeDocument || (reservation as any).typeDocument || "proforma";
 
     const created: any = {
       numero,
@@ -338,7 +484,7 @@ export async function generateHebergementInvoice(
       date: new Date().toISOString(),
       dueDate: new Date(reservation.dateDebut).toISOString(),
       reservationId: reservation.id,
-      stayIds: targetedStays.map((s) => s.id),
+      stayIds: targetedStayIds,
       clientId: reservation.clientId || "",
       clientNom: cli?.nom ?? (reservation.clientId || "Client"),
       source: "Hebergement" as const,
@@ -356,6 +502,7 @@ export async function generateHebergementInvoice(
     if (cli?.email) created.clientEmail = cli.email;
     if (cli?.adresse) created.clientAdresse = cli.adresse;
     if (cli?.agenceVoyage) created.agenceVoyage = cli.agenceVoyage;
+    if (reservation.createdBy) created.createdBy = reservation.createdBy;
 
     const createdDoc = await createDoc<any>(tenantId, "factures", created);
 
@@ -408,6 +555,7 @@ export function useGenerateHebergementInvoice() {
 export function useCreateHebergementReservation() {
   const qc = useQueryClient();
   const { tenantId } = useTenant();
+  const { user } = useAuth();
   return useMutation({
     mutationFn: async (payload: Omit<Reservation, "id" | "type" | "gracePeriodMinutes"> & { type?: "hebergement" }) => {
       if (!tenantId) throw new Error("Tenant ID is required");
@@ -416,19 +564,16 @@ export function useCreateHebergementReservation() {
         : (payload.chambreId ? [payload.chambreId] : []);
       const primaryChambreId = chambreIds[0] || payload.chambreId || "";
       
+      const createdBy = (payload as any).createdBy || user?.email || undefined;
       const r: any = {
         type: "hebergement",
         gracePeriodMinutes: 0,
         ...payload,
         chambreIds,
         chambreId: primaryChambreId,
+        ...(createdBy ? { createdBy } : {}),
       };
       const created = await createDoc<Reservation>(tenantId, "reservations", r);
-      
-      if (["confirmee", "arrivee"].includes(created.statut as any)) {
-        await generateHebergementInvoice(tenantId, created);
-      }
-      
       return created;
     },
     onSuccess: () => {
@@ -450,19 +595,60 @@ export function useUpdateHebergementReservation() {
         data.chambreId = data.chambreIds[0];
       }
       
-      // On récupère l'ancienne réservation pour voir si le statut change
+      // On récupère l'ancienne réservation pour voir si le statut ou les montants changent
       const prev = await fetchDoc<Reservation>(tenantId, "reservations", id);
       
       await updateTenantDoc(tenantId, "reservations", id, data);
-      
-      // Auto-generate invoice logic
-      if (
-        prev &&
-        prev.type === "hebergement" &&
-        !["confirmee", "arrivee"].includes(prev.statut as any) &&
-        ["confirmee", "arrivee"].includes(data.statut as any)
-      ) {
-        await generateHebergementInvoice(tenantId, { ...prev, ...data } as Reservation);
+      const mergedReservation = { ...prev, ...data, id } as Reservation;
+
+      // Synchroniser avec les factures existantes rattachées à cette réservation
+      const allFactures = await fetchCollection<any>(tenantId, "factures");
+      const facturesLies = allFactures.filter((f) =>
+        f.reservationId === id ||
+        f.reservationIds?.includes(id) ||
+        (f.stayIds && Array.isArray(f.stayIds) && (prev?.stays || []).some((s: any) => f.stayIds.includes(s.id))) ||
+        (prev?.stays || []).some((s: any) => s.invoiceId === f.id)
+      );
+
+      if (facturesLies && facturesLies.length > 0) {
+        const hasOfficial = facturesLies.some((f) => !isProformaDocument(f) && f.statut !== "annulee");
+        for (const f of facturesLies) {
+          if (hasOfficial && isProformaDocument(f) && f.statut !== "annulee") {
+            // Proforma obsolète : l'annuler pour éviter le doublon d'affichage
+            try {
+              await updateTenantDoc(tenantId, "factures", f.id, {
+                statut: "annulee",
+                notes: "Proforma remplacée par la Facture Définitive active",
+              });
+            } catch (e) {}
+            continue;
+          }
+          // Si la facture est déjà soldée, on ne modifie pas son acompte ni son client rétroactivement
+          if (f.statut === "payee") {
+            continue;
+          }
+          const invUpdates: any = {};
+          if (data.accompte !== undefined) {
+            invUpdates.accompte = Number(data.accompte || 0);
+          }
+          if (data.methodePaiementAccompte) {
+            invUpdates.methodePaiementAccompte = data.methodePaiementAccompte;
+          }
+          if (data.clientId && data.clientId !== f.clientId) {
+            const cli = await fetchDoc<any>(tenantId, "clients", data.clientId);
+            if (cli) {
+              invUpdates.clientId = cli.id;
+              invUpdates.clientNom = cli.nom || "Client";
+              if (cli.telephone) invUpdates.clientTelephone = cli.telephone;
+              if (cli.email) invUpdates.clientEmail = cli.email;
+              if (cli.adresse) invUpdates.clientAdresse = cli.adresse;
+              if (cli.agenceVoyage) invUpdates.agenceVoyage = cli.agenceVoyage;
+            }
+          }
+          if (Object.keys(invUpdates).length > 0) {
+            await updateTenantDoc(tenantId, "factures", f.id, invUpdates);
+          }
+        }
       }
       
       return { id, ...data };
@@ -493,10 +679,21 @@ export function useDeleteHebergementReservation() {
     mutationFn: async ({ id }: { id: string }) => {
       if (!tenantId) throw new Error("Tenant ID is required");
 
-      // Chercher si une facture est liée à cette réservation
+      // Chercher si des factures sont liées à cette réservation
       const facturesLies = await fetchCollection<any>(tenantId, "factures", where("reservationId", "==", id));
       
-      // Supprimer la/les facture(s)
+      // Sécurité absolue des données en production :
+      // Interdiction formelle de supprimer une réservation liée à une facture officielle ou réglée
+      const officialOrPaid = facturesLies.find(
+        (f) => isOfficialInvoice(f) || f.statut === "payee" || (Number(f.accompte || 0) > 0 && f.statut !== "annulee")
+      );
+      if (officialOrPaid) {
+        throw new Error(
+          `Suppression impossible : la facture officielle ${officialOrPaid.numero} est rattachée à cette réservation. Pour respecter les normes comptables et fiscales, une facture officielle ne peut pas être supprimée. Veuillez annuler la réservation au lieu de la supprimer.`
+        );
+      }
+
+      // Supprimer uniquement les brouillons / proformas associés non encaissés
       for (const facture of facturesLies) {
         await deleteTenantDoc(tenantId, "factures", facture.id);
       }

@@ -51,6 +51,7 @@ const drawerWidth = 224;
 const ROLE_BADGES: Record<string, { label: string; bg: string; color: string }> = {
   admin: { label: "Admin", bg: "#e0e7ff", color: "#3730a3" },
   direction: { label: "Direction", bg: "#ede9fe", color: "#5b21b6" },
+  dircom: { label: "Dir. Commerciale", bg: "#e0f2fe", color: "#0369a1" },
   reception: { label: "Réception", bg: "#dbeafe", color: "#1e40af" },
   resp_hebergement: { label: "Resp. Hébergement", bg: "#dbeafe", color: "#1e40af" },
   "responsable hebergement": { label: "Resp. Hébergement", bg: "#dbeafe", color: "#1e40af" },
@@ -461,7 +462,11 @@ function RoleSwitcher({
   const [anchor, setAnchor] = useState<null | HTMLElement>(null);
   const roles = [
     "admin",
+    "direction",
+    "dircom",
+    "resp_hebergement",
     "reception",
+    "resp_resto",
     "chef_salle",
     "serveur",
     "cuisine",
@@ -469,7 +474,6 @@ function RoleSwitcher({
     "comptoir",
     "economat",
     "comptable",
-    "direction",
   ] as const;
   return (
     <>

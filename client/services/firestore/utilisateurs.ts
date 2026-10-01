@@ -3,6 +3,7 @@ import { Utilisateur } from "@shared/api";
 import { useTenant } from "@/contexts/TenantContext";
 import { fetchCollection, createDoc, updateTenantDoc, deleteTenantDoc } from "./utils";
 import { auth } from "@/services/firebase-auth";
+import { normalizeRole } from "@/hooks/useRBAC";
 
 export const usersKeys = {
   all: ["users"] as const,
@@ -50,6 +51,11 @@ export function useCreateUser() {
       if (!tenantId) throw new Error("Tenant ID is required");
       
       const { password, ...userData } = payload;
+      const cleanData = {
+        ...userData,
+        login: userData.login.toLowerCase().trim(),
+        role: normalizeRole(userData.role),
+      };
 
       // 1. Tenter d'abord la création complète via le backend Express (Auth User + Firestore avec UID)
       try {
@@ -63,7 +69,8 @@ export function useCreateUser() {
               "Authorization": `Bearer ${token}`
             },
             body: JSON.stringify({
-              ...payload,
+              ...cleanData,
+              password,
               tenantId
             })
           });
@@ -80,7 +87,7 @@ export function useCreateUser() {
       }
 
       // 2. Fallback direct dans Firestore uniquement si le serveur n'a pas créé l'utilisateur
-      const created = await createDoc<Utilisateur>(tenantId, "utilisateurs", userData);
+      const created = await createDoc<Utilisateur>(tenantId, "utilisateurs", cleanData);
       return created;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: usersKeys.all }),
@@ -94,6 +101,9 @@ export function useUpdateUser() {
     mutationFn: async (payload: Partial<Utilisateur> & { id: string; password?: string }) => {
       if (!tenantId) throw new Error("Tenant ID is required");
       const { id, password, ...data } = payload;
+      const cleanData: any = { ...data };
+      if (cleanData.login) cleanData.login = cleanData.login.toLowerCase().trim();
+      if (cleanData.role) cleanData.role = normalizeRole(cleanData.role);
 
       // 1. Tenter la mise à jour complète via le backend Express (Auth email/password/claims + Firestore)
       try {
@@ -107,7 +117,8 @@ export function useUpdateUser() {
               "Authorization": `Bearer ${token}`
             },
             body: JSON.stringify({
-              ...payload,
+              ...cleanData,
+              password,
               tenantId
             })
           });
@@ -126,8 +137,8 @@ export function useUpdateUser() {
       }
 
       // 2. Fallback direct Firestore
-      await updateTenantDoc(tenantId, "utilisateurs", id, data);
-      return { id, ...data };
+      await updateTenantDoc(tenantId, "utilisateurs", id, cleanData);
+      return { id, ...cleanData };
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: usersKeys.all }),
   });

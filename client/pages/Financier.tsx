@@ -51,9 +51,11 @@ import {
   People,
   Inventory2,
   Lock,
+  CloudUpload,
 } from "@mui/icons-material";
 import { useAppSelector } from "@/store";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRBAC } from "@/hooks/useRBAC";
 import {
   useCreateFacture,
   useFactures,
@@ -84,6 +86,7 @@ import {
 import { useTenant } from "@/contexts/TenantContext";
 import { doc, updateDoc, setDoc } from "firebase/firestore";
 import { db } from "@/services/firebase";
+import { updateTenantDoc } from "@/services/firestore/utils";
 import {
   eachDayOfInterval,
   startOfMonth,
@@ -127,14 +130,14 @@ function getPaymentLabel(mode?: string) {
 }
 
 function StatutBadge({ f }: { f: Facture }) {
+  if (f.statut === "annulee") {
+    return <Chip size="small" sx={{ bgcolor: "#f1f5f9", color: "#64748b", fontWeight: 600 }} label={isProformaDocument(f) ? "Proforma Annulée" : "Annulée"} />;
+  }
   if (isProformaDocument(f)) {
     return <Chip size="small" sx={{ bgcolor: "#fef3c7", color: "#b45309", fontWeight: 700, border: "1px solid #fde68a" }} label={f.typeDocument === "devis" ? "📝 Devis" : "📋 Proforma"} />;
   }
   if (f.statut === "payee") {
     return <Chip size="small" sx={{ bgcolor: "#dcfce7", color: "#166534", fontWeight: 700, border: "1px solid #bbf7d0" }} label="Payée" />;
-  }
-  if (f.statut === "annulee") {
-    return <Chip size="small" sx={{ bgcolor: "#f1f5f9", color: "#64748b", fontWeight: 600 }} label="Annulée" />;
   }
   const now = new Date();
   const overdue = !!f.dueDate && now > new Date(f.dueDate);
@@ -168,9 +171,23 @@ export default function Financier() {
   const [searchParams] = useSearchParams();
 
   // Droits d'accès : seuls Direction et Admin ont le droit de modifier une facture déjà émise, changer son type, la supprimer ou modifier la fiscalité
-  const role = useAppSelector((s) => s.session.role);
+  const { role, isDircom } = useRBAC();
   const { user } = useAuth();
-  const canModifyInvoice = role === "admin" || role === "direction" || Boolean(user?.superAdmin);
+  const userEmail = (user?.email || "").toLowerCase();
+  const canModifyInvoice = (role === "admin" || role === "direction" || Boolean(user?.superAdmin)) && !isDircom;
+
+  // Réservations initiées par l'utilisateur connecté (pour le cloisonnement DirCom)
+  const { data: hebergementReservations } = useHebergementReservations();
+  const myReservationIds = useMemo(() => {
+    const set = new Set<string>();
+    if (!userEmail) return set;
+    (hebergementReservations || []).forEach((r) => {
+      if ((r.createdBy || "").toLowerCase() === userEmail) {
+        set.add(r.id);
+      }
+    });
+    return set;
+  }, [hebergementReservations, userEmail]);
 
   // Configuration de l'établissement dynamique
   const tenantFiscalConfig = useMemo(() => {
@@ -182,7 +199,11 @@ export default function Financier() {
       rcs: config?.rcs || publicConfig?.rcs || "",
       adresse: config?.adresse || publicConfig?.adresse || "",
       rib: config?.rib || publicConfig?.rib || "",
+      nomCompte: config?.nomCompte || publicConfig?.nomCompte || "",
       mvola: config?.mvola || publicConfig?.mvola || "",
+      nomCompteMvola: (config as any)?.nomCompteMvola || (publicConfig as any)?.nomCompteMvola || "",
+      ordreReglement: (((config as any)?.ordreReglement || (publicConfig as any)?.ordreReglement || "mvola_first") as "mvola_first" | "rib_first"),
+      conditionsReglementNotes: (config as any)?.conditionsReglementNotes || (publicConfig as any)?.conditionsReglementNotes || "",
       cachetSignatureUrl: config?.cachetSignatureUrl || publicConfig?.cachetSignatureUrl || "",
       telephone: config?.telephone || publicConfig?.telephone || "",
       email: config?.email || publicConfig?.email || "",
@@ -214,11 +235,67 @@ export default function Financier() {
     rcs: "",
     adresse: "",
     rib: "",
+    nomCompte: "",
     mvola: "",
+    nomCompteMvola: "",
+    ordreReglement: "mvola_first" as "mvola_first" | "rib_first",
+    conditionsReglementNotes: "",
     cachetSignatureUrl: "",
     telephone: "",
     email: "",
   });
+
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+  const [imageLoadError, setImageLoadError] = useState(false);
+
+  function cleanImageUrl(url: string) {
+    const trimmed = url.trim();
+    const driveMatch = trimmed.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (driveMatch && driveMatch[1]) {
+      return `https://drive.google.com/uc?export=view&id=${driveMatch[1]}`;
+    }
+    if (trimmed.includes("dropbox.com") && trimmed.includes("dl=0")) {
+      return trimmed.replace("dl=0", "raw=1");
+    }
+    return trimmed;
+  }
+
+  function handleCachetUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Le fichier est trop volumineux (maximum 5 Mo).");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const img = new Image();
+      img.onload = () => {
+        const maxW = 400;
+        const maxH = 200;
+        let w = img.width;
+        let h = img.height;
+        if (w > maxW || h > maxH) {
+          const ratio = Math.min(maxW / w, maxH / h);
+          w = Math.round(w * ratio);
+          h = Math.round(h * ratio);
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, w, h);
+          const dataUrl = canvas.toDataURL("image/png");
+          setTenantForm((prev) => ({ ...prev, cachetSignatureUrl: dataUrl }));
+          setImageLoadError(false);
+        }
+      };
+      img.src = event.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  }
 
   useEffect(() => {
     if (tenantFiscalConfig) {
@@ -229,7 +306,11 @@ export default function Financier() {
         rcs: tenantFiscalConfig.rcs,
         adresse: tenantFiscalConfig.adresse,
         rib: tenantFiscalConfig.rib || "",
+        nomCompte: tenantFiscalConfig.nomCompte || "",
         mvola: tenantFiscalConfig.mvola || "",
+        nomCompteMvola: tenantFiscalConfig.nomCompteMvola || "",
+        ordreReglement: tenantFiscalConfig.ordreReglement || "mvola_first",
+        conditionsReglementNotes: tenantFiscalConfig.conditionsReglementNotes || "",
         cachetSignatureUrl: tenantFiscalConfig.cachetSignatureUrl || "",
         telephone: tenantFiscalConfig.telephone,
         email: tenantFiscalConfig.email,
@@ -263,6 +344,8 @@ export default function Financier() {
     dueDate: string;
     datePaiement: string;
     remisePourcentage: number;
+    accompte: number;
+    methodePaiementAccompte: string;
     notes: string;
   }>({
     typeDocument: "facture",
@@ -273,6 +356,8 @@ export default function Financier() {
     dueDate: format(new Date(Date.now() + 15 * 86400000), "yyyy-MM-dd"),
     datePaiement: "",
     remisePourcentage: 0,
+    accompte: 0,
+    methodePaiementAccompte: "especes",
     notes: "",
   });
 
@@ -318,8 +403,17 @@ export default function Financier() {
       });
     }
 
+    // Cloisonnement strict pour DirCom : uniquement les factures de ses propres réservations
+    if (isDircom) {
+      base = base.filter((f) => {
+        const isAuthor = (f.createdBy || "").toLowerCase() === userEmail;
+        const isMyRes = f.reservationId ? myReservationIds.has(f.reservationId) : false;
+        return isAuthor || isMyRes;
+      });
+    }
+
     return base.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [factures, q, clientIdParam, clients, statusFilter, sourceFilter, agencyFilter]);
+  }, [factures, q, clientIdParam, clients, statusFilter, sourceFilter, agencyFilter, isDircom, userEmail, myReservationIds]);
 
   const selected = list.find((f) => f.id === selectedId) || list[0] || null;
 
@@ -344,18 +438,46 @@ export default function Financier() {
 
   // Calculs KPIs
   const kpis = useMemo(() => {
-    const all = factures || [];
+    let all = factures || [];
+    if (isDircom) {
+      all = all.filter((f) => {
+        const isAuthor = (f.createdBy || "").toLowerCase() === userEmail;
+        const isMyRes = f.reservationId ? myReservationIds.has(f.reservationId) : false;
+        return isAuthor || isMyRes;
+      });
+    }
     const officialFactures = all.filter((f) => !isProformaDocument(f));
-    const proformas = all.filter((f) => isProformaDocument(f) && f.statut !== "annulee");
+
+    // Détecter les réservations qui possèdent déjà une facture définitive active
+    const resWithOfficialInvoice = new Set(
+      officialFactures
+        .filter((f) => f.statut !== "annulee" && f.reservationId)
+        .map((f) => f.reservationId)
+    );
+
+    // Les proformas en cours sont strictement celles non annulées ET non encore converties/remplacées par une facture définitive
+    const proformas = all.filter(
+      (f) =>
+        isProformaDocument(f) &&
+        f.statut !== "annulee" &&
+        (!f.reservationId || !resWithOfficialInvoice.has(f.reservationId))
+    );
 
     const totalFacture = officialFactures.filter((f) => f.statut !== "annulee").reduce((s, f) => s + f.totalTTC, 0);
     const payees = officialFactures.filter((f) => f.statut === "payee");
-    const totalPaye = payees.reduce((s, f) => s + f.totalTTC, 0);
+
+    // Trésorerie perçue : factures payées en totalité + acomptes encaissés sur factures émises
+    const totalAcomptesSurEmises = officialFactures
+      .filter((f) => f.statut === "emise")
+      .reduce((s, f) => s + Number(f.accompte || 0), 0);
+    const totalPaye = payees.reduce((s, f) => s + f.totalTTC, 0) + totalAcomptesSurEmises;
+
     const now = new Date();
+    // Créances restantes réelles (Montant net restant après déduction des acomptes déjà versés)
     const enRetardList = officialFactures.filter((f) => f.statut === "emise" && !!f.dueDate && now > new Date(f.dueDate));
-    const totalRetard = enRetardList.reduce((s, f) => s + f.totalTTC, 0);
+    const totalRetard = enRetardList.reduce((s, f) => s + Math.max(0, f.totalTTC - Number(f.accompte || 0)), 0);
     const enAttenteList = officialFactures.filter((f) => f.statut === "emise" && (!f.dueDate || now <= new Date(f.dueDate)));
-    const totalEnAttente = enAttenteList.reduce((s, f) => s + f.totalTTC, 0);
+    const totalEnAttente = enAttenteList.reduce((s, f) => s + Math.max(0, f.totalTTC - Number(f.accompte || 0)), 0);
     const totalRemises = officialFactures.reduce((s, f) => s + (f.remiseMontant || 0), 0);
     const totalProformas = proformas.reduce((s, f) => s + f.totalTTC, 0);
 
@@ -370,7 +492,7 @@ export default function Financier() {
       totalProformas,
       countProformas: proformas.length,
     };
-  }, [factures]);
+  }, [factures, isDircom, userEmail, myReservationIds]);
 
   // Calculs dynamiques du formulaire
   const formCalculations = useMemo(() => {
@@ -378,13 +500,17 @@ export default function Financier() {
     const remisePct = Math.min(10, Math.max(0, Number(formMeta.remisePourcentage || 0)));
     const remiseMontant = remisePct > 0 ? Math.round((rawSubTotal * remisePct) / 100) : 0;
     const netTotal = rawSubTotal - remiseMontant;
+    const accompte = Math.max(0, Number(formMeta.accompte || 0));
+    const resteAPayer = Math.max(0, netTotal - accompte);
     return {
       rawSubTotal,
       remisePct,
       remiseMontant,
       netTotal,
+      accompte,
+      resteAPayer,
     };
-  }, [formLignes, formMeta.remisePourcentage]);
+  }, [formLignes, formMeta.remisePourcentage, formMeta.accompte]);
 
   // Ouvrir modal de création
   function openCreateModal() {
@@ -407,6 +533,8 @@ export default function Financier() {
       dueDate: format(new Date(Date.now() + 15 * 86400000), "yyyy-MM-dd"),
       datePaiement: "",
       remisePourcentage: 0,
+      accompte: 0,
+      methodePaiementAccompte: "especes",
       notes: "",
     });
     setFormLignes([
@@ -441,6 +569,8 @@ export default function Financier() {
       dueDate: f.dueDate ? format(new Date(f.dueDate), "yyyy-MM-dd") : "",
       datePaiement: f.datePaiement ? format(new Date(f.datePaiement), "yyyy-MM-dd") : "",
       remisePourcentage: f.remisePourcentage || 0,
+      accompte: (f as any).accompte || 0,
+      methodePaiementAccompte: (f as any).methodePaiementAccompte || "especes",
       notes: f.notes || "",
     });
     setFormLignes(f.lignes && f.lignes.length > 0 ? f.lignes : [{ description: "Prestation", qte: 1, pu: f.totalTTC }]);
@@ -488,10 +618,19 @@ export default function Financier() {
       remisePourcentage: formCalculations.remisePct,
       remiseMontant: formCalculations.remiseMontant,
       totalTTC: formCalculations.netTotal,
+      accompte: Number(formMeta.accompte || 0),
+      methodePaiementAccompte: formMeta.methodePaiementAccompte || "especes",
       notes: formMeta.notes.trim() || undefined,
     };
 
     if (isEditing && editingFactureId) {
+      const existingFacture = (factures || []).find(x => x.id === editingFactureId);
+      if (existingFacture?.reservationId && tenantId) {
+        updateTenantDoc(tenantId, "reservations", existingFacture.reservationId, {
+          accompte: Number(formMeta.accompte || 0),
+          methodePaiementAccompte: formMeta.methodePaiementAccompte || "especes",
+        }).catch(err => console.warn("Could not sync reservation deposit:", err));
+      }
       updateFacture.mutate({ id: editingFactureId, ...payload }, {
         onSuccess: () => {
           setModalOpen(false);
@@ -523,7 +662,11 @@ export default function Financier() {
         rcs: tenantForm.rcs.trim(),
         adresse: tenantForm.adresse.trim(),
         rib: tenantForm.rib.trim(),
+        nomCompte: tenantForm.nomCompte.trim(),
         mvola: tenantForm.mvola.trim(),
+        nomCompteMvola: tenantForm.nomCompteMvola.trim(),
+        ordreReglement: tenantForm.ordreReglement || "mvola_first",
+        conditionsReglementNotes: tenantForm.conditionsReglementNotes.trim(),
         cachetSignatureUrl: tenantForm.cachetSignatureUrl.trim(),
         telephone: tenantForm.telephone.trim(),
         email: tenantForm.email.trim(),
@@ -541,46 +684,60 @@ export default function Financier() {
   }
 
   // Impression de la facture sélectionnée
-  function handlePrintSelected() {
+  function handlePrintSelected(asProforma = false) {
     if (!selected) return;
     const clientObj = (clients || []).find(c => c.id === selected.clientId || c.nom === selected.clientNom);
     const configForPrint = { 
       ...tenantFiscalConfig, 
       cachetSignatureUrl: includeSignature ? tenantFiscalConfig.cachetSignatureUrl : undefined 
     };
-    printFacturePro(selected, configForPrint, clientObj);
+    printFacturePro(selected, configForPrint, clientObj, asProforma);
   }
 
   // Export CSV global
   function handleExportCSV() {
-    const exportData = (factures || []).map(f => ({
-      'Numéro': f.numero,
-      'Date': new Date(f.date).toLocaleDateString('fr-FR'),
-      'Client': f.clientNom,
-      'Agence': f.agenceVoyage || 'Direct',
-      'Téléphone': f.clientTelephone || '',
-      'Source': f.source,
-      'Mode Règlement': getPaymentLabel(f.modePaiement),
-      'Sous-Total (Ar)': (f.sousTotal || f.totalTTC).toLocaleString('fr-FR'),
-      'Remise (%)': f.remisePourcentage ? `${f.remisePourcentage}%` : '0%',
-      'Total Net (Ar)': f.totalTTC.toLocaleString('fr-FR'),
-      'Statut': f.statut === 'payee' ? 'Payée' : f.statut === 'annulee' ? 'Annulée' : 'Envoyée'
-    }));
-    exportToCSV(exportData, 'factures_reshpro');
+    const exportData = (list || []).map(f => {
+      const isProf = isProformaDocument(f);
+      return {
+        'Numéro': f.numero,
+        'Type Document': isProf ? (f.typeDocument === 'devis' ? 'Devis' : 'Facture Proforma') : 'Facture Définitive',
+        'Portée Comptable': isProf ? 'Hors CA (Devis/Proforma)' : 'Comptabilisé (Officiel)',
+        'Date': new Date(f.date).toLocaleDateString('fr-FR'),
+        'Client': f.clientNom,
+        'Agence': f.agenceVoyage || 'Direct',
+        'Téléphone': f.clientTelephone || '',
+        'Source': f.source,
+        'Mode Règlement': getPaymentLabel(f.modePaiement),
+        'Sous-Total (Ar)': (f.sousTotal || f.totalTTC).toLocaleString('fr-FR'),
+        'Remise (%)': f.remisePourcentage ? `${f.remisePourcentage}%` : '0%',
+        'Total Net (Ar)': f.totalTTC.toLocaleString('fr-FR'),
+        'Acompte Versé (Ar)': (f.accompte || 0).toLocaleString('fr-FR'),
+        'Reste à Payer (Ar)': Math.max(0, f.totalTTC - Number(f.accompte || 0)).toLocaleString('fr-FR'),
+        'Statut': f.statut === 'payee' ? 'Payée' : f.statut === 'annulee' ? 'Annulée' : isProf ? 'En cours (Proforma)' : 'Envoyée',
+      };
+    });
+    const filename = isDircom ? 'mes_factures_reshpro' : 'factures_reshpro';
+    exportToCSV(exportData, filename);
   }
 
   // Export PDF liste
   function handleExportListPDF() {
-    const exportData = (factures || []).map(f => ({
-      'Numéro': f.numero,
-      'Date': new Date(f.date).toLocaleDateString('fr-FR'),
-      'Client': f.clientNom + (f.agenceVoyage ? ` (${f.agenceVoyage})` : ''),
-      'Source': f.source,
-      'Mode': getPaymentLabel(f.modePaiement),
-      'Montant Net': `${f.totalTTC.toLocaleString('fr-FR')} Ar`,
-      'Statut': f.statut === 'payee' ? 'Payée' : f.statut === 'annulee' ? 'Annulée' : 'Envoyée'
-    }));
-    exportToPDF('État Récapitulatif des Factures', exportData, 'factures_liste', tenantFiscalConfig.nom);
+    const exportData = (list || []).map(f => {
+      const isProf = isProformaDocument(f);
+      return {
+        'Numéro': f.numero,
+        'Type': isProf ? (f.typeDocument === 'devis' ? 'Devis' : 'Proforma') : 'Facture',
+        'Date': new Date(f.date).toLocaleDateString('fr-FR'),
+        'Client': f.clientNom + (f.agenceVoyage ? ` (${f.agenceVoyage})` : ''),
+        'Source': f.source,
+        'Mode': getPaymentLabel(f.modePaiement),
+        'Montant Net': `${f.totalTTC.toLocaleString('fr-FR')} Ar`,
+        'Statut': f.statut === 'payee' ? 'Payée' : f.statut === 'annulee' ? 'Annulée' : isProf ? 'Proforma' : 'Envoyée',
+      };
+    });
+    const title = isDircom ? 'Mes Factures & Devis (Dossiers Commerciaux)' : 'État Récapitulatif des Factures';
+    const filename = isDircom ? 'mes_factures_commerciales' : 'factures_liste';
+    exportToPDF(title, exportData, filename, tenantFiscalConfig.nom);
   }
 
   // Rapports graphiques
@@ -627,7 +784,7 @@ export default function Financier() {
         });
       });
     return allRooms.map((ch) => ({
-      name: `Ch. ${ch.numero}`,
+      name: `${ch.numero}`,
       taux: totalDays ? Math.round(((counts[ch.id] || 0) / totalDays) * 100) : 0,
     }));
   }, [hebergementAll, chambresData]);
@@ -734,7 +891,7 @@ export default function Financier() {
         <Box>
           <Stack direction="row" alignItems="center" spacing={1.5} flexWrap="wrap" rowGap={1}>
             <Typography variant="h4" fontWeight={800} color="#0f172a">
-              Facturation & Finances
+              {isDircom ? "Facturation Commerciale — Mes Dossiers" : "Facturation & Finances"}
             </Typography>
             <Chip 
               size="small" 
@@ -742,7 +899,15 @@ export default function Financier() {
               label={`${knownAgencies.length} Agences partenaires`} 
               sx={{ bgcolor: "#e0e7ff", color: "#3730a3", fontWeight: 700 }} 
             />
-            {!canModifyInvoice && (
+            {isDircom ? (
+              <Chip
+                size="small"
+                icon={<Lock fontSize="small" />}
+                label="Espace Commercial : Réservations Personnelles"
+                title="Vous avez accès uniquement aux devis et factures dont vous êtes à l'origine"
+                sx={{ bgcolor: "#e0f2fe", color: "#0369a1", border: "1px solid #7dd3fc", fontWeight: 700 }}
+              />
+            ) : !canModifyInvoice && (
               <Chip
                 size="small"
                 icon={<Lock fontSize="small" />}
@@ -769,31 +934,35 @@ export default function Financier() {
               NIF / STAT Établissement
             </Button>
           )}
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<FileDownload />}
-            onClick={handleExportCSV}
-          >
-            Excel
-          </Button>
+          {!isDircom && (
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<FileDownload />}
+              onClick={handleExportCSV}
+            >
+              Excel
+            </Button>
+          )}
           <Button
             variant="outlined"
             size="small"
             startIcon={<Print />}
             onClick={handleExportListPDF}
           >
-            Liste PDF
+            {isDircom ? "Mes Factures (PDF)" : "Liste PDF"}
           </Button>
-          <Button
-            variant="contained"
-            size="small"
-            startIcon={<Add />}
-            onClick={openCreateModal}
-            sx={{ bgcolor: "#4f46e5", "&:hover": { bgcolor: "#4338ca" }, px: 2, fontWeight: 700 }}
-          >
-            Nouvelle Facture
-          </Button>
+          {!isDircom && (
+            <Button
+              variant="contained"
+              size="small"
+              startIcon={<Add />}
+              onClick={openCreateModal}
+              sx={{ bgcolor: "#4f46e5", "&:hover": { bgcolor: "#4338ca" }, px: 2, fontWeight: 700 }}
+            >
+              Nouvelle Facture
+            </Button>
+          )}
         </Stack>
       </Stack>
 
@@ -894,10 +1063,12 @@ export default function Financier() {
       )}
 
       {/* TABS VIEW */}
-      <Tabs value={activeTab} onChange={(_, val) => setActiveTab(val)} sx={{ mb: 2.5, borderBottom: 1, borderColor: "divider" }}>
-        <Tab label="📋 Facturier & Aperçu Pro" sx={{ fontWeight: 700, textTransform: "none" }} />
-        <Tab label="📊 Rapports & Statistiques" sx={{ fontWeight: 700, textTransform: "none" }} />
-      </Tabs>
+      {!isDircom && (
+        <Tabs value={activeTab} onChange={(_, val) => setActiveTab(val)} sx={{ mb: 2.5, borderBottom: 1, borderColor: "divider" }}>
+          <Tab label="📋 Facturier & Aperçu Pro" sx={{ fontWeight: 700, textTransform: "none" }} />
+          <Tab label="📊 Rapports & Statistiques" sx={{ fontWeight: 700, textTransform: "none" }} />
+        </Tabs>
+      )}
 
       {activeTab === 0 && (
         <Grid container spacing={2.5}>
@@ -1015,6 +1186,13 @@ export default function Financier() {
                           <Typography fontWeight={800} color="#4f46e5" fontSize="1.05rem">
                             {f.totalTTC.toLocaleString('fr-FR')} Ar
                           </Typography>
+                          {Number((f as any).accompte || 0) > 0 && (
+                            <Chip
+                              size="small"
+                              label={`Acompte: ${Number((f as any).accompte).toLocaleString('fr-FR')} Ar`}
+                              sx={{ height: 18, fontSize: "0.62rem", fontWeight: 700, bgcolor: "#dcfce7", color: "#166534", mt: 0.3 }}
+                            />
+                          )}
                           {f.remiseMontant && f.remiseMontant > 0 ? (
                             <Typography variant="caption" color="#059669" fontWeight={600} display="block">
                               Remise: -{f.remiseMontant.toLocaleString('fr-FR')} Ar ({f.remisePourcentage}%)
@@ -1087,29 +1265,66 @@ export default function Financier() {
                       size="small"
                       variant="contained"
                       startIcon={<Print />}
-                      onClick={handlePrintSelected}
+                      onClick={() => handlePrintSelected(false)}
                       sx={{ bgcolor: "#4f46e5", "&:hover": { bgcolor: "#4338ca" }, fontWeight: 700 }}
                     >
                       Imprimer / PDF A4
                     </Button>
-                    {isProformaDocument(selected) && (
+                    {!isProformaDocument(selected) && selected.numeroProformaInitiale && (
                       <Button
                         size="small"
-                        variant="contained"
-                        startIcon={<CheckCircle />}
-                        onClick={() => {
-                          if (
-                            confirm(
-                              `Confirmez-vous la validation de ce devis/proforma ${selected.numero} en Facture Définitive ?\n\nCe document sera désormais comptabilisé dans le chiffre d'affaires officiel et le suivi financier.`
-                            )
-                          ) {
-                            validateProforma.mutate({ id: selected.id });
-                          }
-                        }}
-                        sx={{ bgcolor: "#16a34a", "&:hover": { bgcolor: "#15803d" }, fontWeight: 800 }}
+                        variant="outlined"
+                        startIcon={<Print />}
+                        onClick={() => handlePrintSelected(true)}
+                        sx={{ borderColor: "#6366f1", color: "#4f46e5", fontWeight: 700 }}
+                        title="Imprimer un duplicata au format Devis / Proforma initial pour le client"
                       >
-                        Valider en Facture Définitive
+                        Version Devis Initial ({selected.numeroProformaInitiale})
                       </Button>
+                    )}
+                    {isProformaDocument(selected) && (
+                      <>
+                        <Button
+                          size="small"
+                          variant="contained"
+                          startIcon={<CheckCircle />}
+                          onClick={() => {
+                            if (
+                              confirm(
+                                `Confirmez-vous la validation de ce devis/proforma ${selected.numero} en Facture Définitive ?\n\nCe document sera désormais comptabilisé dans le chiffre d'affaires officiel et le suivi financier.`
+                              )
+                            ) {
+                              validateProforma.mutate({ id: selected.id });
+                            }
+                          }}
+                          sx={{ bgcolor: "#16a34a", "&:hover": { bgcolor: "#15803d" }, fontWeight: 800 }}
+                        >
+                          Valider en Facture Définitive
+                        </Button>
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color="success"
+                          startIcon={<CheckCircle />}
+                          onClick={async () => {
+                            if (
+                              confirm(
+                                `Confirmez-vous la validation de la proforma ${selected.numero} en Facture Définitive ET son encaissement immédiat ?\n\nLe document deviendra une Facture officielle soldée (Payée) dans la trésorerie et la comptabilité.`
+                              )
+                            ) {
+                              await updateFacture.mutateAsync({
+                                id: selected.id,
+                                typeDocument: "facture",
+                                statut: "payee",
+                                datePaiement: new Date().toISOString(),
+                              });
+                            }
+                          }}
+                          sx={{ fontWeight: 700 }}
+                        >
+                          Valider & Encaisser
+                        </Button>
+                      </>
                     )}
                     {canModifyInvoice && (
                       <Button
@@ -1121,7 +1336,7 @@ export default function Financier() {
                         Modifier
                       </Button>
                     )}
-                    {selected.statut !== "payee" && (
+                    {!isProformaDocument(selected) && selected.statut !== "payee" && (
                       <Button
                         size="small"
                         color="success"
@@ -1132,13 +1347,28 @@ export default function Financier() {
                         Marquer Payée
                       </Button>
                     )}
-                    {canModifyInvoice && (
+                    {canModifyInvoice && !isProformaDocument(selected) && selected.statut !== "annulee" && selected.statut !== "payee" && (
+                      <Button
+                        size="small"
+                        color="warning"
+                        variant="outlined"
+                        onClick={() => {
+                          if (confirm(`Confirmez-vous l'annulation comptable de la facture ${selected.numero} ?\n\nLe document restera enregistré pour la traçabilité fiscale mais sera retiré du chiffre d'affaires et des créances en attente.`)) {
+                            updateStatut.mutate({ id: selected.id, statut: "annulee" });
+                          }
+                        }}
+                        sx={{ fontWeight: 700 }}
+                      >
+                        Annuler la Facture
+                      </Button>
+                    )}
+                    {canModifyInvoice && isProformaDocument(selected) && (
                       <IconButton
                         size="small"
                         color="error"
-                        title="Supprimer la facture (Réservé Direction & Admin)"
+                        title="Supprimer ce devis/proforma (Non comptabilisé)"
                         onClick={() => {
-                          if (confirm(`Confirmez-vous la suppression de la facture ${selected.numero} ?`)) {
+                          if (confirm(`Confirmez-vous la suppression du devis/proforma ${selected.numero} ?`)) {
                             deleteFacture.mutate(selected.id);
                           }
                         }}
@@ -1200,6 +1430,11 @@ export default function Financier() {
                       <Typography variant="body2" fontWeight={800} color="#4f46e5">
                         {selected.numero}
                       </Typography>
+                      {selected.numeroProformaInitiale && !isProformaDocument(selected) && (
+                        <Typography variant="caption" sx={{ color: "#4338ca", fontWeight: 700, display: "block", mt: 0.3 }}>
+                          Réf. Devis d'origine : {selected.numeroProformaInitiale}
+                        </Typography>
+                      )}
                       <Typography variant="caption" color="text.secondary" display="block" mt={0.5}>
                         Date : <strong>{new Date(selected.date).toLocaleDateString('fr-FR')}</strong>
                       </Typography>
@@ -1264,11 +1499,60 @@ export default function Financier() {
                             ✓ Règlement reçu le {new Date(selected.datePaiement).toLocaleDateString('fr-FR')}
                           </Typography>
                         )}
+                        {Number((selected as any).accompte || 0) > 0 && (
+                          <Box sx={{ mt: 1, p: 1, bgcolor: "#ecfdf5", border: "1px solid #a7f3d0", borderRadius: 1.5 }}>
+                            <Typography variant="caption" color="#166534" fontWeight={800} display="block">
+                              ✓ Acompte encaissé : {Number((selected as any).accompte).toLocaleString('fr-FR')} Ar ({getPaymentLabel((selected as any).methodePaiementAccompte || "especes")})
+                            </Typography>
+                            <Typography variant="caption" color="#047857" display="block" sx={{ fontSize: "0.68rem" }}>
+                              Reste à recouvrer : {Math.max(0, selected.totalTTC - Number((selected as any).accompte)).toLocaleString('fr-FR')} Ar
+                            </Typography>
+                          </Box>
+                        )}
                         {selected.notes && (
                           <Typography variant="caption" color="text.secondary" display="block" mt={0.8} sx={{ fontStyle: "italic" }}>
                             Note : {selected.notes}
                           </Typography>
                         )}
+
+                        {/* Coordonnées de règlement selon l'ordre configuré */}
+                        <Box sx={{ mt: 1, pt: 1, borderTop: "1px dashed #cbd5e1" }}>
+                          <Typography variant="caption" fontWeight={700} color="#475569" display="block" mb={0.3}>
+                            Conditions de règlement :
+                          </Typography>
+                          {tenantFiscalConfig.ordreReglement === "rib_first" ? (
+                            <>
+                              {tenantFiscalConfig.rib && (
+                                <Typography variant="caption" color="text.secondary" display="block">
+                                  🏦 RIB : <strong>{tenantFiscalConfig.rib}</strong> {tenantFiscalConfig.nomCompte && `(${tenantFiscalConfig.nomCompte})`}
+                                </Typography>
+                              )}
+                              {tenantFiscalConfig.mvola && (
+                                <Typography variant="caption" color="text.secondary" display="block">
+                                  📱 MVola : <strong>{tenantFiscalConfig.mvola}</strong> {tenantFiscalConfig.nomCompteMvola && `(${tenantFiscalConfig.nomCompteMvola})`}
+                                </Typography>
+                              )}
+                            </>
+                          ) : (
+                            <>
+                              {tenantFiscalConfig.mvola && (
+                                <Typography variant="caption" color="text.secondary" display="block">
+                                  📱 MVola : <strong>{tenantFiscalConfig.mvola}</strong> {tenantFiscalConfig.nomCompteMvola && `(${tenantFiscalConfig.nomCompteMvola})`}
+                                </Typography>
+                              )}
+                              {tenantFiscalConfig.rib && (
+                                <Typography variant="caption" color="text.secondary" display="block">
+                                  🏦 RIB : <strong>{tenantFiscalConfig.rib}</strong> {tenantFiscalConfig.nomCompte && `(${tenantFiscalConfig.nomCompte})`}
+                                </Typography>
+                              )}
+                            </>
+                          )}
+                          {tenantFiscalConfig.conditionsReglementNotes && (
+                            <Typography variant="caption" color="text.secondary" display="block" sx={{ fontStyle: "italic", mt: 0.3 }}>
+                              Note : {tenantFiscalConfig.conditionsReglementNotes}
+                            </Typography>
+                          )}
+                        </Box>
                       </Box>
                     </Grid>
                   </Grid>
@@ -1317,7 +1601,7 @@ export default function Financier() {
 
                   {/* TOTALS BOX */}
                   <Stack direction="row" justifyContent="flex-end">
-                    <Box sx={{ width: 280, p: 1.5, bgcolor: "#f8fafc", borderRadius: 2, border: "1px solid #e2e8f0" }}>
+                    <Box sx={{ width: 290, p: 1.5, bgcolor: "#f8fafc", borderRadius: 2, border: "1px solid #e2e8f0" }}>
                       <Stack direction="row" justifyContent="space-between" mb={0.5}>
                         <Typography variant="body2" color="text.secondary">Sous-total brut :</Typography>
                         <Typography variant="body2" fontWeight={600}>
@@ -1336,14 +1620,41 @@ export default function Financier() {
                         </Stack>
                       ) : null}
 
-                      <Divider sx={{ my: 1 }} />
-
-                      <Stack direction="row" justifyContent="space-between" alignItems="center">
-                        <Typography variant="subtitle2" fontWeight={800} color="#0f172a">Net à payer :</Typography>
-                        <Typography variant="h6" fontWeight={900} color="#4f46e5">
-                          {selected.totalTTC.toLocaleString('fr-FR')} Ar
-                        </Typography>
-                      </Stack>
+                      {Number((selected as any).accompte || 0) > 0 ? (
+                        <>
+                          <Stack direction="row" justifyContent="space-between" mb={0.5}>
+                            <Typography variant="body2" color="text.secondary">Total TTC :</Typography>
+                            <Typography variant="body2" fontWeight={600}>
+                              {selected.totalTTC.toLocaleString('fr-FR')} Ar
+                            </Typography>
+                          </Stack>
+                          <Stack direction="row" justifyContent="space-between" mb={0.5}>
+                            <Typography variant="body2" color="#059669" fontWeight={600}>
+                              Acompte déduit ({getPaymentLabel((selected as any).methodePaiementAccompte || "especes")}) :
+                            </Typography>
+                            <Typography variant="body2" color="#059669" fontWeight={700}>
+                              - {Number((selected as any).accompte).toLocaleString('fr-FR')} Ar
+                            </Typography>
+                          </Stack>
+                          <Divider sx={{ my: 1 }} />
+                          <Stack direction="row" justifyContent="space-between" alignItems="center">
+                            <Typography variant="subtitle2" fontWeight={800} color="#0f172a">Reste à payer :</Typography>
+                            <Typography variant="h6" fontWeight={900} color="#4f46e5">
+                              {Math.max(0, selected.totalTTC - Number((selected as any).accompte)).toLocaleString('fr-FR')} Ar
+                            </Typography>
+                          </Stack>
+                        </>
+                      ) : (
+                        <>
+                          <Divider sx={{ my: 1 }} />
+                          <Stack direction="row" justifyContent="space-between" alignItems="center">
+                            <Typography variant="subtitle2" fontWeight={800} color="#0f172a">Net à payer :</Typography>
+                            <Typography variant="h6" fontWeight={900} color="#4f46e5">
+                              {selected.totalTTC.toLocaleString('fr-FR')} Ar
+                            </Typography>
+                          </Stack>
+                        </>
+                      )}
                     </Box>
                   </Stack>
 
@@ -1732,6 +2043,37 @@ export default function Financier() {
                     />
                   </Grid>
                 )}
+
+                <Grid item xs={12} sm={3}>
+                  <TextField
+                    size="small"
+                    type="number"
+                    label="Acompte déjà versé (Ar)"
+                    fullWidth
+                    value={formMeta.accompte || ""}
+                    onChange={(e) => setFormMeta(prev => ({ ...prev, accompte: parseFloat(e.target.value || "0") }))}
+                    placeholder="0"
+                  />
+                </Grid>
+
+                {Number(formMeta.accompte || 0) > 0 && (
+                  <Grid item xs={12} sm={3}>
+                    <TextField
+                      size="small"
+                      select
+                      label="Mode de l'acompte"
+                      fullWidth
+                      value={formMeta.methodePaiementAccompte || "especes"}
+                      onChange={(e) => setFormMeta(prev => ({ ...prev, methodePaiementAccompte: e.target.value }))}
+                    >
+                      {PAYMENT_MODES.map((pm) => (
+                        <MenuItem key={pm.value} value={pm.value}>
+                          {pm.label}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  </Grid>
+                )}
               </Grid>
             </Box>
 
@@ -1882,12 +2224,37 @@ export default function Financier() {
 
                     <Divider sx={{ my: 1 }} />
 
-                    <Stack direction="row" justifyContent="space-between" alignItems="center">
-                      <Typography variant="subtitle1" fontWeight={800} color="#0f172a">Net à Payer :</Typography>
-                      <Typography variant="h6" fontWeight={900} color="#4f46e5">
-                        {formCalculations.netTotal.toLocaleString('fr-FR')} Ar
-                      </Typography>
-                    </Stack>
+                    {formCalculations.accompte > 0 ? (
+                      <>
+                        <Stack direction="row" justifyContent="space-between" mb={0.5}>
+                          <Typography variant="body2" color="text.secondary">Total TTC :</Typography>
+                          <Typography variant="body2" fontWeight={600}>
+                            {formCalculations.netTotal.toLocaleString('fr-FR')} Ar
+                          </Typography>
+                        </Stack>
+                        <Stack direction="row" justifyContent="space-between" mb={0.5}>
+                          <Typography variant="body2" color="#059669" fontWeight={700}>
+                            Acompte déduit :
+                          </Typography>
+                          <Typography variant="body2" color="#059669" fontWeight={800}>
+                            - {formCalculations.accompte.toLocaleString('fr-FR')} Ar
+                          </Typography>
+                        </Stack>
+                        <Stack direction="row" justifyContent="space-between" alignItems="center">
+                          <Typography variant="subtitle1" fontWeight={800} color="#0f172a">Reste à Régler :</Typography>
+                          <Typography variant="h6" fontWeight={900} color="#4f46e5">
+                            {formCalculations.resteAPayer.toLocaleString('fr-FR')} Ar
+                          </Typography>
+                        </Stack>
+                      </>
+                    ) : (
+                      <Stack direction="row" justifyContent="space-between" alignItems="center">
+                        <Typography variant="subtitle1" fontWeight={800} color="#0f172a">Net à Payer :</Typography>
+                        <Typography variant="h6" fontWeight={900} color="#4f46e5">
+                          {formCalculations.netTotal.toLocaleString('fr-FR')} Ar
+                        </Typography>
+                      </Stack>
+                    )}
                   </Box>
                 </Grid>
               </Grid>
@@ -2004,44 +2371,190 @@ export default function Financier() {
               </Grid>
             </Grid>
 
-            <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  size="small"
-                  label="RIB (Virement bancaire)"
-                  fullWidth
-                  placeholder="00000 00000 00000000000 00"
-                  value={tenantForm.rib}
-                  onChange={(e) => setTenantForm(prev => ({ ...prev, rib: e.target.value }))}
-                />
+            <Box sx={{ p: 2, bgcolor: "#f8fafc", borderRadius: 2, border: "1px solid #e2e8f0" }}>
+              <Typography variant="subtitle2" fontWeight={800} color="#1e293b" mb={0.5}>
+                💳 Coordonnées & Conditions de Règlement
+              </Typography>
+              <Typography variant="caption" color="text.secondary" display="block" mb={2}>
+                Configurez l'ordre d'affichage et les coordonnées bancaires / mobile money imprimées sur vos factures.
+              </Typography>
+
+              {/* Sélecteur d'ordre d'affichage */}
+              <TextField
+                select
+                size="small"
+                fullWidth
+                label="Ordre d'affichage sur les factures et reçus"
+                value={tenantForm.ordreReglement}
+                onChange={(e) => setTenantForm(prev => ({ ...prev, ordreReglement: e.target.value as any }))}
+                sx={{ mb: 2 }}
+                helperText="Définit quelle modalité est mise en avant en premier"
+              >
+                <MenuItem value="mvola_first">
+                  1. Mobile Money (MVola) en premier, puis 2. Virement bancaire (RIB)
+                </MenuItem>
+                <MenuItem value="rib_first">
+                  1. Virement bancaire (RIB) en premier, puis 2. Mobile Money (MVola)
+                </MenuItem>
+              </TextField>
+
+              {/* Bloc Mobile Money (MVola) */}
+              <Typography variant="caption" fontWeight={800} color="#475569" textTransform="uppercase" display="block" mb={1}>
+                📱 Mobile Money (MVola)
+              </Typography>
+              <Grid container spacing={2} mb={2}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    size="small"
+                    label="Numéro MVola"
+                    fullWidth
+                    placeholder="034 00 000 00"
+                    value={tenantForm.mvola}
+                    onChange={(e) => setTenantForm(prev => ({ ...prev, mvola: e.target.value }))}
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    size="small"
+                    label="Nom du titulaire / compte MVola"
+                    fullWidth
+                    placeholder="Ex: RAHANTAMALALA VERONIQUE Elisette"
+                    value={tenantForm.nomCompteMvola}
+                    onChange={(e) => setTenantForm(prev => ({ ...prev, nomCompteMvola: e.target.value }))}
+                    helperText="Nom du destinataire Telma affiché au client"
+                  />
+                </Grid>
               </Grid>
 
-              <Grid item xs={12} sm={6}>
+              {/* Bloc Virement Bancaire (RIB) */}
+              <Typography variant="caption" fontWeight={800} color="#475569" textTransform="uppercase" display="block" mb={1}>
+                🏦 Virement Bancaire (RIB)
+              </Typography>
+              <Grid container spacing={2} mb={2}>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    size="small"
+                    label="RIB (Banque)"
+                    fullWidth
+                    placeholder="00000 00000 00000000000 00"
+                    value={tenantForm.rib}
+                    onChange={(e) => setTenantForm(prev => ({ ...prev, rib: e.target.value }))}
+                    helperText="Numéro de compte / RIB officiel"
+                  />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    size="small"
+                    label="Nom du titulaire compte bancaire"
+                    fullWidth
+                    placeholder="Ex: SARL HOTEL RESHPRO"
+                    value={tenantForm.nomCompte}
+                    onChange={(e) => setTenantForm(prev => ({ ...prev, nomCompte: e.target.value }))}
+                    helperText="Titulaire officiel du compte bancaire"
+                  />
+                </Grid>
+              </Grid>
+
+              {/* Notes additionnelles pour le règlement */}
+              <TextField
+                size="small"
+                label="Consignes ou mentions additionnelles de règlement (Optionnel)"
+                fullWidth
+                multiline
+                rows={2}
+                placeholder="Ex: Merci de mentionner votre nom et numéro de facture en référence du transfert."
+                value={tenantForm.conditionsReglementNotes}
+                onChange={(e) => setTenantForm(prev => ({ ...prev, conditionsReglementNotes: e.target.value }))}
+              />
+            </Box>
+
+            <Divider sx={{ my: 0.5 }} />
+
+            <Typography variant="body2" fontWeight={700}>
+              Cachet & Signature de l'établissement
+            </Typography>
+
+            <Box sx={{ p: 1.5, border: "1px dashed #cbd5e1", borderRadius: 2, bgcolor: "#f8fafc" }}>
+              <Stack spacing={1.5}>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  style={{ display: "none" }}
+                  onChange={handleCachetUpload}
+                />
+                <Button
+                  variant="outlined"
+                  startIcon={<CloudUpload />}
+                  onClick={() => fileInputRef.current?.click()}
+                  sx={{
+                    textTransform: "none",
+                    fontWeight: 700,
+                    bgcolor: "#ffffff",
+                    borderColor: "#3b82f6",
+                    color: "#2563eb",
+                    "&:hover": { bgcolor: "#eff6ff", borderColor: "#2563eb" },
+                  }}
+                >
+                  Importer une image de cachet (depuis l'appareil)
+                </Button>
+                <Typography variant="caption" color="text.secondary">
+                  Recommandé : image PNG avec fond transparent. L'image est stockée directement et s'affiche sur toutes vos factures et reçus sans risque de lien cassé.
+                </Typography>
+
                 <TextField
                   size="small"
-                  label="Numéro MVola"
+                  label="Ou coller une URL d'image en ligne (Optionnel)"
                   fullWidth
-                  placeholder="034 00 000 00"
-                  value={tenantForm.mvola}
-                  onChange={(e) => setTenantForm(prev => ({ ...prev, mvola: e.target.value }))}
+                  placeholder="https://..."
+                  value={tenantForm.cachetSignatureUrl.startsWith("data:") ? "(Image importée depuis l'appareil)" : tenantForm.cachetSignatureUrl}
+                  disabled={tenantForm.cachetSignatureUrl.startsWith("data:")}
+                  onChange={(e) => {
+                    const cleaned = cleanImageUrl(e.target.value);
+                    setTenantForm(prev => ({ ...prev, cachetSignatureUrl: cleaned }));
+                    setImageLoadError(false);
+                  }}
+                  helperText={tenantForm.cachetSignatureUrl.startsWith("data:") ? "Une image de cachet a été importée directement. Cliquez sur Supprimer pour la changer." : "Lien direct vers l'image PNG/JPG"}
                 />
-              </Grid>
-            </Grid>
 
-            <TextField
-              size="small"
-              label="URL Cachet & Signature (Image PNG/JPG transparente)"
-              fullWidth
-              placeholder="https://..."
-              value={tenantForm.cachetSignatureUrl}
-              onChange={(e) => setTenantForm(prev => ({ ...prev, cachetSignatureUrl: e.target.value }))}
-              helperText="Astuce: Hébergez l'image et collez le lien direct ici."
-            />
-            {tenantForm.cachetSignatureUrl && (
-              <Box sx={{ mt: 1, border: '1px dashed #ccc', p: 1, borderRadius: 1, display: 'inline-block' }}>
-                <img src={tenantForm.cachetSignatureUrl} alt="Aperçu signature" style={{ maxHeight: 60 }} />
-              </Box>
-            )}
+                {tenantForm.cachetSignatureUrl && (
+                  <Box sx={{ mt: 1, p: 1.5, border: "1px solid #e2e8f0", borderRadius: 2, bgcolor: "#ffffff" }}>
+                    <Stack direction={{ xs: "column", sm: "row" }} alignItems="center" spacing={2} justifyContent="space-between">
+                      {imageLoadError ? (
+                        <Alert severity="error" sx={{ py: 0.5, px: 1, fontSize: "0.75rem", flex: 1 }}>
+                          ⚠️ Impossible d'afficher cette image depuis le lien fourni (lien privé ou non-direct). Cliquez sur <strong>"Importer une image"</strong> ci-dessus pour charger votre fichier directement.
+                        </Alert>
+                      ) : (
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                          <img
+                            src={tenantForm.cachetSignatureUrl}
+                            alt="Aperçu cachet"
+                            style={{ maxHeight: 65, maxWidth: 200, objectFit: "contain", border: "1px solid #f1f5f9", padding: 4, borderRadius: 4 }}
+                            onError={() => setImageLoadError(true)}
+                            onLoad={() => setImageLoadError(false)}
+                          />
+                          <Typography variant="caption" color="success.main" fontWeight={700}>
+                            ✓ Cachet actif
+                          </Typography>
+                        </Box>
+                      )}
+                      <Button
+                        size="small"
+                        color="error"
+                        variant="outlined"
+                        onClick={() => {
+                          setTenantForm(prev => ({ ...prev, cachetSignatureUrl: "" }));
+                          setImageLoadError(false);
+                        }}
+                        sx={{ textTransform: "none", fontSize: "0.75rem" }}
+                      >
+                        Supprimer le cachet
+                      </Button>
+                    </Stack>
+                  </Box>
+                )}
+              </Stack>
+            </Box>
           </Stack>
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>

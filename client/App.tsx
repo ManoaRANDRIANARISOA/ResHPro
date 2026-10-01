@@ -82,43 +82,46 @@ function AuthenticatedTenantRoutes() {
         <Route index element={<Navigate to="dashboard" replace />} />
         <Route path="dashboard" element={<Dashboard />} />
 
+        <Route path="hebergement" element={<Navigate to="hebergement/gestion" replace />} />
         <Route path="hebergement/gestion" element={
-          <RouteGuard allowed={["admin","reception","economat","direction"]}><GestionChambres /></RouteGuard>
+          <RouteGuard allowed={["admin","direction","resp_hebergement","reception","economat","dircom"]}><GestionChambres /></RouteGuard>
         } />
         <Route path="hebergement/clients" element={
-          <RouteGuard allowed={["admin","reception","economat","direction"]}><HebergementClients /></RouteGuard>
+          <RouteGuard allowed={["admin","direction","resp_hebergement","reception","economat","dircom"]}><HebergementClients /></RouteGuard>
         } />
         <Route path="hebergement/stock" element={
-          <RouteGuard allowed={["admin","economat","direction"]}><HebergementStock /></RouteGuard>
+          <RouteGuard allowed={["admin","direction","resp_hebergement","economat"]}><HebergementStock /></RouteGuard>
         } />
         <Route path="hebergement/tarifs" element={
-          <RouteGuard allowed={["admin","direction"]}><HebergementTarifs /></RouteGuard>
+          <RouteGuard allowed={["admin","direction","resp_hebergement"]}><HebergementTarifs /></RouteGuard>
         } />
 
+        <Route path="resto" element={<Navigate to="resto/plan" replace />} />
         <Route path="resto/plan" element={
-          <RouteGuard allowed={["admin","reception","chef_salle","serveur","cuisine","bar","comptoir","direction"]}><RestoPlan /></RouteGuard>
+          <RouteGuard allowed={["admin","direction","resp_resto","chef_salle","serveur","cuisine","bar","comptoir","reception"]}><RestoPlan /></RouteGuard>
         } />
         <Route path="resto/menu" element={
-          <RouteGuard allowed={["admin","chef_salle","serveur","cuisine","bar","comptoir","direction"]}><RestoMenu /></RouteGuard>
+          <RouteGuard allowed={["admin","direction","resp_resto","chef_salle","serveur","cuisine","bar","comptoir"]}><RestoMenu /></RouteGuard>
         } />
         <Route path="resto/fiches-techniques" element={
-          <RouteGuard allowed={["admin","chef_salle","cuisine","direction"]}><FichesTechniques /></RouteGuard>
+          <RouteGuard allowed={["admin","direction","resp_resto","chef_salle","cuisine"]}><FichesTechniques /></RouteGuard>
         } />
         <Route path="resto/stock" element={
-          <RouteGuard allowed={["admin","comptoir","direction"]}><RestoStock /></RouteGuard>
+          <RouteGuard allowed={["admin","direction","resp_resto","economat","cuisine","bar","comptoir"]}><RestoStock /></RouteGuard>
         } />
+        <Route path="stock" element={<Navigate to="stock/dashboard" replace />} />
         <Route path="stock/dashboard" element={
-          <RouteGuard allowed={["admin","economat","direction"]}><StockDashboard /></RouteGuard>
+          <RouteGuard allowed={["admin","direction","resp_resto","resp_hebergement","economat"]}><StockDashboard /></RouteGuard>
         } />
         <Route path="resto/evenements" element={
-          <RouteGuard allowed={["admin","chef_salle","serveur","cuisine","bar","comptoir","direction"]}><RestoEvenements /></RouteGuard>
+          <RouteGuard allowed={["admin","direction","resp_resto","chef_salle","serveur","cuisine","bar","comptoir"]}><RestoEvenements /></RouteGuard>
         } />
         <Route path="resto/ecarts" element={
-          <RouteGuard allowed={["admin","economat","direction"]}><AnalyseEcarts /></RouteGuard>
+          <RouteGuard allowed={["admin","direction","resp_resto","economat"]}><AnalyseEcarts /></RouteGuard>
         } />
 
         <Route path="financier" element={
-          <RouteGuard allowed={["admin","comptable","comptoir","direction","reception"]}><Financier /></RouteGuard>
+          <RouteGuard allowed={["admin","direction","comptable","comptoir","reception","resp_hebergement","resp_resto","dircom"]}><Financier /></RouteGuard>
         } />
         <Route path="rh" element={
           <RouteGuard allowed={["admin","direction","comptable","resp_hebergement","resp_resto"]}><RHPage /></RouteGuard>

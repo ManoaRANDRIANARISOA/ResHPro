@@ -66,7 +66,11 @@ export interface TenantConfig {
   telephone?: string; // Téléphone officiel de l'établissement
   email?: string; // E-mail officiel de facturation
   rib?: string; // Relevé d'identité bancaire pour virement
+  nomCompte?: string; // Nom du titulaire du compte bancaire (ex: SARL HOTEL ...)
   mvola?: string; // Numéro MVola (Mobile Money)
+  nomCompteMvola?: string; // Nom du titulaire / compte MVola (ex: RAHANTAMALALA VERONIQUE Elisette ou OKA LODGE)
+  ordreReglement?: "mvola_first" | "rib_first"; // Ordre d'affichage des conditions de règlement (défaut: "mvola_first")
+  conditionsReglementNotes?: string; // Mention personnalisée additionnelle pour les conditions de règlement
   cachetSignatureUrl?: string; // URL de l'image de signature / cachet
   checkInHour: string;
   checkOutHour: string;
@@ -109,7 +113,11 @@ export interface TenantPublicConfig {
   telephone?: string;
   email?: string;
   rib?: string;
+  nomCompte?: string;
   mvola?: string;
+  nomCompteMvola?: string;
+  ordreReglement?: "mvola_first" | "rib_first";
+  conditionsReglementNotes?: string;
   cachetSignatureUrl?: string;
   subscription?: TenantSubscription;
   theme: {

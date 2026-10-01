@@ -36,8 +36,9 @@ import {
   useDeleteEvenement,
   useCreateFacture,
   useFactures,
+  useValidateProforma,
 } from "@/services/api";
-import { Evenement, EvenementSession } from "@shared/api";
+import { Evenement, EvenementSession, isProformaDocument } from "@shared/api";
 import { useNavigate } from "react-router-dom";
 import { useTenant } from "@/contexts/TenantContext";
 import MusicNoteIcon from "@mui/icons-material/MusicNote";
@@ -166,6 +167,7 @@ export default function RestoEvenements() {
   const update = useUpdateEvenement();
   const deleteEvent = useDeleteEvenement();
   const createFacture = useCreateFacture();
+  const validateProforma = useValidateProforma();
   const navigate = useNavigate();
   const [selectedId, setSelectedId] = useState<string | null>(data?.[0]?.id ?? null);
   useEffect(() => {
@@ -292,6 +294,31 @@ export default function RestoEvenements() {
     const typeDoc = confirmFactureDialog.typeDoc;
     if (!selected || !typeDoc) return;
     setConfirmFactureDialog({ open: false, typeDoc: null });
+
+    // Si une proforma existe déjà et que l'utilisateur veut une facture définitive -> conversion en place
+    if (typeDoc === "facture" && linkedInvoice && isProformaDocument(linkedInvoice)) {
+      validateProforma.mutate(
+        { id: linkedInvoice.id },
+        {
+          onSuccess: () => {
+            navigate(`/${tenantId}/financier?factureId=${linkedInvoice.id}`);
+          },
+        }
+      );
+      return;
+    }
+
+    // Si une facture définitive existe déjà -> naviguer vers elle
+    if (linkedInvoice && !isProformaDocument(linkedInvoice)) {
+      navigate(`/${tenantId}/financier?factureId=${linkedInvoice.id}`);
+      return;
+    }
+
+    // Si une proforma existe déjà et que l'utilisateur clique proforma -> naviguer vers elle
+    if (typeDoc === "proforma" && linkedInvoice && isProformaDocument(linkedInvoice)) {
+      navigate(`/${tenantId}/financier?factureId=${linkedInvoice.id}`);
+      return;
+    }
 
     const montant = Number(form.montantTotal ?? selected.montantTotal ?? 0);
     const clientNom = form.contact || selected.contact || "Client";
@@ -673,33 +700,57 @@ export default function RestoEvenements() {
                     {selected.factureId && (linkedInvoice ? ` · Facture ${linkedInvoice.numero} (${linkedInvoice.typeDocument || 'facture'}, ${linkedInvoice.statut})` : " · Facture liée")}
                   </Typography>
                 </Box>
-                <Stack direction="row" spacing={1}>
-                  {selected.factureId ? (
+                <Stack direction="row" spacing={1} flexWrap="wrap">
+                  {linkedInvoice && !isProformaDocument(linkedInvoice) ? (
                     <Button
                       size="small"
-                      variant="outlined"
+                      variant="contained"
+                      sx={{ bgcolor: "#16a34a", "&:hover": { bgcolor: "#15803d" }, fontWeight: 700 }}
                       startIcon={<ReceiptIcon />}
-                      onClick={() => navigate(`/${tenantId}/financier?factureId=${selected.factureId}`)}
+                      onClick={() => navigate(`/${tenantId}/financier?factureId=${linkedInvoice.id}`)}
                     >
-                      Ouvrir Document
+                      📄 Ouvrir Facture ({linkedInvoice.numero})
                     </Button>
-                  ) : null}
-                  <Button
-                    size="small"
-                    variant="contained"
-                    sx={{ bgcolor: "#f59e0b", "&:hover": { bgcolor: "#d97706" }, color: "#fff", fontWeight: 700 }}
-                    onClick={() => handleGenerateFacture("proforma")}
-                  >
-                    📋 Proforma (Devis)
-                  </Button>
-                  <Button
-                    size="small"
-                    variant="contained"
-                    sx={{ bgcolor: "#4f46e5", "&:hover": { bgcolor: "#4338ca" }, fontWeight: 700 }}
-                    onClick={() => handleGenerateFacture("facture")}
-                  >
-                    📄 Facture Définitive
-                  </Button>
+                  ) : linkedInvoice && isProformaDocument(linkedInvoice) ? (
+                    <>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        startIcon={<ReceiptIcon />}
+                        onClick={() => navigate(`/${tenantId}/financier?factureId=${linkedInvoice.id}`)}
+                      >
+                        📋 Ouvrir Proforma ({linkedInvoice.numero})
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="contained"
+                        sx={{ bgcolor: "#16a34a", "&:hover": { bgcolor: "#15803d" }, fontWeight: 800 }}
+                        onClick={() => handleGenerateFacture("facture")}
+                        disabled={validateProforma.isPending}
+                      >
+                        ✓ Valider en Facture Définitive
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <Button
+                        size="small"
+                        variant="contained"
+                        sx={{ bgcolor: "#f59e0b", "&:hover": { bgcolor: "#d97706" }, color: "#fff", fontWeight: 700 }}
+                        onClick={() => handleGenerateFacture("proforma")}
+                      >
+                        📋 Proforma (Devis)
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="contained"
+                        sx={{ bgcolor: "#4f46e5", "&:hover": { bgcolor: "#4338ca" }, fontWeight: 700 }}
+                        onClick={() => handleGenerateFacture("facture")}
+                      >
+                        📄 Facture Définitive
+                      </Button>
+                    </>
+                  )}
                 </Stack>
               </Stack>
             </Box>

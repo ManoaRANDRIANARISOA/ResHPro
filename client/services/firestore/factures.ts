@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Facture } from "@shared/api";
+import { Facture, isProformaDocument } from "@shared/api";
 import { useTenant } from "@/contexts/TenantContext";
-import { fetchCollection, createDoc, updateTenantDoc, getTenantDoc, deleteTenantDoc } from "./utils";
+import { fetchCollection, fetchDoc, createDoc, updateTenantDoc, getTenantDoc, deleteTenantDoc } from "./utils";
 import { addDays } from "date-fns";
 import { FicheTechnique } from "@shared/fiche-technique";
 import { writeBatch, increment, runTransaction, doc } from "firebase/firestore";
@@ -67,8 +67,13 @@ export function useCreateFacture() {
       
       const createdFacture = await createDoc<Facture>(tenantId, "factures", f);
 
-      // --- DÉCRÉMENTATION DES STOCKS ---
-      if (payload.source === "Restaurant" && payload.lignes && payload.lignes.length > 0) {
+      // --- DÉCRÉMENTATION DES STOCKS (Factures officielles uniquement, jamais pour un devis/proforma) ---
+      if (
+        payload.source === "Restaurant" &&
+        (!payload.typeDocument || payload.typeDocument === "facture") &&
+        payload.lignes &&
+        payload.lignes.length > 0
+      ) {
         try {
           const fiches = await fetchCollection<FicheTechnique>(tenantId, "fiches-techniques");
           const batch = writeBatch(db);
@@ -162,6 +167,19 @@ export function useDeleteFacture() {
   return useMutation({
     mutationFn: async (id: string) => {
       if (!tenantId) throw new Error("Tenant ID is required");
+      const currentDoc = await fetchDoc<Facture>(tenantId, "factures", id);
+      if (currentDoc) {
+        if (!isProformaDocument(currentDoc)) {
+          throw new Error(
+            `Suppression impossible : La facture officielle ${currentDoc.numero} est un document comptable légal. Conformément aux normes fiscales et comptables, une facture officielle ne peut pas être supprimée. Pour annuler une facture émise, utilisez l'action « Annuler » afin de conserver la piste d'audit légale.`
+          );
+        }
+        if (currentDoc.statut === "payee" || (Number(currentDoc.accompte || 0) > 0 && currentDoc.statut !== "annulee")) {
+          throw new Error(
+            `Suppression impossible : Ce document comporte un règlement ou un acompte encaissé. Vous devez régulariser ou annuler comptablement.`
+          );
+        }
+      }
       await deleteTenantDoc(tenantId, "factures", id);
       return id;
     },
@@ -175,8 +193,12 @@ export function useValidateProforma() {
   return useMutation({
     mutationFn: async ({ id, newDate }: { id: string; newDate?: string }) => {
       if (!tenantId) throw new Error("Tenant ID is required");
+      const currentDoc = await fetchDoc<Facture>(tenantId, "factures", id);
       const updates: Partial<Facture> = {
         typeDocument: "facture",
+        numeroProformaInitiale: currentDoc?.numeroProformaInitiale || currentDoc?.numero,
+        dateProformaInitiale: currentDoc?.dateProformaInitiale || currentDoc?.date,
+        updatedAt: new Date().toISOString(),
       };
       if (newDate) {
         updates.date = newDate;

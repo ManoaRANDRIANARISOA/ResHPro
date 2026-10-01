@@ -44,6 +44,7 @@ const usersToCreate = [
   { email: "economat@okalodge.mg", password: "okalodge2025", displayName: "Oka Economat", claims: { tenantId: "okalodge", role: "economat" } },
   { email: "comptable@okalodge.mg", password: "okalodge2025", displayName: "Oka Comptable", claims: { tenantId: "okalodge", role: "comptable" } },
   { email: "direction@okalodge.mg", password: "okalodge2025", displayName: "Oka Direction", claims: { tenantId: "okalodge", role: "direction" } },
+  { email: "dircom@okalodge.mg", password: "dircomoka", displayName: "Oka DirCom", claims: { tenantId: "okalodge", role: "dircom" } },
   
   // Kanana Users
   { email: "admin@kanana.mg", password: "kanana2026", displayName: "Kanana Admin", claims: { tenantId: "kanana", role: "admin" } },

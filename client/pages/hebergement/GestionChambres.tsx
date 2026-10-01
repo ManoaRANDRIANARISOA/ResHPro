@@ -58,11 +58,15 @@ import {
   useFactures,
   useUpdateClient,
   useDeleteHebergementReservation,
+  useValidateProforma,
   sortChambres,
   getReservationRoomInterval,
   isRoomReservedDuring,
 } from "@/services/api";
 import { useTenant } from "@/contexts/TenantContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { useAppSelector } from "@/store";
+import { useRBAC } from "@/hooks/useRBAC";
 import {
   Reservation,
   Chambre,
@@ -143,6 +147,9 @@ export default function GestionChambres() {
   const create = useCreateHebergementReservation();
   const { data: clients } = useClients();
   const { data: rawRooms } = useChambres();
+  const { role, isDircom } = useRBAC();
+  const { user } = useAuth();
+  const userEmail = (user?.email || "").toLowerCase();
   const [open, setOpen] = useState<Reservation | null>(null);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const { publicConfig, tenantId } = useTenant();
@@ -177,7 +184,8 @@ export default function GestionChambres() {
     const dStart = new Date(r.dateDebut);
     const dEnd = new Date(r.dateFin || r.dateDebut);
     if (r.statut === "annulee") return "annulee";
-    if (r.statut === "en_attente") return "en_attente";
+    const hasAcompte = Number((r as any).accompte || 0) > 0;
+    if (r.statut === "en_attente") return hasAcompte ? "confirmee" : "en_attente";
     if (now < dStart) {
       return r.statut === "arrivee" ? "confirmee" : r.statut;
     }
@@ -394,90 +402,96 @@ export default function GestionChambres() {
             <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1 }}>
               <Typography fontWeight={800}>Réservations — Liste</Typography>
               <Stack direction="row" spacing={1}>
-                <Button variant="outlined" onClick={handleExportReservations}>
-                  Export CSV
-                </Button>
-                <Button variant="outlined" onClick={handleExportPDF}>
-                  Export PDF
-                </Button>
+                {!isDircom && (
+                  <>
+                    <Button variant="outlined" onClick={handleExportReservations}>
+                      Export CSV
+                    </Button>
+                    <Button variant="outlined" onClick={handleExportPDF}>
+                      Export PDF
+                    </Button>
+                  </>
+                )}
                 <Button variant="contained" onClick={() => setCreateModalOpen(true)}>
                   Nouvelle réservation
                 </Button>
               </Stack>
             </Stack>
-            <Paper sx={{ p: 1, mb: 1 }}>
-              <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }}>
-                <Typography variant="body2" color="text.secondary">
-                  Hors service (période)
-                </Typography>
-                <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-                  <Select
-                    size="small"
-                    value={maintRoomId}
-                    onChange={(e) => setMaintRoomId(e.target.value)}
-                    sx={{ minWidth: 160 }}
-                  >
-                    {(rooms || []).map((r) => (
-                      <MenuItem key={r.id} value={r.id}>
-                        {r.numero}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                  <TextField
-                    size="small"
-                    type="date"
-                    label="Début"
-                    value={maintStart}
-                    onChange={(e) => setMaintStart(e.target.value)}
-                    sx={{ minWidth: 160 }}
-                  />
-                  <TextField
-                    size="small"
-                    type="date"
-                    label="Fin"
-                    value={maintEnd}
-                    onChange={(e) => setMaintEnd(e.target.value)}
-                    sx={{ minWidth: 160 }}
-                  />
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    onClick={() => {
-                      if (!maintRoomId || !maintStart || !maintEnd) return;
-                      const maintToDelete = (maintenance || []).find(
-                        (m) =>
-                          m.chambreId === maintRoomId &&
-                          (m.dateDebut === maintStart || (m as any).start === maintStart) &&
-                          (m.dateFin === maintEnd || (m as any).end === maintEnd)
-                      );
-                      if (maintToDelete) {
-                        removeMaint.mutate(maintToDelete.id, {
-                          onSuccess: () => updateRoom.mutate({ id: maintRoomId, statut: "libre" } as any),
-                        });
-                      }
-                    }}
-                  >
-                    Réactiver
-                  </Button>
-                  <Button
-                    size="small"
-                    variant="text"
-                    onClick={() => {
-                      if (!maintRoomId || !maintStart || !maintEnd) return;
-                      addMaint.mutate({ chambreId: maintRoomId, dateDebut: maintStart, dateFin: maintEnd });
-                    }}
-                  >
-                    Marquer HS
-                  </Button>
-                </Box>
-              </Stack>
-            </Paper>
+            {!isDircom && (
+              <Paper sx={{ p: 1, mb: 1 }}>
+                <Stack direction={{ xs: "column", md: "row" }} spacing={1} alignItems={{ xs: "stretch", md: "center" }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Hors service (période)
+                  </Typography>
+                  <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+                    <Select
+                      size="small"
+                      value={maintRoomId}
+                      onChange={(e) => setMaintRoomId(e.target.value)}
+                      sx={{ minWidth: 160 }}
+                    >
+                      {(rooms || []).map((r) => (
+                        <MenuItem key={r.id} value={r.id}>
+                          {r.numero}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                    <TextField
+                      size="small"
+                      type="date"
+                      label="Début"
+                      value={maintStart}
+                      onChange={(e) => setMaintStart(e.target.value)}
+                      sx={{ minWidth: 160 }}
+                    />
+                    <TextField
+                      size="small"
+                      type="date"
+                      label="Fin"
+                      value={maintEnd}
+                      onChange={(e) => setMaintEnd(e.target.value)}
+                      sx={{ minWidth: 160 }}
+                    />
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={() => {
+                        if (!maintRoomId || !maintStart || !maintEnd) return;
+                        const maintToDelete = (maintenance || []).find(
+                          (m) =>
+                            m.chambreId === maintRoomId &&
+                            (m.dateDebut === maintStart || (m as any).start === maintStart) &&
+                            (m.dateFin === maintEnd || (m as any).end === maintEnd)
+                        );
+                        if (maintToDelete) {
+                          removeMaint.mutate(maintToDelete.id, {
+                            onSuccess: () => updateRoom.mutate({ id: maintRoomId, statut: "libre" } as any),
+                          });
+                        }
+                      }}
+                    >
+                      Réactiver
+                    </Button>
+                    <Button
+                      size="small"
+                      variant="text"
+                      onClick={() => {
+                        if (!maintRoomId || !maintStart || !maintEnd) return;
+                        addMaint.mutate({ chambreId: maintRoomId, dateDebut: maintStart, dateFin: maintEnd });
+                      }}
+                    >
+                      Marquer HS
+                    </Button>
+                  </Box>
+                </Stack>
+              </Paper>
+            )}
             <Box sx={{ overflowX: "auto", width: "100%", pb: 1 }}>
-              <Box sx={{ minWidth: 860 }}>
+              <Box sx={{ minWidth: 920 }}>
                 <Box
                   sx={{
                     display: "grid",
-                    gridTemplateColumns: "1.2fr 130px 130px 110px 140px 120px 200px",
+                    gridTemplateColumns: "1.25fr 115px 115px 145px 165px 125px 175px",
                     px: 1.5,
                     py: 1,
                     color: "text.secondary",
@@ -487,21 +501,46 @@ export default function GestionChambres() {
                   <Box>Client</Box>
                   <Box>Arrivée</Box>
                   <Box>Départ</Box>
-                  <Box>Chambre</Box>
-                  <Box>Montant</Box>
-                  <Box>Statut</Box>
+                  <Box>Chambre(s)</Box>
+                  <Box sx={{ pr: 1 }}>Montant & Acompte</Box>
+                  <Box sx={{ px: 0.5 }}>Statut</Box>
                   <Box>Actions</Box>
                 </Box>
                 {(list || []).map((r) => {
-                  const f = (factures || []).find((x) => x.reservationId === r.id && x.source === "Hebergement");
+                  const allF = (factures || []).filter((x) => x.reservationId === r.id && x.source === "Hebergement");
+                  const f = allF.find((x) => !isProformaDocument(x) && x.statut !== "annulee") || allF.find((x) => x.statut !== "annulee") || allF[0];
+                  const stays = getReservationStays(r);
+                  const isMultiStay = stays.length > 1;
+                  const accompteVal = Number(f?.accompte || (r as any).accompte || 0);
+                  const methodeAccompte = f?.methodePaiementAccompte || (r as any).methodePaiementAccompte || "especes";
+                  const estimatedStayCost = stays.reduce((sum, st) => {
+                    const ch = (rooms || []).find((c) => c.id === st.chambreId);
+                    const s = new Date(st.dateDebut);
+                    const e = st.dateFin ? new Date(st.dateFin) : addDays(s, 1);
+                    const nuits = Math.max(1, eachDayOfInterval({ start: s, end: addDays(e, -1) }).length);
+                    return sum + (ch?.tarif_base || 0) * nuits;
+                  }, 0);
+                  
+                  // Détection stricte : appartient à la commerciale connectée UNIQUEMENT si createdBy correspond
+                  const isMyReservation = Boolean(
+                    userEmail && r.createdBy && r.createdBy.toLowerCase() === userEmail.toLowerCase()
+                  );
+                  const isOtherStaffReservation = Boolean(isDircom && !isMyReservation);
+
+                  const clientNom =
+                    clients?.find((c) => c.id === r.clientId)?.nom ??
+                    (r as any).clientNom ??
+                    r.clientId ??
+                    "Client";
+
                   return (
                     <Box
                       key={r.id}
                       sx={{
                         display: "grid",
-                        gridTemplateColumns: "1.2fr 130px 130px 110px 140px 120px 200px",
+                        gridTemplateColumns: "1.25fr 115px 115px 145px 165px 125px 175px",
                         px: 1.5,
-                        py: 1,
+                        py: 1.2,
                         alignItems: "center",
                         borderTop: "1px solid",
                         borderColor: "divider",
@@ -510,22 +549,120 @@ export default function GestionChambres() {
                       }}
                       onClick={() => setOpen(r)}
                     >
-                      <Box fontWeight={600}>{clients?.find((c) => c.id === r.clientId)?.nom ?? r.clientId}</Box>
-                      <Box>{format(new Date(r.dateDebut), "dd/MM/yyyy")}</Box>
-                      <Box>{r.dateFin ? format(new Date(r.dateFin), "dd/MM/yyyy") : "-"}</Box>
-                      <Box fontWeight={600} color="primary.main">
+                      <Box>
+                        <Typography variant="body2" fontWeight={700} sx={{ color: isOtherStaffReservation ? "text.secondary" : "inherit" }}>
+                          {clientNom}
+                        </Typography>
+                        {isMultiStay && (
+                          <Chip
+                            size="small"
+                            label={`${stays.length} séjours distincts`}
+                            color={isOtherStaffReservation ? "default" : "primary"}
+                            sx={{ height: 18, fontSize: "0.62rem", fontWeight: 700, mt: 0.3 }}
+                          />
+                        )}
+                      </Box>
+                      <Box>
+                        <Typography variant="body2" fontWeight={600}>
+                          {format(new Date(r.dateDebut), "dd/MM/yyyy")}
+                        </Typography>
+                        {isMultiStay && (
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            (1er séjour)
+                          </Typography>
+                        )}
+                      </Box>
+                      <Box>
+                        <Typography variant="body2" fontWeight={600}>
+                          {r.dateFin ? format(new Date(r.dateFin), "dd/MM/yyyy") : "-"}
+                        </Typography>
+                        {isMultiStay && (
+                          <Typography variant="caption" color="text.secondary" display="block">
+                            (Dernier départ)
+                          </Typography>
+                        )}
+                      </Box>
+                      <Box fontWeight={600} color={isOtherStaffReservation ? "text.secondary" : "primary.main"}>
                         {getReservationRooms(r)}
+                        {isMultiStay && (
+                          <Box sx={{ fontSize: "0.68rem", color: "text.secondary", mt: 0.3 }}>
+                            {stays.map((s, idx) => {
+                              const ch = rooms?.find((c) => c.id === s.chambreId);
+                              const chNum = ch?.numero || s.chambreId;
+                              const dDeb = format(new Date(s.dateDebut), "dd/MM");
+                              const dFin = s.dateFin ? format(new Date(s.dateFin), "dd/MM") : "";
+                              return (
+                                <div key={s.id || idx}>
+                                  • {chNum} : {dDeb} → {dFin} ({s.nuits || 1}n)
+                                </div>
+                              );
+                            })}
+                          </Box>
+                        )}
                       </Box>
                       <Box onClick={(e) => e.stopPropagation()}>
                         {f ? (
-                          <Button
-                            size="small"
-                            variant="text"
-                            sx={{ fontWeight: 700 }}
-                            onClick={() => navigate(`/${tenantId}/financier?factureId=${f.id}`)}
-                          >
-                            {f.totalTTC.toLocaleString()} Ar
-                          </Button>
+                          <Box>
+                            {isOtherStaffReservation ? (
+                              <Typography variant="body2" fontWeight={800} sx={{ fontSize: "0.88rem", color: "#1e293b" }}>
+                                {f.totalTTC.toLocaleString("fr-FR")} Ar
+                              </Typography>
+                            ) : (
+                              <Button
+                                size="small"
+                                variant="text"
+                                sx={{ fontWeight: 800, p: 0, minWidth: 0, textTransform: "none", fontSize: "0.88rem" }}
+                                onClick={() => navigate(`/${tenantId}/financier?factureId=${f.id}`)}
+                              >
+                                {f.totalTTC.toLocaleString("fr-FR")} Ar
+                              </Button>
+                            )}
+                            {accompteVal > 0 && (
+                              <Box sx={{ mt: 0.2 }}>
+                                <Chip
+                                  size="small"
+                                  label={`Acompte: ${accompteVal.toLocaleString("fr-FR")} Ar`}
+                                  sx={{ height: 18, fontSize: "0.62rem", fontWeight: 700, bgcolor: "#dcfce7", color: "#166534" }}
+                                />
+                                <Typography variant="caption" color="text.secondary" display="block" sx={{ fontSize: "0.68rem", mt: 0.1 }}>
+                                  Reste: {Math.max(0, f.totalTTC - accompteVal).toLocaleString("fr-FR")} Ar
+                                </Typography>
+                              </Box>
+                            )}
+                          </Box>
+                        ) : estimatedStayCost > 0 ? (
+                          <Box>
+                            <Typography variant="body2" fontWeight={700} sx={{ fontSize: "0.85rem", color: "#334155" }}>
+                              {estimatedStayCost.toLocaleString("fr-FR")} Ar
+                            </Typography>
+                            {accompteVal > 0 ? (
+                              <Box sx={{ mt: 0.2 }}>
+                                <Chip
+                                  size="small"
+                                  label={`Acompte: ${accompteVal.toLocaleString("fr-FR")} Ar`}
+                                  sx={{ height: 18, fontSize: "0.62rem", fontWeight: 700, bgcolor: "#dcfce7", color: "#166534" }}
+                                />
+                                <Typography variant="caption" color="text.secondary" display="block" sx={{ fontSize: "0.68rem", mt: 0.1 }}>
+                                  Reste: {Math.max(0, estimatedStayCost - accompteVal).toLocaleString("fr-FR")} Ar
+                                </Typography>
+                              </Box>
+                            ) : (
+                              <Typography variant="caption" color="text.secondary" display="block" sx={{ fontSize: "0.65rem" }}>
+                                (Non facturée)
+                              </Typography>
+                            )}
+                          </Box>
+                        ) : accompteVal > 0 ? (
+                          <Box>
+                            <Chip
+                              size="small"
+                              label={`Acompte: ${accompteVal.toLocaleString("fr-FR")} Ar`}
+                              sx={{ height: 20, fontSize: "0.68rem", fontWeight: 700, bgcolor: "#dcfce7", color: "#166534" }}
+                            />
+                            <Typography variant="caption" color="text.secondary" display="block" sx={{ fontSize: "0.68rem", mt: 0.2 }}>
+                              ({methodeAccompte === "mobile_money" ? "Mobile Money" : methodeAccompte === "virement" ? "Virement" : methodeAccompte === "carte" ? "Carte" : "Espèces"})
+                            </Typography>
+                          </Box>
                         ) : (
                           <Chip size="small" label="—" variant="outlined" />
                         )}
@@ -560,29 +697,32 @@ export default function GestionChambres() {
                       </Box>
                       <Box sx={{ display: "flex", gap: 0.8, alignItems: "center" }} onClick={(e) => e.stopPropagation()}>
                         <Button size="small" variant="outlined" onClick={() => setOpen(r)}>
-                          Voir / Gérer
+                          {isOtherStaffReservation ? "Consulter" : "Voir / Gérer"}
                         </Button>
-                        {(!f || f.statut === "annulee") && (
+                        {!isOtherStaffReservation && (!f || f.statut === "annulee" || isProformaDocument(f)) && (
                           <Button
                             size="small"
                             variant="contained"
-                            color="primary"
+                            color={isProformaDocument(f) ? "warning" : "primary"}
                             disabled={generateInvoiceMutation.isPending}
                             onClick={() => {
-                              generateInvoiceMutation.mutate(r, {
-                                onSuccess: (newDoc: any) => {
-                                  if (newDoc?.id) {
-                                    navigate(`/${tenantId}/financier?factureId=${newDoc.id}`);
-                                  }
-                                },
-                                onError: (err) => {
-                                  console.error("Facturation error:", err);
-                                  alert("Erreur lors de la génération de la facture.");
-                                },
-                              });
+                              generateInvoiceMutation.mutate(
+                                { reservation: r, typeDocument: "facture" },
+                                {
+                                  onSuccess: (newDoc: any) => {
+                                    if (newDoc?.id) {
+                                      navigate(`/${tenantId}/financier?factureId=${newDoc.id}`);
+                                    }
+                                  },
+                                  onError: (err) => {
+                                    console.error("Facturation error:", err);
+                                    alert("Erreur lors de la génération de la facture.");
+                                  },
+                                }
+                              );
                             }}
                           >
-                            Facturer
+                            {isProformaDocument(f) ? "Valider Facture" : "Facturer"}
                           </Button>
                         )}
                       </Box>
@@ -595,9 +735,12 @@ export default function GestionChambres() {
         </Grid>
       </Grid>
 
-      {/* Dialog pour consulter/éditer une réservation existante */}
       <Dialog open={!!open} onClose={() => setOpen(null)} maxWidth="sm" fullWidth>
-        <DialogTitle fontWeight={800}>Détails de la réservation</DialogTitle>
+        <DialogTitle fontWeight={800}>
+          {open && Boolean(isDircom && (!open.createdBy || open.createdBy.toLowerCase() !== userEmail.toLowerCase()))
+            ? "Détails de la réservation (Consultation — Lecture seule)"
+            : "Détails de la réservation"}
+        </DialogTitle>
         <DialogContent>
           {!open && <Typography color="text.secondary">Sélectionnez une réservation</Typography>}
           {open && (
@@ -608,6 +751,8 @@ export default function GestionChambres() {
               maintenance={maintenance || []}
               onClose={() => setOpen(null)}
               onSave={(p) => update.mutate(p as any, { onSuccess: () => setOpen(null) })}
+              isDircom={isDircom}
+              userEmail={userEmail}
             />
           )}
         </DialogContent>
@@ -623,10 +768,15 @@ export default function GestionChambres() {
             maintenance={maintenance || []}
             onClose={() => setCreateModalOpen(false)}
             initialClientId={searchParams.get("clientId") || undefined}
+            isDircom={isDircom}
+            userEmail={userEmail}
             onCreate={(payload) => {
-              create.mutate(payload, {
-                onSuccess: () => setCreateModalOpen(false),
-              });
+              create.mutate(
+                { ...payload, ...(isDircom && userEmail ? { createdBy: userEmail } : {}) },
+                {
+                  onSuccess: () => setCreateModalOpen(false),
+                }
+              );
             }}
           />
         </DialogContent>
@@ -683,6 +833,8 @@ function CreateReservationForm({
   onClose,
   onCreate,
   initialClientId,
+  isDircom,
+  userEmail,
 }: {
   reservations: Reservation[];
   rooms: Chambre[];
@@ -690,8 +842,13 @@ function CreateReservationForm({
   onClose: () => void;
   onCreate: (payload: any) => void;
   initialClientId?: string;
+  isDircom?: boolean;
+  userEmail?: string;
 }) {
   const { data: clients } = useClients();
+  const visibleClients = useMemo(() => {
+    return clients || [];
+  }, [clients]);
   const createClient = useCreateClient();
   const updateClient = useUpdateClient();
   const { config } = useTenant();
@@ -726,7 +883,7 @@ function CreateReservationForm({
     clientAgenceVoyage: initialClient?.agenceVoyage || "",
     clientOrigine: initialClient?.origine || "",
     nbPersonnes: 2,
-    statut: "confirmee" as const,
+    statut: "confirmee" as "confirmee" | "en_attente",
     accompte: "",
     methodePaiementAccompte: "especes",
   });
@@ -857,7 +1014,8 @@ function CreateReservationForm({
 
     const conflict = reservations.find((r) => isRoomReservedDuring(r, chambreId, date, nextDay));
     if (conflict) {
-      if (conflict.statut === "en_attente") return "#F59E0B";
+      const conflictHasAcompte = Number((conflict as any).accompte || 0) > 0;
+      if (conflict.statut === "en_attente" && !conflictHasAcompte) return "#F59E0B";
       return "#EF5350";
     }
 
@@ -900,6 +1058,7 @@ function CreateReservationForm({
           telephone: form.clientTelephone.trim() || undefined,
           agenceVoyage: form.clientAgenceVoyage.trim() || undefined,
           origine: form.clientOrigine.trim() || undefined,
+          ...(isDircom && userEmail ? { createdBy: userEmail } : {}),
         });
         clientId = newClient.id;
       } catch (error) {
@@ -920,11 +1079,13 @@ function CreateReservationForm({
       }
     }
 
-    // Calculer les dates globales et détails par chambre (multi-séjours)
+    // Calculer les dates globales, séjours et détails par chambre (multi-séjours)
     const details: ReservationChambreDetail[] = [];
+    const allStays: Stay[] = [];
     let globalStart: Date | null = null;
     let globalEnd: Date | null = null;
     const roomIds: string[] = [];
+    let stayIndex = 0;
 
     for (const [rId, ranges] of selectedRoomEntries) {
       roomIds.push(rId);
@@ -932,6 +1093,7 @@ function CreateReservationForm({
       // Trier les plages par date de début
       const sortedRanges = [...ranges].sort((a, b) => a.start.getTime() - b.start.getTime());
       for (const range of sortedRanges) {
+        stayIndex++;
         const nights = Math.max(1, eachDayOfInterval({ start: range.start, end: addDays(range.end, -1) }).length);
         details.push({
           chambreId: rId,
@@ -940,20 +1102,37 @@ function CreateReservationForm({
           nuits: nights,
           tarifBase: ch?.tarif_base || 0,
         });
+        allStays.push({
+          id: `stay_${stayIndex}`,
+          chambreId: rId,
+          dateDebut: range.start.toISOString(),
+          dateFin: range.end.toISOString(),
+          nuits: nights,
+          statut: form.statut,
+          nbPersonnes: form.nbPersonnes,
+          tarifBase: ch?.tarif_base || 0,
+          packId: selectedPack?.id,
+          packNom: selectedPack?.nom,
+          packPrix: selectedPack?.prix,
+          packTypeCalcul: selectedPack?.typeCalcul,
+        });
         if (!globalStart || range.start < globalStart) globalStart = range.start;
         if (!globalEnd || range.end > globalEnd) globalEnd = range.end;
       }
     }
+
+    const finalStatut = (Number(form.accompte || 0) > 0 && form.statut === "en_attente") ? "confirmee" : form.statut;
 
     onCreate({
       clientId,
       chambreIds: roomIds,
       chambreId: roomIds[0] || "",
       chambresDetails: details,
+      stays: allStays,
       dateDebut: globalStart ? globalStart.toISOString() : new Date().toISOString(),
       dateFin: globalEnd ? globalEnd.toISOString() : addDays(new Date(), 1).toISOString(),
       nbPersonnes: form.nbPersonnes,
-      statut: form.statut,
+      statut: finalStatut,
       packId: selectedPack?.id,
       packNom: selectedPack?.nom,
       packPrix: selectedPack?.prix,
@@ -970,7 +1149,7 @@ function CreateReservationForm({
       </Typography>
       <Autocomplete
         freeSolo
-        options={clients || []}
+        options={visibleClients}
         getOptionLabel={(option) => (typeof option === "string" ? option : option.nom)}
         value={
           clients?.find((c) => c.id === form.clientId) ||
@@ -1095,7 +1274,15 @@ function CreateReservationForm({
           label="Montant de l'acompte (Ar)"
           type="number"
           value={form.accompte}
-          onChange={(e) => setForm({ ...form, accompte: e.target.value })}
+          onChange={(e) => {
+            const val = e.target.value;
+            const num = Number(val || 0);
+            setForm((prev) => ({
+              ...prev,
+              accompte: val,
+              statut: num > 0 && prev.statut === "en_attente" ? "confirmee" : prev.statut,
+            }));
+          }}
         />
         <Select
           size="small"
@@ -1119,7 +1306,7 @@ function CreateReservationForm({
           <Chip
             size="small"
             color="primary"
-            label={`${selectedRoomEntries.length} ch. · ${totalStaysCount} séjour${totalStaysCount > 1 ? "s" : ""}`}
+            label={`${selectedRoomEntries.length} chambre${selectedRoomEntries.length > 1 ? "s" : ""} · ${totalStaysCount} séjour${totalStaysCount > 1 ? "s" : ""}`}
           />
         )}
       </Stack>
@@ -1430,6 +1617,38 @@ function CreateReservationForm({
                   <span>Total estimé :</span>
                   <span>{estimatedTotal.toLocaleString("fr-FR")} Ar</span>
                 </Box>
+                {Number(form.accompte) > 0 && (
+                  <>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        color: "#059669",
+                        fontWeight: 700,
+                        fontSize: "0.88rem",
+                        px: 0.5,
+                      }}
+                    >
+                      <span>Acompte versé ({form.methodePaiementAccompte === "mobile_money" ? "Mobile Money" : form.methodePaiementAccompte === "virement" ? "Virement" : form.methodePaiementAccompte === "carte" ? "Carte" : "Espèces"}) :</span>
+                      <span>- {Number(form.accompte).toLocaleString("fr-FR")} Ar</span>
+                    </Box>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        color: "#1e293b",
+                        fontWeight: 900,
+                        fontSize: "0.95rem",
+                        bgcolor: "#dcfce7",
+                        p: 0.8,
+                        borderRadius: 1,
+                      }}
+                    >
+                      <span>Reste à payer TTC :</span>
+                      <span>{Math.max(0, estimatedTotal - Number(form.accompte)).toLocaleString("fr-FR")} Ar</span>
+                    </Box>
+                  </>
+                )}
               </Stack>
             );
           })()}
@@ -1453,6 +1672,8 @@ function EditReservation({
   maintenance,
   onSave,
   onClose,
+  isDircom,
+  userEmail,
 }: {
   r: Reservation;
   reservations: Reservation[];
@@ -1460,10 +1681,19 @@ function EditReservation({
   maintenance: ChambreMaintenance[];
   onSave: (p: Partial<Reservation> & { id: string }) => void;
   onClose: () => void;
+  isDircom?: boolean;
+  userEmail?: string;
 }) {
   const { tenantId, config } = useTenant();
   const navigate = useNavigate();
   const { data: clients } = useClients();
+  const isMyReservation = Boolean(
+    userEmail && r.createdBy && r.createdBy.toLowerCase() === userEmail.toLowerCase()
+  );
+  const isOtherStaffReservation = Boolean(isDircom && !isMyReservation);
+  const visibleClients = useMemo(() => {
+    return clients || [];
+  }, [clients]);
   const createClient = useCreateClient();
   const updateClient = useUpdateClient();
   const deleteReservation = useDeleteHebergementReservation();
@@ -1483,36 +1713,28 @@ function EditReservation({
 
   const currentClient = clients?.find((c) => c.id === r.clientId);
 
-  // Initialiser les plages de dates indépendantes pour chaque chambre
-  const [selectedRoomsMap, setSelectedRoomsMap] = useState<Record<string, RoomRange>>(() => {
-    const map: Record<string, RoomRange> = {};
-    if (r.stays && r.stays.length > 0) {
-      r.stays.forEach((st) => {
-        map[st.chambreId] = {
-          start: new Date(st.dateDebut),
-          end: new Date(st.dateFin || st.dateDebut),
-        };
-      });
-    } else if (r.chambresDetails && r.chambresDetails.length > 0) {
-      r.chambresDetails.forEach((cd) => {
-        map[cd.chambreId] = {
-          start: new Date(cd.dateDebut),
-          end: new Date(cd.dateFin || cd.dateDebut),
-        };
-      });
-    } else {
-      const ids = r.chambreIds && r.chambreIds.length > 0 ? r.chambreIds : r.chambreId ? [r.chambreId] : [];
-      const s = new Date(r.dateDebut);
-      const e = r.dateFin ? new Date(r.dateFin) : addDays(s, 1);
-      ids.forEach((id) => {
-        map[id] = { start: s, end: e };
-      });
-    }
+  // Initialiser les plages de dates indépendantes pour chaque chambre (multi-séjours)
+  const [selectedRoomsMap, setSelectedRoomsMap] = useState<Record<string, RoomRange[]>>(() => {
+    const map: Record<string, RoomRange[]> = {};
+    const stays = getReservationStays(r);
+    stays.forEach((st) => {
+      if (!map[st.chambreId]) map[st.chambreId] = [];
+      const s = new Date(st.dateDebut);
+      const e = st.dateFin ? new Date(st.dateFin) : addDays(s, 1);
+      map[st.chambreId].push({ start: s, end: e });
+    });
+    // Trier les plages chronologiquement
+    Object.keys(map).forEach((k) => {
+      map[k].sort((a, b) => a.start.getTime() - b.start.getTime());
+    });
     return map;
   });
+  const activeSegmentRef = useRef<Record<string, number>>({});
 
   const initialStart = new Date(r.dateDebut);
   const [modalDateRef, setModalDateRef] = useState<Date>(initialStart);
+
+  const validateProformaMutation = useValidateProforma();
 
   const [form, setForm] = useState({
     clientId: r.clientId || "",
@@ -1520,7 +1742,7 @@ function EditReservation({
     clientTelephone: currentClient?.telephone || "",
     clientAgenceVoyage: currentClient?.agenceVoyage || "",
     clientOrigine: currentClient?.origine || "",
-    statut: r.statut,
+    statut: (Number((r as any).accompte || 0) > 0 && r.statut === "en_attente") ? "confirmee" : r.statut,
     nbPersonnes: r.nbPersonnes || 2,
     accompte: (r as any).accompte || "",
     methodePaiementAccompte: (r as any).methodePaiementAccompte || "especes",
@@ -1546,83 +1768,77 @@ function EditReservation({
     return !hasConflict;
   }
 
-  function handleCellClick(chambreId: string, date: Date) {
+  // Clic direct et fluide sur une cellule de chambre avec support multi-séjours (Ctrl+Clic)
+  function handleCellClick(chambreId: string, date: Date, ctrlKey = false) {
+    if (isOtherStaffReservation) return;
     if (!isRoomAvailable(chambreId, date)) return;
 
     setSelectedRoomsMap((prev) => {
-      const current = prev[chambreId];
-      if (!current) {
-        return {
-          ...prev,
-          [chambreId]: {
-            start: date,
-            end: addDays(date, 1),
-          },
-        };
+      const ranges = prev[chambreId] || [];
+
+      // --- Ctrl+Clic ou chambre vide : démarre un nouveau segment ---
+      if (ctrlKey || ranges.length === 0) {
+        const alreadyInRange = ranges.some((rng) => date >= rng.start && date < rng.end);
+        if (alreadyInRange) return prev;
+        const newRanges = [...ranges, { start: date, end: addDays(date, 1) }];
+        activeSegmentRef.current[chambreId] = newRanges.length - 1;
+        return { ...prev, [chambreId]: newRanges };
       }
+
+      // --- Clic normal : édite le segment actif (le dernier sélectionné) ---
+      const activeIdx = activeSegmentRef.current[chambreId] ?? ranges.length - 1;
+      const current = ranges[activeIdx];
+      const newRanges = [...ranges];
 
       if (isSameDay(date, current.start)) {
         const nights = eachDayOfInterval({ start: current.start, end: addDays(current.end, -1) }).length;
-        if (nights <= 1) {
+        if (nights <= 1 && ranges.length === 1) {
           const next = { ...prev };
           delete next[chambreId];
+          delete activeSegmentRef.current[chambreId];
           return next;
+        } else if (nights <= 1) {
+          newRanges.splice(activeIdx, 1);
+          activeSegmentRef.current[chambreId] = Math.max(0, newRanges.length - 1);
+          return { ...prev, [chambreId]: newRanges };
         } else {
-          return {
-            ...prev,
-            [chambreId]: {
-              start: date,
-              end: addDays(date, 1),
-            },
-          };
+          newRanges[activeIdx] = { start: date, end: addDays(date, 1) };
+          return { ...prev, [chambreId]: newRanges };
         }
       }
 
       if (date > current.start) {
-        // Clic sur une date après le début : inclut cette date dans le séjour (départ le lendemain)
         const targetEnd = addDays(date, 1);
         const days = eachDayOfInterval({ start: current.start, end: date });
         const allFree = days.every((d) => isRoomAvailable(chambreId, d));
-        if (allFree) {
-          return {
-            ...prev,
-            [chambreId]: {
-              start: current.start,
-              end: targetEnd,
-            },
-          };
+        const overlapOther = ranges.some((rng, i) => {
+          if (i === activeIdx) return false;
+          return date >= rng.start && date < rng.end;
+        });
+        if (allFree && !overlapOther) {
+          newRanges[activeIdx] = { start: current.start, end: targetEnd };
         } else {
-          // Si conflit intermédiaire, démarrer une nouvelle sélection à cette date
-          return {
-            ...prev,
-            [chambreId]: {
-              start: date,
-              end: addDays(date, 1),
-            },
-          };
+          const alreadyIn = ranges.some((rng) => date >= rng.start && date < rng.end);
+          if (!alreadyIn) {
+            newRanges.push({ start: date, end: addDays(date, 1) });
+            activeSegmentRef.current[chambreId] = newRanges.length - 1;
+          }
         }
+        return { ...prev, [chambreId]: newRanges };
       } else {
-        // Clic sur une date avant le début : étend le début jusqu'à cette date
         const currentLastDay = addDays(current.end, -1);
         const days = eachDayOfInterval({ start: date, end: currentLastDay });
         const allFree = days.every((d) => isRoomAvailable(chambreId, d));
         if (allFree) {
-          return {
-            ...prev,
-            [chambreId]: {
-              start: date,
-              end: current.end,
-            },
-          };
+          newRanges[activeIdx] = { start: date, end: current.end };
         } else {
-          return {
-            ...prev,
-            [chambreId]: {
-              start: date,
-              end: addDays(date, 1),
-            },
-          };
+          const alreadyIn = ranges.some((rng) => date >= rng.start && date < rng.end);
+          if (!alreadyIn) {
+            newRanges.push({ start: date, end: addDays(date, 1) });
+            activeSegmentRef.current[chambreId] = newRanges.length - 1;
+          }
         }
+        return { ...prev, [chambreId]: newRanges };
       }
     });
   }
@@ -1631,9 +1847,14 @@ function EditReservation({
     const chambre = rooms.find((c) => c.id === chambreId);
     if (chambre?.statut === "maintenance") return "#9E9E9E";
 
-    const range = selectedRoomsMap[chambreId];
-    if (range) {
-      if (date >= range.start && date < range.end) return "#66BB6A";
+    // Multi-séjours : vérifie si la date est dans l'une des plages sélectionnées
+    const ranges = selectedRoomsMap[chambreId];
+    if (ranges && ranges.length > 0) {
+      const activeIdx = activeSegmentRef.current[chambreId] ?? ranges.length - 1;
+      const matchedIdx = ranges.findIndex((rng) => date >= rng.start && date < rng.end);
+      if (matchedIdx !== -1) {
+        return matchedIdx === activeIdx ? "#66BB6A" : "#2E7D32";
+      }
     }
 
     const nextDay = addDays(date, 1);
@@ -1649,23 +1870,72 @@ function EditReservation({
       (rr) => rr.id !== r.id && isRoomReservedDuring(rr, chambreId, date, nextDay)
     );
     if (conflict) {
-      if (conflict.statut === "en_attente") return "#F59E0B"; // Jaune / Ambre pour en attente / devis
-      return "#EF5350"; // Rouge pour confirmé / occupé
+      const conflictHasAcompte = Number((conflict as any).accompte || 0) > 0;
+      if (conflict.statut === "en_attente" && !conflictHasAcompte) return "#F59E0B";
+      return "#EF5350";
     }
 
     return "#FFFFFF";
   }
 
-  function handleRemoveRoom(chambreId: string) {
+  function handleRemoveRoom(chambreId: string, rangeIdx?: number) {
     setSelectedRoomsMap((prev) => {
+      const ranges = prev[chambreId];
+      if (!ranges) return prev;
+      if (rangeIdx !== undefined && ranges.length > 1) {
+        const nextRanges = ranges.filter((_, i) => i !== rangeIdx);
+        activeSegmentRef.current[chambreId] = Math.max(0, nextRanges.length - 1);
+        return { ...prev, [chambreId]: nextRanges };
+      }
       const next = { ...prev };
       delete next[chambreId];
+      delete activeSegmentRef.current[chambreId];
       return next;
     });
   }
 
   const selectedRoomEntries = Object.entries(selectedRoomsMap);
+  const totalStaysCount = selectedRoomEntries.reduce((acc, [, ranges]) => acc + ranges.length, 0);
   const isValid = (form.clientId || form.clientNom) && selectedRoomEntries.length > 0;
+
+  const allReservationStays = useMemo(() => {
+    if (selectedRoomEntries.length > 0) {
+      const existingStays = getReservationStays(r);
+      const list: Stay[] = [];
+      let stayCounter = 0;
+
+      for (const [rId, ranges] of selectedRoomEntries) {
+        const ch = rooms.find((c) => c.id === rId);
+        const sortedRanges = [...ranges].sort((a, b) => a.start.getTime() - b.start.getTime());
+        sortedRanges.forEach((range) => {
+          stayCounter++;
+          const nights = Math.max(1, eachDayOfInterval({ start: range.start, end: addDays(range.end, -1) }).length);
+          const existingStay = existingStays.find(
+            (s) => s.chambreId === rId && Math.abs(new Date(s.dateDebut).getTime() - range.start.getTime()) < 86400000
+          ) || existingStays.find((s) => s.chambreId === rId && !list.some((item) => item.id === s.id));
+
+          list.push({
+            id: existingStay?.id || `stay_${stayCounter}`,
+            chambreId: rId,
+            dateDebut: range.start.toISOString(),
+            dateFin: range.end.toISOString(),
+            nuits: nights,
+            statut: form.statut,
+            nbPersonnes: form.nbPersonnes,
+            tarifBase: ch?.tarif_base || 0,
+            packId: selectedPack?.id,
+            packNom: selectedPack?.nom,
+            packPrix: selectedPack?.prix,
+            packTypeCalcul: selectedPack?.typeCalcul,
+            invoiceId: existingStay?.invoiceId,
+          });
+        });
+      }
+      return list;
+    }
+    if (r.stays && r.stays.length > 0) return r.stays;
+    return getReservationStays(r);
+  }, [r, selectedRoomEntries, form.statut, form.nbPersonnes, rooms, selectedPack]);
 
   async function handleSave() {
     if (selectedRoomEntries.length === 0) {
@@ -1683,6 +1953,7 @@ function EditReservation({
           telephone: form.clientTelephone.trim() || undefined,
           agenceVoyage: form.clientAgenceVoyage.trim() || undefined,
           origine: form.clientOrigine.trim() || undefined,
+          ...(isDircom && userEmail ? { createdBy: userEmail } : {}),
         });
         clientId = newClient.id;
       } catch (error) {
@@ -1706,21 +1977,26 @@ function EditReservation({
     let globalEnd: Date | null = null;
     const roomIds: string[] = [];
 
-    for (const [rId, range] of selectedRoomEntries) {
+    for (const [rId, ranges] of selectedRoomEntries) {
       roomIds.push(rId);
       const ch = rooms.find((c) => c.id === rId);
-      const nights = Math.max(1, eachDayOfInterval({ start: range.start, end: addDays(range.end, -1) }).length);
-      details.push({
-        chambreId: rId,
-        dateDebut: range.start.toISOString(),
-        dateFin: range.end.toISOString(),
-        nuits: nights,
-        tarifBase: ch?.tarif_base || 0,
-      });
+      const sortedRanges = [...ranges].sort((a, b) => a.start.getTime() - b.start.getTime());
+      for (const range of sortedRanges) {
+        const nights = Math.max(1, eachDayOfInterval({ start: range.start, end: addDays(range.end, -1) }).length);
+        details.push({
+          chambreId: rId,
+          dateDebut: range.start.toISOString(),
+          dateFin: range.end.toISOString(),
+          nuits: nights,
+          tarifBase: ch?.tarif_base || 0,
+        });
 
-      if (!globalStart || range.start < globalStart) globalStart = range.start;
-      if (!globalEnd || range.end > globalEnd) globalEnd = range.end;
+        if (!globalStart || range.start < globalStart) globalStart = range.start;
+        if (!globalEnd || range.end > globalEnd) globalEnd = range.end;
+      }
     }
+
+    const finalStatut = (Number(form.accompte || 0) > 0 && form.statut === "en_attente") ? "confirmee" : form.statut;
 
     onSave({
       id: r.id,
@@ -1732,7 +2008,7 @@ function EditReservation({
       dateDebut: globalStart ? globalStart.toISOString() : r.dateDebut,
       dateFin: globalEnd ? globalEnd.toISOString() : r.dateFin,
       nbPersonnes: form.nbPersonnes,
-      statut: form.statut,
+      statut: finalStatut,
       packId: selectedPack?.id,
       packNom: selectedPack?.nom,
       packPrix: selectedPack?.prix,
@@ -1741,29 +2017,6 @@ function EditReservation({
       methodePaiementAccompte: form.methodePaiementAccompte,
     });
   }
-
-  const allReservationStays = useMemo(() => {
-    if (selectedRoomEntries.length > 0) {
-      return selectedRoomEntries.map(([rId, range], index) => {
-        const ch = rooms.find((c) => c.id === rId);
-        const nights = Math.max(1, eachDayOfInterval({ start: range.start, end: addDays(range.end, -1) }).length);
-        const existingStay = r.stays?.find((s) => s.chambreId === rId);
-        return {
-          id: existingStay?.id || `stay_${index + 1}`,
-          chambreId: rId,
-          dateDebut: range.start.toISOString(),
-          dateFin: range.end.toISOString(),
-          nuits: nights,
-          statut: form.statut,
-          nbPersonnes: form.nbPersonnes,
-          tarifBase: ch?.tarif_base || 0,
-          invoiceId: existingStay?.invoiceId,
-        };
-      });
-    }
-    if (r.stays && r.stays.length > 0) return r.stays;
-    return getReservationStays(r);
-  }, [r, selectedRoomEntries, form.statut, form.nbPersonnes, rooms]);
 
   const linkedInvoices = useMemo(() => {
     return (factures || []).filter(
@@ -1785,202 +2038,301 @@ function EditReservation({
 
   return (
     <Stack spacing={2} sx={{ mt: 1 }}>
-      <Typography variant="body2" fontWeight={700}>
-        Client
-      </Typography>
-      <Autocomplete
-        freeSolo
-        size="small"
-        options={clients || []}
-        getOptionLabel={(option) => (typeof option === "string" ? option : option.nom)}
-        value={
-          clients?.find((c) => c.id === form.clientId) ||
-          (form.clientNom ? ({ id: "", nom: form.clientNom, telephone: form.clientTelephone } as any) : null)
-        }
-        onChange={(_, newValue) => {
-          if (newValue && typeof newValue !== "string") {
-            setForm({
-              ...form,
-              clientId: newValue.id,
-              clientNom: newValue.nom,
-              clientTelephone: newValue.telephone || "",
-              clientAgenceVoyage: newValue.agenceVoyage || "",
-              clientOrigine: newValue.origine || "",
-            });
-          } else if (typeof newValue === "string") {
-            setForm({
-              ...form,
-              clientId: "",
-              clientNom: newValue,
-              clientTelephone: "",
-              clientAgenceVoyage: "",
-              clientOrigine: "",
-            });
-          } else {
-            setForm({
-              ...form,
-              clientId: "",
-              clientNom: "",
-              clientTelephone: "",
-              clientAgenceVoyage: "",
-              clientOrigine: "",
-            });
-          }
-        }}
-        onInputChange={(_, newInputValue, reason) => {
-          if (reason === "input") {
-            const matched = (clients || []).find((c) => c.nom.toLowerCase() === newInputValue.trim().toLowerCase());
-            if (matched) {
-              setForm((prev) => ({
-                ...prev,
-                clientId: matched.id,
-                clientNom: matched.nom,
-                clientTelephone: matched.telephone || prev.clientTelephone,
-                clientAgenceVoyage: matched.agenceVoyage || prev.clientAgenceVoyage,
-                clientOrigine: matched.origine || prev.clientOrigine,
-              }));
-            } else {
-              setForm((prev) => ({
-                ...prev,
-                clientNom: newInputValue,
-                clientId: "",
-              }));
-            }
-          }
-        }}
-        componentsProps={{ paper: autocompletePaperProps }}
-        renderOption={(props, option) => (
-          <li {...props} key={option.id}>
-            <Box sx={{ display: "flex", justifyContent: "space-between", width: "100%", alignItems: "center", py: 0.5 }}>
-              <Typography variant="body2" fontWeight={700}>
-                {option.nom}
+      {isOtherStaffReservation ? (
+        <Paper variant="outlined" sx={{ p: 2, bgcolor: "#f8fafc", borderRadius: 2 }}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1}>
+            <Typography variant="caption" color="text.secondary" fontWeight={700}>
+              CLIENT & COORDONNÉES (LECTURE SEULE)
+            </Typography>
+            <Chip
+              size="small"
+              label={form.statut}
+              color={form.statut === "confirmee" ? "primary" : form.statut === "arrivee" ? "success" : "default"}
+              variant="outlined"
+              sx={{ height: 20, fontSize: "0.7rem", textTransform: "capitalize" }}
+            />
+          </Stack>
+          <Typography variant="subtitle1" fontWeight={800} color="#1e293b">
+            👤 {currentClient?.nom || form.clientNom || (clients || []).find((c) => c.id === r.clientId)?.nom || "Client non renseigné"}
+          </Typography>
+          <Grid container spacing={1.5} sx={{ mt: 0.5 }}>
+            <Grid item xs={12} sm={6}>
+              <Typography variant="caption" color="text.secondary" display="block">
+                Téléphone
               </Typography>
-              <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
-                {option.telephone && (
-                  <Typography
-                    variant="caption"
-                    color="text.secondary"
-                    sx={{ bgcolor: "action.hover", px: 0.8, py: 0.2, borderRadius: 1 }}
-                  >
-                    📞 {option.telephone}
-                  </Typography>
-                )}
-                {option.agenceVoyage && (
-                  <Chip size="small" label={`✈️ ${option.agenceVoyage}`} variant="outlined" sx={{ height: 20, fontSize: "0.65rem" }} />
-                )}
-              </Box>
-            </Box>
-          </li>
-        )}
-        renderInput={(params) => <TextField {...params} label="Nom du client" placeholder="Sélectionner ou saisir" />}
-      />
-
-      <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-        <TextField
-          size="small"
-          fullWidth
-          label="Numéro de contact (Optionnel)"
-          value={form.clientTelephone}
-          onChange={(e) => setForm({ ...form, clientTelephone: e.target.value })}
-          placeholder="Ex: 034 00 000 00"
-        />
-        <TextField
-          size="small"
-          fullWidth
-          label="Agence de voyage (Optionnel)"
-          value={form.clientAgenceVoyage}
-          onChange={(e) => setForm({ ...form, clientAgenceVoyage: e.target.value })}
-          placeholder="Ex: Booking, Expedia, Agence A..."
-        />
-      </Stack>
-
-      <TextField
-        size="small"
-        fullWidth
-        label="Origine (Canal de réservation)"
-        value={form.clientOrigine}
-        onChange={(e) => setForm({ ...form, clientOrigine: e.target.value })}
-        placeholder="Ex: Site web, Téléphone direct, Booking..."
-      />
-
-      <Select size="small" value={form.statut} onChange={(e) => setForm({ ...form, statut: e.target.value as any })}>
-        <MenuItem value="en_attente">En attente / Devis</MenuItem>
-        <MenuItem value="confirmee">Confirmée</MenuItem>
-        <MenuItem value="arrivee">Occupée</MenuItem>
-        <MenuItem value="terminee">Terminée</MenuItem>
-        <MenuItem value="annulee">Annulée</MenuItem>
-      </Select>
-
-      <Typography variant="body2" fontWeight={700}>
-        Acompte (Optionnel)
-      </Typography>
-      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 1.5 }}>
-        <TextField
-          size="small"
-          label="Montant de l'acompte (Ar)"
-          type="number"
-          value={form.accompte}
-          onChange={(e) => setForm({ ...form, accompte: e.target.value })}
-        />
-        <Select
-          size="small"
-          value={form.methodePaiementAccompte}
-          onChange={(e) => setForm({ ...form, methodePaiementAccompte: e.target.value })}
-        >
-          <MenuItem value="especes">Espèces</MenuItem>
-          <MenuItem value="mobile_money">Mobile Money</MenuItem>
-          <MenuItem value="virement">Virement</MenuItem>
-          <MenuItem value="carte">Carte</MenuItem>
-        </Select>
-      </Box>
-
-      <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1.4fr 1fr" }, gap: 1.5 }}>
-        <Box>
-          <Typography variant="caption" fontWeight={700} color="text.secondary" mb={0.5} display="block">
-            Formule / Pack de séjour
+              <Typography variant="body2" fontWeight={600} color="#334155">
+                📞 {currentClient?.telephone || form.clientTelephone || (r as any).clientTelephone || "Non renseigné"}
+              </Typography>
+            </Grid>
+            {currentClient?.email && (
+              <Grid item xs={12} sm={6}>
+                <Typography variant="caption" color="text.secondary" display="block">
+                  E-mail
+                </Typography>
+                <Typography variant="body2" fontWeight={600} color="#334155">
+                  ✉️ {currentClient.email}
+                </Typography>
+              </Grid>
+            )}
+            {(currentClient?.agenceVoyage || form.clientAgenceVoyage) && (
+              <Grid item xs={12} sm={6}>
+                <Typography variant="caption" color="text.secondary" display="block">
+                  Agence partenaire
+                </Typography>
+                <Typography variant="body2" fontWeight={600} color="primary.main">
+                  ✈️ {currentClient?.agenceVoyage || form.clientAgenceVoyage}
+                </Typography>
+              </Grid>
+            )}
+            {(currentClient?.origine || form.clientOrigine) && (
+              <Grid item xs={12} sm={6}>
+                <Typography variant="caption" color="text.secondary" display="block">
+                  Canal / Origine
+                </Typography>
+                <Typography variant="body2" fontWeight={600} color="#475569">
+                  🌐 {currentClient?.origine || form.clientOrigine}
+                </Typography>
+              </Grid>
+            )}
+          </Grid>
+        </Paper>
+      ) : (
+        <>
+          <Typography variant="body2" fontWeight={700}>
+            Client
           </Typography>
-          <Select
+          <Autocomplete
+            freeSolo
             size="small"
-            fullWidth
-            value={selectedPackId}
-            onChange={(e) => setSelectedPackId(e.target.value)}
-          >
-            {availablePacks.map((p) => (
-              <MenuItem key={p.id} value={p.id}>
-                {p.nom} {p.prix > 0 ? `(+${p.prix.toLocaleString("fr-FR")} Ar)` : "(Inclus)"}
-              </MenuItem>
-            ))}
-          </Select>
-        </Box>
-        <Box>
-          <Typography variant="caption" fontWeight={700} color="text.secondary" mb={0.5} display="block">
-            Personnes
-          </Typography>
+            options={visibleClients}
+            getOptionLabel={(option) => (typeof option === "string" ? option : option.nom)}
+            value={
+              clients?.find((c) => c.id === form.clientId) ||
+              (form.clientNom ? ({ id: "", nom: form.clientNom, telephone: form.clientTelephone } as any) : null)
+            }
+            onChange={(_, newValue) => {
+              if (newValue && typeof newValue !== "string") {
+                setForm({
+                  ...form,
+                  clientId: newValue.id,
+                  clientNom: newValue.nom,
+                  clientTelephone: newValue.telephone || "",
+                  clientAgenceVoyage: newValue.agenceVoyage || "",
+                  clientOrigine: newValue.origine || "",
+                });
+              } else if (typeof newValue === "string") {
+                setForm({
+                  ...form,
+                  clientId: "",
+                  clientNom: newValue,
+                  clientTelephone: "",
+                  clientAgenceVoyage: "",
+                  clientOrigine: "",
+                });
+              } else {
+                setForm({
+                  ...form,
+                  clientId: "",
+                  clientNom: "",
+                  clientTelephone: "",
+                  clientAgenceVoyage: "",
+                  clientOrigine: "",
+                });
+              }
+            }}
+            onInputChange={(_, newInputValue, reason) => {
+              if (reason === "input") {
+                const matched = (clients || []).find((c) => c.nom.toLowerCase() === newInputValue.trim().toLowerCase());
+                if (matched) {
+                  setForm((prev) => ({
+                    ...prev,
+                    clientId: matched.id,
+                    clientNom: matched.nom,
+                    clientTelephone: matched.telephone || prev.clientTelephone,
+                    clientAgenceVoyage: matched.agenceVoyage || prev.clientAgenceVoyage,
+                    clientOrigine: matched.origine || prev.clientOrigine,
+                  }));
+                } else {
+                  setForm((prev) => ({
+                    ...prev,
+                    clientNom: newInputValue,
+                    clientId: "",
+                  }));
+                }
+              }
+            }}
+            componentsProps={{ paper: autocompletePaperProps }}
+            renderOption={(props, option) => (
+              <li {...props} key={option.id}>
+                <Box sx={{ display: "flex", justifyContent: "space-between", width: "100%", alignItems: "center", py: 0.5 }}>
+                  <Typography variant="body2" fontWeight={700}>
+                    {option.nom}
+                  </Typography>
+                  <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+                    {option.telephone && (
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        sx={{ bgcolor: "action.hover", px: 0.8, py: 0.2, borderRadius: 1 }}
+                      >
+                        📞 {option.telephone}
+                      </Typography>
+                    )}
+                    {option.agenceVoyage && (
+                      <Chip size="small" label={`✈️ ${option.agenceVoyage}`} variant="outlined" sx={{ height: 20, fontSize: "0.65rem" }} />
+                    )}
+                  </Box>
+                </Box>
+              </li>
+            )}
+            renderInput={(params) => <TextField {...params} label="Nom du client" placeholder="Sélectionner ou saisir" />}
+          />
+
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+            <TextField
+              size="small"
+              fullWidth
+              label="Numéro de contact (Optionnel)"
+              value={form.clientTelephone}
+              onChange={(e) => setForm({ ...form, clientTelephone: e.target.value })}
+              placeholder="Ex: 034 00 000 00"
+            />
+            <TextField
+              size="small"
+              fullWidth
+              label="Agence de voyage (Optionnel)"
+              value={form.clientAgenceVoyage}
+              onChange={(e) => setForm({ ...form, clientAgenceVoyage: e.target.value })}
+              placeholder="Ex: Booking, Expedia, Agence A..."
+            />
+          </Stack>
+
           <TextField
             size="small"
-            type="number"
             fullWidth
-            value={form.nbPersonnes}
-            onChange={(e) => setForm({ ...form, nbPersonnes: parseInt(e.target.value || "1", 10) })}
-            inputProps={{ min: 1 }}
+            label="Origine (Canal de réservation)"
+            value={form.clientOrigine}
+            onChange={(e) => setForm({ ...form, clientOrigine: e.target.value })}
+            placeholder="Ex: Site web, Téléphone direct, Booking..."
           />
+
+          <Select size="small" value={form.statut} onChange={(e) => setForm({ ...form, statut: e.target.value as any })}>
+            <MenuItem value="en_attente">En attente / Devis</MenuItem>
+            <MenuItem value="confirmee">Confirmée</MenuItem>
+            <MenuItem value="arrivee">Occupée</MenuItem>
+            <MenuItem value="terminee">Terminée</MenuItem>
+            <MenuItem value="annulee">Annulée</MenuItem>
+          </Select>
+
+          <Typography variant="body2" fontWeight={700}>
+            Acompte (Optionnel)
+          </Typography>
+          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 1.5 }}>
+            <TextField
+              size="small"
+              label="Montant de l'acompte (Ar)"
+              type="number"
+              value={form.accompte}
+              onChange={(e) => {
+                const val = e.target.value;
+                const num = Number(val || 0);
+                setForm((prev) => ({
+                  ...prev,
+                  accompte: val,
+                  statut: num > 0 && prev.statut === "en_attente" ? "confirmee" : prev.statut,
+                }));
+              }}
+            />
+            <Select
+              size="small"
+              value={form.methodePaiementAccompte}
+              onChange={(e) => setForm({ ...form, methodePaiementAccompte: e.target.value })}
+            >
+              <MenuItem value="especes">Espèces</MenuItem>
+              <MenuItem value="mobile_money">Mobile Money</MenuItem>
+              <MenuItem value="virement">Virement</MenuItem>
+              <MenuItem value="carte">Carte</MenuItem>
+            </Select>
+          </Box>
+        </>
+      )}
+
+      {isOtherStaffReservation ? (
+        <Paper variant="outlined" sx={{ p: 1.5, bgcolor: "#f8fafc", borderRadius: 2 }}>
+          <Stack direction="row" spacing={3} flexWrap="wrap" gap={1}>
+            <Box>
+              <Typography variant="caption" color="text.secondary">Formule</Typography>
+              <Typography variant="body2" fontWeight={600}>{selectedPack?.nom || "Standard"} {selectedPack?.prix > 0 ? `(+${selectedPack.prix.toLocaleString("fr-FR")} Ar)` : ""}</Typography>
+            </Box>
+            <Box>
+              <Typography variant="caption" color="text.secondary">Occupants</Typography>
+              <Typography variant="body2" fontWeight={600}>{form.nbPersonnes} personne{form.nbPersonnes > 1 ? "s" : ""}</Typography>
+            </Box>
+            {Number(form.accompte) > 0 && (
+              <Box>
+                <Typography variant="caption" color="text.secondary">Acompte enregistré</Typography>
+                <Typography variant="body2" fontWeight={700} color="#059669">
+                  {Number(form.accompte).toLocaleString("fr-FR")} Ar ({form.methodePaiementAccompte === "mobile_money" ? "Mobile Money" : form.methodePaiementAccompte === "virement" ? "Virement" : form.methodePaiementAccompte === "carte" ? "Carte" : "Espèces"})
+                </Typography>
+              </Box>
+            )}
+          </Stack>
+        </Paper>
+      ) : (
+        <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1.4fr 1fr" }, gap: 1.5 }}>
+          <Box>
+            <Typography variant="caption" fontWeight={700} color="text.secondary" mb={0.5} display="block">
+              Formule / Pack de séjour
+            </Typography>
+            <Select
+              size="small"
+              fullWidth
+              value={selectedPackId}
+              onChange={(e) => setSelectedPackId(e.target.value)}
+            >
+              {availablePacks.map((p) => (
+                <MenuItem key={p.id} value={p.id}>
+                  {p.nom} {p.prix > 0 ? `(+${p.prix.toLocaleString("fr-FR")} Ar)` : "(Inclus)"}
+                </MenuItem>
+              ))}
+            </Select>
+          </Box>
+          <Box>
+            <Typography variant="caption" fontWeight={700} color="text.secondary" mb={0.5} display="block">
+              Personnes
+            </Typography>
+            <TextField
+              size="small"
+              type="number"
+              fullWidth
+              value={form.nbPersonnes}
+              onChange={(e) => setForm({ ...form, nbPersonnes: parseInt(e.target.value || "1", 10) })}
+              inputProps={{ min: 1 }}
+            />
+          </Box>
         </Box>
-      </Box>
+      )}
 
       {/* Mini Calendrier Interactif avec sélection indépendante par chambre */}
       <Divider />
       <Stack direction="row" justifyContent="space-between" alignItems="center">
         <Typography variant="body2" fontWeight={700}>
-          Sélectionnez les chambres et leurs dates
+          {isOtherStaffReservation ? "Chambres et dates réservées (Lecture seule)" : "Sélectionnez les chambres et leurs dates"}
         </Typography>
         {selectedRoomEntries.length > 0 && (
           <Chip
             size="small"
             color="primary"
-            label={`${selectedRoomEntries.length} chambre${selectedRoomEntries.length > 1 ? "s" : ""}`}
+            label={`${selectedRoomEntries.length} chambre${selectedRoomEntries.length > 1 ? "s" : ""} · ${totalStaysCount} séjour${totalStaysCount > 1 ? "s" : ""}`}
           />
         )}
       </Stack>
+      {/* Hint multi-séjours */}
+      <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, bgcolor: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 1, px: 1.5, py: 0.7 }}>
+        <Typography variant="caption" color="#1d4ed8" sx={{ fontWeight: 600 }}>
+          💡 Ctrl+Clic sur une cellule libre = nouveau séjour indépendant pour la même chambre
+        </Typography>
+      </Box>
       <Stack direction="row" spacing={1} alignItems="center">
         <Chip size="small" label={`Semaine du ${format(weekStart, "dd MMM yyyy", { locale: fr })}`} />
         <Chip size="small" label="◀" onClick={() => setModalDateRef((d) => addDays(d, -7))} />
@@ -2017,7 +2369,9 @@ function EditReservation({
           ))}
 
           {sortedRooms.map((chambre) => {
-            const isSelected = !!selectedRoomsMap[chambre.id];
+            const ranges = selectedRoomsMap[chambre.id];
+            const isSelected = !!ranges && ranges.length > 0;
+            const stayCount = ranges?.length ?? 0;
             return (
               <Fragment key={chambre.id}>
                 <Box
@@ -2026,26 +2380,47 @@ function EditReservation({
                     fontSize: "0.75rem",
                     fontWeight: isSelected ? 800 : 600,
                     color: isSelected ? "primary.main" : "inherit",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "flex-start",
+                    gap: 0.2,
                   }}
                 >
                   {chambre.numero}
+                  {stayCount > 1 && (
+                    <Box
+                      component="span"
+                      sx={{
+                        fontSize: "0.6rem",
+                        bgcolor: "#1d4ed8",
+                        color: "#fff",
+                        px: 0.5,
+                        borderRadius: "4px",
+                        lineHeight: 1.4,
+                      }}
+                    >
+                      {stayCount} séjours
+                    </Box>
+                  )}
                 </Box>
                 {weekDays.map((date) => {
                   const available = isRoomAvailable(chambre.id, date);
                   const color = getCellColor(chambre.id, date);
+                  const isCtrlHint = isSelected && available;
                   return (
                     <Box
                       key={`${chambre.id}-${date.toISOString()}`}
-                      onClick={() => available && handleCellClick(chambre.id, date)}
+                      onClick={(e) => !isOtherStaffReservation && available && handleCellClick(chambre.id, date, e.ctrlKey || e.metaKey)}
+                      title={!isOtherStaffReservation && isCtrlHint ? "Ctrl+Clic pour ajouter un séjour distinct" : undefined}
                       sx={{
                         height: 32,
                         bgcolor: color,
                         border: "1px solid",
                         borderColor: "divider",
-                        cursor: available ? "pointer" : "not-allowed",
+                        cursor: (!isOtherStaffReservation && available) ? "pointer" : "default",
                         opacity: available ? 1 : 0.6,
                         borderRadius: "4px",
-                        "&:hover": available ? { opacity: 0.8 } : {},
+                        "&:hover": (!isOtherStaffReservation && available) ? { opacity: 0.8 } : {},
                       }}
                     />
                   );
@@ -2087,23 +2462,29 @@ function EditReservation({
             let maxNights = 1;
             let totalRoomNights = 0;
 
-            const roomItems = selectedRoomEntries.map(([rId, range]) => {
+            // Aplatir toutes les plages en items affichables
+            const roomItems: { id: string; rangeIdx: number; numero: string; categorie: string; start: Date; end: Date; nights: number; cost: number }[] = [];
+            for (const [rId, ranges] of selectedRoomEntries) {
               const ch = rooms.find((c) => c.id === rId);
-              const nights = Math.max(1, eachDayOfInterval({ start: range.start, end: addDays(range.end, -1) }).length);
-              const cost = (ch?.tarif_base || 0) * nights;
-              roomsTotal += cost;
-              totalRoomNights += nights;
-              if (nights > maxNights) maxNights = nights;
-              return {
-                id: rId,
-                numero: ch?.numero || rId,
-                categorie: ch?.categorie || "Chambre",
-                start: range.start,
-                end: range.end,
-                nights,
-                cost,
-              };
-            });
+              const sortedRanges = [...ranges].sort((a, b) => a.start.getTime() - b.start.getTime());
+              sortedRanges.forEach((range, idx) => {
+                const nights = Math.max(1, eachDayOfInterval({ start: range.start, end: addDays(range.end, -1) }).length);
+                const cost = (ch?.tarif_base || 0) * nights;
+                roomsTotal += cost;
+                totalRoomNights += nights;
+                if (nights > maxNights) maxNights = nights;
+                roomItems.push({
+                  id: rId,
+                  rangeIdx: idx,
+                  numero: ch?.numero || rId,
+                  categorie: ch?.categorie || "Chambre",
+                  start: range.start,
+                  end: range.end,
+                  nights,
+                  cost,
+                });
+              });
+            }
 
             let packFormulaTotal = 0;
             if (selectedPack && selectedPack.prix > 0) {
@@ -2140,60 +2521,113 @@ function EditReservation({
                   Détail des hébergements
                 </Typography>
                 <Divider sx={{ my: 0.3, borderColor: "#bbf7d0" }} />
-                {roomItems.map((item) => (
-                  <Box
-                    key={item.id}
-                    sx={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      fontSize: "0.82rem",
-                      bgcolor: "rgba(255,255,255,0.6)",
-                      p: 0.6,
-                      borderRadius: 1,
-                    }}
-                  >
-                    <Box>
-                      <b>Chambre {item.numero}</b> ({item.categorie})
-                      <Typography variant="caption" color="text.secondary" display="block">
-                        Du {format(item.start, "dd/MM/yyyy")} au {format(item.end, "dd/MM/yyyy")} ({item.nights} nuit
-                        {item.nights > 1 ? "s" : ""})
-                      </Typography>
+                {roomItems.map((item) => {
+                  const totalRangesForRoom = selectedRoomsMap[item.id]?.length ?? 1;
+                  return (
+                    <Box
+                      key={`${item.id}-${item.rangeIdx}`}
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        fontSize: "0.82rem",
+                        bgcolor: "rgba(255,255,255,0.6)",
+                        p: 0.8,
+                        borderRadius: 1,
+                        borderLeft: totalRangesForRoom > 1 ? "3px solid #1d4ed8" : "none",
+                      }}
+                    >
+                      <Box>
+                        <Typography variant="body2" fontWeight={700}>
+                          Chambre {item.numero} ({item.categorie})
+                          {totalRangesForRoom > 1 && (
+                            <Box
+                              component="span"
+                              sx={{ ml: 0.5, fontSize: "0.65rem", bgcolor: "#dbeafe", color: "#1d4ed8", px: 0.6, py: 0.1, borderRadius: "4px" }}
+                            >
+                              Séjour {item.rangeIdx + 1}/{totalRangesForRoom}
+                            </Box>
+                          )}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          Du {format(item.start, "dd/MM/yyyy")} au {format(item.end, "dd/MM/yyyy")} ({item.nights} nuit
+                          {item.nights > 1 ? "s" : ""})
+                        </Typography>
+                      </Box>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <b>{item.cost.toLocaleString("fr-FR")} Ar</b>
+                        {!isOtherStaffReservation && (
+                          <IconButton
+                            size="small"
+                            color="error"
+                            title={totalRangesForRoom > 1 ? "Supprimer ce séjour" : "Retirer cette chambre"}
+                            onClick={() => handleRemoveRoom(item.id, totalRangesForRoom > 1 ? item.rangeIdx : undefined)}
+                          >
+                            <CloseIcon fontSize="small" />
+                          </IconButton>
+                        )}
+                      </Stack>
                     </Box>
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <b>{item.cost.toLocaleString("fr-FR")} Ar</b>
-                      <IconButton size="small" color="error" onClick={() => handleRemoveRoom(item.id)}>
-                        <CloseIcon fontSize="small" />
-                      </IconButton>
-                    </Stack>
-                  </Box>
-                ))}
-                {packFormulaTotal > 0 && (
-                  <Box sx={{ display: "flex", justifyContent: "space-between", fontSize: "0.82rem", color: "#0369a1", px: 0.5 }}>
-                    <span>{selectedPack.nom} :</span>
-                    <b>+{packFormulaTotal.toLocaleString("fr-FR")} Ar</b>
-                  </Box>
-                )}
-                {taxItemsEdit.map((tax) => (
-                  <Box key={tax.id} sx={{ display: "flex", justifyContent: "space-between", fontSize: "0.82rem", color: "#64748b", px: 0.5 }}>
-                    <span>{tax.nom} ({tax.qte > 1 ? `${tax.qte} nuits × ${tax.montant.toLocaleString('fr-FR')} Ar` : 'Forfait séjour'}) :</span>
-                    <b>+{tax.cost.toLocaleString("fr-FR")} Ar</b>
-                  </Box>
-                ))}
-                <Box
-                  sx={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    pt: 0.5,
-                    borderTop: "1px dashed #bbf7d0",
-                    color: "#166534",
-                    fontWeight: 800,
-                    fontSize: "0.9rem",
-                  }}
-                >
-                  <span>Total estimé :</span>
-                  <span>{estimatedTotal.toLocaleString("fr-FR")} Ar</span>
-                </Box>
+                  );
+                })}
+                    {packFormulaTotal > 0 && (
+                      <Box sx={{ display: "flex", justifyContent: "space-between", fontSize: "0.82rem", color: "#0369a1", px: 0.5 }}>
+                        <span>{selectedPack.nom} :</span>
+                        <b>+{packFormulaTotal.toLocaleString("fr-FR")} Ar</b>
+                      </Box>
+                    )}
+                    {taxItemsEdit.map((tax) => (
+                      <Box key={tax.id} sx={{ display: "flex", justifyContent: "space-between", fontSize: "0.82rem", color: "#64748b", px: 0.5 }}>
+                        <span>{tax.nom} ({tax.qte > 1 ? `${tax.qte} nuits × ${tax.montant.toLocaleString('fr-FR')} Ar` : 'Forfait séjour'}) :</span>
+                        <b>+{tax.cost.toLocaleString("fr-FR")} Ar</b>
+                      </Box>
+                    ))}
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        pt: 1,
+                        borderTop: "1px dashed #bbf7d0",
+                        color: "#166534",
+                        fontWeight: 900,
+                        fontSize: "0.95rem",
+                      }}
+                    >
+                      <span>Total estimé :</span>
+                      <span>{estimatedTotal.toLocaleString("fr-FR")} Ar</span>
+                    </Box>
+                    {Number(form.accompte) > 0 && (
+                      <>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            color: "#059669",
+                            fontWeight: 700,
+                            fontSize: "0.88rem",
+                            px: 0.5,
+                          }}
+                        >
+                          <span>Acompte versé ({form.methodePaiementAccompte === "mobile_money" ? "Mobile Money" : form.methodePaiementAccompte === "virement" ? "Virement" : form.methodePaiementAccompte === "carte" ? "Carte" : "Espèces"}) :</span>
+                          <span>- {Number(form.accompte).toLocaleString("fr-FR")} Ar</span>
+                        </Box>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            color: "#1e293b",
+                            fontWeight: 900,
+                            fontSize: "0.95rem",
+                            bgcolor: "#dcfce7",
+                            p: 0.8,
+                            borderRadius: 1,
+                          }}
+                        >
+                          <span>Reste à payer TTC :</span>
+                          <span>{Math.max(0, estimatedTotal - Number(form.accompte)).toLocaleString("fr-FR")} Ar</span>
+                        </Box>
+                      </>
+                    )}
               </Stack>
             );
           })()}
@@ -2206,9 +2640,11 @@ function EditReservation({
         </Typography>
       )}
 
-      <Divider />
-      <Stack direction="row" justifyContent="space-between" alignItems="center">
-        <Typography fontWeight={700}>Facturation & Documents ({linkedInvoices.length})</Typography>
+      {!isOtherStaffReservation && (
+        <>
+          <Divider />
+          <Stack direction="row" justifyContent="space-between" alignItems="center">
+            <Typography fontWeight={700}>Facturation & Documents ({linkedInvoices.length})</Typography>
         {linkedInvoices.length > 0 && (
           <Chip
             size="small"
@@ -2242,15 +2678,44 @@ function EditReservation({
                       sx={{ fontSize: "0.7rem", height: 20 }}
                     />
                   </Stack>
-                  <Typography variant="caption" color="text.secondary" display="block">
-                    Total : <b><Ariary value={inv.totalTTC} /></b>
-                    {inv.dueDate ? ` · Échéance : ${new Date(inv.dueDate).toLocaleDateString()}` : ""}
-                  </Typography>
+                  {(() => {
+                    const docAccompte = Number((inv as any).accompte || (form.accompte ? Number(form.accompte) : (r as any).accompte) || 0);
+                    const methode = (inv as any).methodePaiementAccompte || form.methodePaiementAccompte || (r as any).methodePaiementAccompte || "especes";
+                    const methodeLabel = methode === "mobile_money" ? "Mobile Money" : methode === "virement" ? "Virement" : methode === "carte" ? "Carte" : "Espèces";
+                    const reste = Math.max(0, inv.totalTTC - docAccompte);
+                    return (
+                      <Box sx={{ mt: 0.3 }}>
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          Total TTC : <b><Ariary value={inv.totalTTC} /></b>
+                          {docAccompte > 0 && (
+                            <>
+                              {" · "}
+                              <span style={{ color: "#166534", fontWeight: 700 }}>
+                                Acompte : -<Ariary value={docAccompte} /> ({methodeLabel})
+                              </span>
+                              {" · "}
+                              <span style={{ color: "#0f172a", fontWeight: 800 }}>
+                                Reste : <Ariary value={reste} />
+                              </span>
+                            </>
+                          )}
+                          {inv.dueDate ? ` · Échéance : ${new Date(inv.dueDate).toLocaleDateString()}` : ""}
+                        </Typography>
+                      </Box>
+                    );
+                  })()}
                 </Box>
                 <Button
                   size="small"
                   variant="outlined"
-                  onClick={() => {
+                  onClick={async () => {
+                    if (form.accompte !== undefined) {
+                      try {
+                        await handleSave();
+                      } catch (err) {
+                        console.warn("Auto-save before navigating to invoice:", err);
+                      }
+                    }
                     onClose();
                     navigate(`/${tenantId}/financier?factureId=${inv.id}`);
                   }}
@@ -2385,7 +2850,14 @@ function EditReservation({
                   <Button
                     size="small"
                     variant="contained"
-                    onClick={() => {
+                    onClick={async () => {
+                      if (form.accompte !== undefined) {
+                        try {
+                          await handleSave();
+                        } catch (err) {
+                          console.warn("Auto-save:", err);
+                        }
+                      }
                       onClose();
                       navigate(`/${tenantId}/financier?factureId=${existingFacture.id}`);
                     }}
@@ -2419,33 +2891,71 @@ function EditReservation({
                       📋 Proforma active : {existingProforma.numero}
                     </Typography>
                     <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 0.3 }}>
-                      Une proforma existe déjà. Selon la norme comptable, validez-la en facture définitive au lieu d'en créer une nouvelle.
+                      Une proforma existe déjà. Selon la norme comptable, validez-la en facture définitive au lieu d'en créer une nouvelle (évite les doublons de chiffre d'affaires).
                     </Typography>
                   </Box>
-                  <Button
-                    size="small"
-                    variant="contained"
-                    onClick={() => {
-                      onClose();
-                      navigate(`/${tenantId}/financier?factureId=${existingProforma.id}`);
-                    }}
-                    sx={{
-                      bgcolor: "#059669",
-                      color: "#ffffff !important",
-                      fontWeight: 700,
-                      fontSize: "0.8rem",
-                      textTransform: "none",
-                      px: 2,
-                      py: 0.8,
-                      borderRadius: 2,
-                      whiteSpace: "nowrap",
-                      flexShrink: 0,
-                      boxShadow: "0 2px 6px rgba(5, 150, 105, 0.25)",
-                      "&:hover": { bgcolor: "#047857" },
-                    }}
-                  >
-                    Valider en Facture Définitive
-                  </Button>
+                  <Stack direction="row" spacing={1}>
+                    <Button
+                      size="small"
+                      variant="contained"
+                      disabled={validateProformaMutation.isPending}
+                      onClick={async () => {
+                        try {
+                          if (form.accompte !== undefined) {
+                            try {
+                              await handleSave();
+                            } catch (err) {
+                              console.warn("Auto-save:", err);
+                            }
+                          }
+                          await validateProformaMutation.mutateAsync({ id: existingProforma.id });
+                        } catch (err) {
+                          console.error("Erreur conversion proforma:", err);
+                        }
+                      }}
+                      sx={{
+                        bgcolor: "#059669",
+                        color: "#ffffff !important",
+                        fontWeight: 700,
+                        fontSize: "0.8rem",
+                        textTransform: "none",
+                        px: 1.8,
+                        py: 0.8,
+                        borderRadius: 2,
+                        whiteSpace: "nowrap",
+                        flexShrink: 0,
+                        boxShadow: "0 2px 6px rgba(5, 150, 105, 0.25)",
+                        "&:hover": { bgcolor: "#047857" },
+                      }}
+                    >
+                      {validateProformaMutation.isPending ? "Conversion..." : "Convertir en Définitive"}
+                    </Button>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      onClick={async () => {
+                        if (form.accompte !== undefined) {
+                          try {
+                            await handleSave();
+                          } catch (err) {
+                            console.warn("Auto-save:", err);
+                          }
+                        }
+                        onClose();
+                        navigate(`/${tenantId}/financier?factureId=${existingProforma.id}`);
+                      }}
+                      sx={{
+                        fontSize: "0.8rem",
+                        textTransform: "none",
+                        px: 1.5,
+                        py: 0.8,
+                        borderRadius: 2,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      Voir / Imprimer
+                    </Button>
+                  </Stack>
                 </Stack>
               </Box>
             )}
@@ -2555,13 +3065,15 @@ function EditReservation({
           </Box>
         );
       })()}
+        </>
+      )}
 
       <Divider sx={{ my: 1 }} />
 
       {/* Actions principales de la modale en bas */}
       <Stack direction={{ xs: "column", sm: "row" }} spacing={2} justifyContent="space-between" alignItems="center">
         <Stack direction={{ xs: "column", sm: "row" }} spacing={1} alignItems="center">
-          {form.statut !== "annulee" && (
+          {!isOtherStaffReservation && form.statut !== "annulee" && (
             <Button
               color="error"
               variant="outlined"
@@ -2582,54 +3094,58 @@ function EditReservation({
           )}
 
           {/* Bouton Supprimer : Conforme aux normes hôtelières (Interdit si document ou acompte lié) */}
-          <Tooltip
-            title={
-              linkedInvoices.length > 0
-                ? "Suppression impossible : des factures ou proformas sont rattachées à cette réservation. Utilisez 'Annuler le séjour'."
-                : Number(form.accompte) > 0
-                ? "Suppression impossible : un acompte est enregistré. Utilisez 'Annuler le séjour'."
-                : "Supprimer définitivement (réservé aux erreurs de saisie immédiates sans document)"
-            }
-            arrow
-          >
-            <span>
-              <Button
-                color="error"
-                variant="text"
-                disabled={
-                  deleteReservation.isPending ||
-                  linkedInvoices.length > 0 ||
-                  Number(form.accompte) > 0
-                }
-                onClick={() => {
-                  if (
-                    window.confirm(
-                      "Attention : cette action supprime définitivement la réservation de la base de données.\n\nConfirmez-vous la suppression (erreur de saisie) ?"
-                    )
-                  ) {
-                    deleteReservation.mutate({ id: r.id });
-                    onClose();
+          {!isOtherStaffReservation && (
+            <Tooltip
+              title={
+                linkedInvoices.length > 0
+                  ? "Suppression impossible : des factures ou proformas sont rattachées à cette réservation. Utilisez 'Annuler le séjour'."
+                  : Number(form.accompte) > 0
+                  ? "Suppression impossible : un acompte est enregistré. Utilisez 'Annuler le séjour'."
+                  : "Supprimer définitivement (réservé aux erreurs de saisie immédiates sans document)"
+              }
+              arrow
+            >
+              <span>
+                <Button
+                  color="error"
+                  variant="text"
+                  disabled={
+                    deleteReservation.isPending ||
+                    linkedInvoices.length > 0 ||
+                    Number(form.accompte) > 0
                   }
-                }}
-                sx={{
-                  color: (linkedInvoices.length > 0 || Number(form.accompte) > 0) ? "#94a3b8" : "#dc2626",
-                  fontWeight: 600,
-                  fontSize: "0.75rem",
-                  textTransform: "none",
-                }}
-              >
-                Supprimer (Erreur de saisie)
-              </Button>
-            </span>
-          </Tooltip>
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        "Attention : cette action supprime définitivement la réservation de la base de données.\n\nConfirmez-vous la suppression (erreur de saisie) ?"
+                      )
+                    ) {
+                      deleteReservation.mutate({ id: r.id });
+                      onClose();
+                    }
+                  }}
+                  sx={{
+                    color: (linkedInvoices.length > 0 || Number(form.accompte) > 0) ? "#94a3b8" : "#dc2626",
+                    fontWeight: 600,
+                    fontSize: "0.75rem",
+                    textTransform: "none",
+                  }}
+                >
+                  Supprimer (Erreur de saisie)
+                </Button>
+              </span>
+            </Tooltip>
+          )}
         </Stack>
         <Stack direction="row" spacing={1}>
           <Button variant="outlined" onClick={onClose} sx={{ textTransform: "none" }}>
             Fermer
           </Button>
-          <Button variant="contained" onClick={handleSave} disabled={!isValid && selectedRoomEntries.length > 0} sx={{ textTransform: "none", fontWeight: 700 }}>
-            Valider
-          </Button>
+          {!isOtherStaffReservation && (
+            <Button variant="contained" onClick={handleSave} disabled={!isValid && selectedRoomEntries.length > 0} sx={{ textTransform: "none", fontWeight: 700 }}>
+              Valider
+            </Button>
+          )}
         </Stack>
       </Stack>
     </Stack>
@@ -2641,19 +3157,22 @@ function EditReservation({
     let globalEnd: Date | null = null;
     const roomIds: string[] = [];
 
-    for (const [rId, range] of selectedRoomEntries) {
+    for (const [rId, ranges] of selectedRoomEntries) {
       roomIds.push(rId);
       const ch = rooms.find((c) => c.id === rId);
-      const nights = Math.max(1, eachDayOfInterval({ start: range.start, end: addDays(range.end, -1) }).length);
-      details.push({
-        chambreId: rId,
-        dateDebut: range.start.toISOString(),
-        dateFin: range.end.toISOString(),
-        nuits: nights,
-        tarifBase: ch?.tarif_base || 0,
-      });
-      if (!globalStart || range.start < globalStart) globalStart = range.start;
-      if (!globalEnd || range.end > globalEnd) globalEnd = range.end;
+      const sortedRanges = [...ranges].sort((a, b) => a.start.getTime() - b.start.getTime());
+      for (const range of sortedRanges) {
+        const nights = Math.max(1, eachDayOfInterval({ start: range.start, end: addDays(range.end, -1) }).length);
+        details.push({
+          chambreId: rId,
+          dateDebut: range.start.toISOString(),
+          dateFin: range.end.toISOString(),
+          nuits: nights,
+          tarifBase: ch?.tarif_base || 0,
+        });
+        if (!globalStart || range.start < globalStart) globalStart = range.start;
+        if (!globalEnd || range.end > globalEnd) globalEnd = range.end;
+      }
     }
 
     const currentRes: Reservation = {

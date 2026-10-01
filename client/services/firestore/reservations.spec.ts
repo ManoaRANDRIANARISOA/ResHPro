@@ -5,6 +5,7 @@ import {
   reservationHasRoom,
 } from "./reservations";
 import type { Reservation } from "@shared/api";
+import { getReservationStays, isOfficialInvoice, isProformaDocument } from "@shared/api";
 import { addDays } from "date-fns";
 
 describe("Reservation Interval & Overlap Logic", () => {
@@ -167,8 +168,6 @@ describe("Hebergement Taxes & Vignettes Defaults and Calculation", () => {
   });
 });
 
-import { getReservationStays, isProformaDocument } from "@shared/api";
-
 describe("Multi-Stays Non-Contiguous Intervals & Proforma Logic", () => {
   it("frees intermediate non-contiguous days for other clients", () => {
     // Client reserves room ch-01 from Oct 10 to Oct 12, then from Oct 20 to Oct 23
@@ -302,4 +301,14 @@ describe("Multi-Stays Non-Contiguous Intervals & Proforma Logic", () => {
     expect(isProformaDocument({ typeDocument: "facture" } as any)).toBe(false);
     expect(isProformaDocument({} as any)).toBe(false);
   });
+
+  it("strictly discriminates official accounting invoices from proformas or cancelled documents", () => {
+    expect(isOfficialInvoice({ typeDocument: "facture", statut: "emise" } as any)).toBe(true);
+    expect(isOfficialInvoice({ typeDocument: "facture", statut: "payee" } as any)).toBe(true);
+    expect(isOfficialInvoice({ typeDocument: "proforma", statut: "emise" } as any)).toBe(false);
+    expect(isOfficialInvoice({ typeDocument: "devis", statut: "emise" } as any)).toBe(false);
+    expect(isOfficialInvoice({ typeDocument: "facture", statut: "annulee" } as any)).toBe(false);
+    expect(isOfficialInvoice({ numero: "PRO-2026-0001", statut: "emise" } as any)).toBe(false);
+  });
 });
+

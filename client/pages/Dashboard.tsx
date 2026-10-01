@@ -41,7 +41,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { RoomCalendar } from "@/components/RoomCalendar";
 import { useState, useMemo } from "react";
 import { exportToCSV, exportToPDF } from "@/lib/export";
-import { Facture } from "@shared/api";
+import { Facture, isOfficialInvoice } from "@shared/api";
 
 function formatAr(n: number) {
   return `${n.toLocaleString("fr-FR")} Ar`;
@@ -76,7 +76,7 @@ export default function Dashboard() {
   const sortedRooms = useMemo(() => sortChambres(rawRooms || []), [rawRooms]);
 
   const pendingList = useMemo(
-    () => (factures || []).filter((f) => f.statut === "emise" && (f.typeDocument === "facture" || !f.typeDocument)),
+    () => (factures || []).filter((f) => f.statut === "emise" && isOfficialInvoice(f)),
     [factures]
   );
   
@@ -93,12 +93,16 @@ export default function Dashboard() {
   const [roomView, setRoomView] = useState<"month" | "week" | "day">("week");
   const [roomDateRef, setRoomDateRef] = useState<Date>(new Date());
 
-  // Revenus par activité (synchronisés avec Financier)
+  // Revenus par activité (synchronisés avec Financier : factures soldées + acomptes encaissés)
   const revenus = useMemo(() => {
     const sum = (src: Facture["source"]) =>
       (factures || [])
-        .filter((f) => f.source === src && f.statut === "payee" && (f.typeDocument === "facture" || !f.typeDocument))
-        .reduce((s, f) => s + (f.totalTTC || 0), 0);
+        .filter((f) => f.source === src && isOfficialInvoice(f))
+        .reduce((s, f) => {
+          if (f.statut === "payee") return s + (f.totalTTC || 0);
+          if (f.statut === "emise") return s + Number(f.accompte || 0);
+          return s;
+        }, 0);
     return [
       { name: "Héb.", value: sum("Hebergement") },
       { name: "Resto", value: sum("Restaurant") },

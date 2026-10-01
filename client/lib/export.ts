@@ -142,7 +142,8 @@ export function exportToPDF(title: string, data: any[], filename: string, tenant
 export function printFacturePro(
   facture: Facture,
   tenantConfig?: Partial<TenantConfig & TenantPublicConfig> | null,
-  clientData?: Partial<Client> | null
+  clientData?: Partial<Client> | null,
+  asProformaOverride?: boolean
 ) {
   // Récupération des informations dynamiques de l'établissement
   const etablissementNom = tenantConfig?.nom || "Établissement";
@@ -154,7 +155,11 @@ export function printFacturePro(
   const etablissementTel = tenantConfig?.telephone || "";
   const etablissementEmail = tenantConfig?.email || "";
   const rib = tenantConfig?.rib || "";
+  const nomCompte = (tenantConfig as any)?.nomCompte || "";
   const mvola = tenantConfig?.mvola || "";
+  const nomCompteMvola = (tenantConfig as any)?.nomCompteMvola || "";
+  const ordreReglement = (tenantConfig as any)?.ordreReglement || "mvola_first";
+  const conditionsReglementNotes = (tenantConfig as any)?.conditionsReglementNotes || "";
   const cachetSignatureUrl = tenantConfig?.cachetSignatureUrl || "";
 
   // Informations Client & Agence
@@ -205,12 +210,13 @@ export function printFacturePro(
   // Statut & Type de Document
   const isPayee = facture.statut === "payee";
   const isAnnulee = facture.statut === "annulee";
-  const docType = facture.typeDocument || "facture";
+  const docType = asProformaOverride ? (facture.typeDocument === "devis" ? "devis" : "proforma") : (facture.typeDocument || "facture");
   const docTitle = docType === "devis"
     ? "DEVIS"
     : docType === "proforma"
     ? "FACTURE PROFORMA"
     : "FACTURE";
+  const docNumero = asProformaOverride ? (facture.numeroProformaInitiale || facture.numero) : facture.numero;
 
   const htmlContent = `
     <!DOCTYPE html>
@@ -600,14 +606,19 @@ export function printFacturePro(
           </div>
           <div class="invoice-meta">
             <div class="invoice-title">${docTitle}</div>
-            <div class="invoice-number">${facture.numero}</div>
+            <div class="invoice-number">${docNumero}</div>
+            ${!asProformaOverride && facture.numeroProformaInitiale && docType === 'facture' ? `
+              <div style="font-size: 11px; color: #4338ca; font-weight: 700; margin-top: 2px;">
+                Réf. Devis d'origine : ${facture.numeroProformaInitiale}
+              </div>
+            ` : ''}
             <div>
               <span class="status-badge ${isPayee ? 'status-paid' : isAnnulee ? 'status-cancelled' : 'status-pending'}">
                 ${isPayee ? '✓ ACQUITTÉE' : isAnnulee ? 'ANNULÉE' : docType === 'devis' ? 'PROPOSITION' : docType === 'proforma' ? 'PROFORMA' : 'EN ATTENTE'}
               </span>
             </div>
             <p style="font-size: 11.5px; color: #64748b; margin: 6px 0 0 0;">
-              Émise le : <strong>${dateEmission}</strong>
+              Émise le : <strong>${asProformaOverride && facture.dateProformaInitiale ? new Date(facture.dateProformaInitiale).toLocaleDateString('fr-FR') : dateEmission}</strong>
             </p>
           </div>
         </div>
@@ -685,8 +696,14 @@ export function printFacturePro(
             <p><strong>Conditions de règlement :</strong></p>
             <p>• Règlement attendu avant le : <strong>${dateEcheance}</strong></p>
             <p>• Modalité : <strong>${modePaiementLabel}</strong></p>
-            ${rib ? `<p>• RIB : <strong>${rib}</strong></p>` : ''}
-            ${mvola ? `<p>• MVola : <strong>${mvola}</strong></p>` : ''}
+            ${ordreReglement === "rib_first" ? `
+              ${rib ? `<p>• Virement Bancaire (RIB) : <strong>${rib}</strong>${nomCompte ? ` — Titulaire : <strong>${nomCompte}</strong>` : ''}</p>` : ''}
+              ${mvola ? `<p>• Mobile Money (MVola) : <strong>${mvola}</strong>${nomCompteMvola ? ` — Titulaire / Compte : <strong>${nomCompteMvola}</strong>` : ''}</p>` : ''}
+            ` : `
+              ${mvola ? `<p>• Mobile Money (MVola) : <strong>${mvola}</strong>${nomCompteMvola ? ` — Titulaire / Compte : <strong>${nomCompteMvola}</strong>` : ''}</p>` : ''}
+              ${rib ? `<p>• Virement Bancaire (RIB) : <strong>${rib}</strong>${nomCompte ? ` — Titulaire : <strong>${nomCompte}</strong>` : ''}</p>` : ''}
+            `}
+            ${conditionsReglementNotes ? `<p style="font-size: 11px; margin-top: 3px;">• Remarque : ${conditionsReglementNotes}</p>` : ''}
             <p style="font-size: 11px; color: #64748b; margin-top: 4px;">
               ${isPayee 
                 ? 'Cette facture est acquittée et fait office de reçu officiel.' 

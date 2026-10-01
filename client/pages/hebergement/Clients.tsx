@@ -29,10 +29,14 @@ import {
 } from "@/services/api";
 import { useNavigate } from "react-router-dom";
 import { useTenant } from "@/contexts/TenantContext";
+import { useRBAC } from "@/hooks/useRBAC";
+import { Lock } from "@mui/icons-material";
 
 export default function HebergementClients() {
   const navigate = useNavigate();
   const { tenantId } = useTenant();
+  const { isDircom } = useRBAC();
+  const isReadOnly = Boolean(isDircom);
   const { data: clientsData } = useClients();
   const updateClient = useUpdateClient();
   const createClient = useCreateClient();
@@ -137,7 +141,7 @@ export default function HebergementClients() {
   }, [formData, selected]);
 
   async function handleCreateNewClient() {
-    if (!newClientForm.nom.trim()) return;
+    if (isReadOnly || !newClientForm.nom.trim()) return;
     try {
       const created = await createClient.mutateAsync({
         nom: newClientForm.nom.trim(),
@@ -167,12 +171,25 @@ export default function HebergementClients() {
   return (
     <Box>
       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
-        <Typography variant="h4" fontWeight={800}>
-          Hébergement — Clients
-        </Typography>
-        <Button variant="contained" onClick={() => setNewClientModalOpen(true)}>
-          + Nouveau client
-        </Button>
+        <Stack direction="row" alignItems="center" spacing={1.5}>
+          <Typography variant="h4" fontWeight={800}>
+            Hébergement — Clients
+          </Typography>
+          {isReadOnly && (
+            <Chip
+              icon={<Lock sx={{ fontSize: "0.95rem !important" }} />}
+              label="Mode lecture seule"
+              size="small"
+              variant="outlined"
+              sx={{ fontWeight: 600, bgcolor: "#f8fafc", color: "text.secondary" }}
+            />
+          )}
+        </Stack>
+        {!isReadOnly && (
+          <Button variant="contained" onClick={() => setNewClientModalOpen(true)}>
+            + Nouveau client
+          </Button>
+        )}
       </Stack>
 
       <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "340px 1fr" }, gap: 2 }}>
@@ -312,7 +329,11 @@ export default function HebergementClients() {
                     label="Nom complet"
                     fullWidth
                     value={formData.nom}
-                    onChange={(e) => setFormData({ ...formData, nom: e.target.value })}
+                    onChange={isReadOnly ? undefined : (e) => setFormData({ ...formData, nom: e.target.value })}
+                    InputProps={{
+                      readOnly: isReadOnly,
+                      sx: isReadOnly ? { bgcolor: "#f8fafc" } : undefined,
+                    }}
                   />
                 </Grid>
                 <Grid item xs={12} md={6}>
@@ -321,8 +342,12 @@ export default function HebergementClients() {
                     label="Type"
                     fullWidth
                     value={formData.type}
-                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                    onChange={isReadOnly ? undefined : (e) => setFormData({ ...formData, type: e.target.value })}
                     placeholder="Particulier, Entreprise, VIP..."
+                    InputProps={{
+                      readOnly: isReadOnly,
+                      sx: isReadOnly ? { bgcolor: "#f8fafc" } : undefined,
+                    }}
                   />
                 </Grid>
                 <Grid item xs={12} md={6}>
@@ -331,8 +356,12 @@ export default function HebergementClients() {
                     label="Téléphone"
                     fullWidth
                     value={formData.telephone}
-                    onChange={(e) => setFormData({ ...formData, telephone: e.target.value })}
+                    onChange={isReadOnly ? undefined : (e) => setFormData({ ...formData, telephone: e.target.value })}
                     placeholder="034 00 000 00"
+                    InputProps={{
+                      readOnly: isReadOnly,
+                      sx: isReadOnly ? { bgcolor: "#f8fafc" } : undefined,
+                    }}
                   />
                 </Grid>
                 <Grid item xs={12} md={6}>
@@ -341,8 +370,12 @@ export default function HebergementClients() {
                     label="E-mail"
                     fullWidth
                     value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    onChange={isReadOnly ? undefined : (e) => setFormData({ ...formData, email: e.target.value })}
                     placeholder="client@email.com"
+                    InputProps={{
+                      readOnly: isReadOnly,
+                      sx: isReadOnly ? { bgcolor: "#f8fafc" } : undefined,
+                    }}
                   />
                 </Grid>
                 <Grid item xs={12} md={6}>
@@ -352,7 +385,11 @@ export default function HebergementClients() {
                     fullWidth
                     placeholder="Ex: Madagascar Travel, Lemur Tours, Booking..."
                     value={formData.agenceVoyage}
-                    onChange={(e) => setFormData({ ...formData, agenceVoyage: e.target.value })}
+                    onChange={isReadOnly ? undefined : (e) => setFormData({ ...formData, agenceVoyage: e.target.value })}
+                    InputProps={{
+                      readOnly: isReadOnly,
+                      sx: isReadOnly ? { bgcolor: "#f8fafc" } : undefined,
+                    }}
                   />
                 </Grid>
                 <Grid item xs={12} md={6}>
@@ -362,7 +399,11 @@ export default function HebergementClients() {
                     fullWidth
                     placeholder="Site web, Téléphone direct, Recommandation..."
                     value={formData.origine}
-                    onChange={(e) => setFormData({ ...formData, origine: e.target.value })}
+                    onChange={isReadOnly ? undefined : (e) => setFormData({ ...formData, origine: e.target.value })}
+                    InputProps={{
+                      readOnly: isReadOnly,
+                      sx: isReadOnly ? { bgcolor: "#f8fafc" } : undefined,
+                    }}
                   />
                 </Grid>
                 <Grid item xs={12} md={8}>
@@ -371,7 +412,11 @@ export default function HebergementClients() {
                     label="Adresse"
                     fullWidth
                     value={formData.adresse}
-                    onChange={(e) => setFormData({ ...formData, adresse: e.target.value })}
+                    onChange={isReadOnly ? undefined : (e) => setFormData({ ...formData, adresse: e.target.value })}
+                    InputProps={{
+                      readOnly: isReadOnly,
+                      sx: isReadOnly ? { bgcolor: "#f8fafc" } : undefined,
+                    }}
                   />
                 </Grid>
                 <Grid item xs={12} md={4}>
@@ -380,7 +425,11 @@ export default function HebergementClients() {
                     label="Pays"
                     fullWidth
                     value={formData.pays}
-                    onChange={(e) => setFormData({ ...formData, pays: e.target.value })}
+                    onChange={isReadOnly ? undefined : (e) => setFormData({ ...formData, pays: e.target.value })}
+                    InputProps={{
+                      readOnly: isReadOnly,
+                      sx: isReadOnly ? { bgcolor: "#f8fafc" } : undefined,
+                    }}
                   />
                 </Grid>
                 <Grid item xs={12} md={6}>
@@ -390,7 +439,11 @@ export default function HebergementClients() {
                     fullWidth
                     placeholder="VIP, Direct, Habitué"
                     value={formData.tags}
-                    onChange={(e) => setFormData({ ...formData, tags: e.target.value })}
+                    onChange={isReadOnly ? undefined : (e) => setFormData({ ...formData, tags: e.target.value })}
+                    InputProps={{
+                      readOnly: isReadOnly,
+                      sx: isReadOnly ? { bgcolor: "#f8fafc" } : undefined,
+                    }}
                   />
                 </Grid>
                 <Grid item xs={12} md={6}>
@@ -400,7 +453,11 @@ export default function HebergementClients() {
                     fullWidth
                     placeholder="CLI-00000"
                     value={formData.reference}
-                    onChange={(e) => setFormData({ ...formData, reference: e.target.value })}
+                    onChange={isReadOnly ? undefined : (e) => setFormData({ ...formData, reference: e.target.value })}
+                    InputProps={{
+                      readOnly: isReadOnly,
+                      sx: isReadOnly ? { bgcolor: "#f8fafc" } : undefined,
+                    }}
                   />
                 </Grid>
               </Grid>
@@ -413,21 +470,27 @@ export default function HebergementClients() {
                 minRows={2}
                 placeholder="Exemples: Préfère chambre calme, étage élevé, arrivée tardive..."
                 value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                onChange={isReadOnly ? undefined : (e) => setFormData({ ...formData, notes: e.target.value })}
+                InputProps={{
+                  readOnly: isReadOnly,
+                  sx: isReadOnly ? { bgcolor: "#f8fafc" } : undefined,
+                }}
               />
 
               <Stack direction="row" spacing={1} alignItems="center">
-                <Button
-                  variant="contained"
-                  disabled={!isDirty || updateClient.isPending}
-                  onClick={() => {
-                    if (selectedId) {
-                      updateClient.mutate({ id: selectedId, ...formData });
-                    }
-                  }}
-                >
-                  {updateClient.isPending ? "Sauvegarde..." : isDirty ? "Enregistrer les modifications" : "À jour"}
-                </Button>
+                {!isReadOnly && (
+                  <Button
+                    variant="contained"
+                    disabled={!isDirty || updateClient.isPending}
+                    onClick={() => {
+                      if (selectedId) {
+                        updateClient.mutate({ id: selectedId, ...formData });
+                      }
+                    }}
+                  >
+                    {updateClient.isPending ? "Sauvegarde..." : isDirty ? "Enregistrer les modifications" : "À jour"}
+                  </Button>
+                )}
                 <Button
                   variant="outlined"
                   onClick={() => navigate(`/${tenantId}/financier?clientId=${encodeURIComponent(selectedId)}`)}
@@ -503,9 +566,9 @@ export default function HebergementClients() {
                                     : [];
                               const matching = (chambres || []).filter((c) => ids.includes(c.id));
                               return matching.length > 0
-                                ? matching.map((c) => `Ch. ${c.numero}`).join(", ")
+                                ? matching.map((c) => c.numero).join(", ")
                                 : ids.length > 0
-                                  ? `Ch. ${ids.join(", ")}`
+                                  ? ids.join(", ")
                                   : "Hébergement";
                             })()
                           : h.type === "restaurant"
@@ -537,62 +600,64 @@ export default function HebergementClients() {
       </Box>
 
       {/* Modal Création Client Rapide */}
-      <Dialog open={newClientModalOpen} onClose={() => setNewClientModalOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle fontWeight={800}>Ajouter un nouveau client</DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ mt: 1 }}>
-            <TextField
-              size="small"
-              label="Nom complet *"
-              fullWidth
-              value={newClientForm.nom}
-              onChange={(e) => setNewClientForm({ ...newClientForm, nom: e.target.value })}
-              autoFocus
-            />
-            <TextField
-              size="small"
-              label="Numéro de téléphone"
-              fullWidth
-              value={newClientForm.telephone}
-              onChange={(e) => setNewClientForm({ ...newClientForm, telephone: e.target.value })}
-              placeholder="034 00 000 00"
-            />
-            <TextField
-              size="small"
-              label="E-mail"
-              fullWidth
-              value={newClientForm.email}
-              onChange={(e) => setNewClientForm({ ...newClientForm, email: e.target.value })}
-            />
-            <TextField
-              size="small"
-              label="Agence de voyage (si partenaire)"
-              fullWidth
-              value={newClientForm.agenceVoyage}
-              onChange={(e) => setNewClientForm({ ...newClientForm, agenceVoyage: e.target.value })}
-              placeholder="Ex: Booking, Agence A..."
-            />
-            <TextField
-              size="small"
-              label="Origine (Canal)"
-              fullWidth
-              value={newClientForm.origine}
-              onChange={(e) => setNewClientForm({ ...newClientForm, origine: e.target.value })}
-              placeholder="Site web, Téléphone..."
-            />
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setNewClientModalOpen(false)}>Annuler</Button>
-          <Button
-            variant="contained"
-            disabled={!newClientForm.nom.trim() || createClient.isPending}
-            onClick={handleCreateNewClient}
-          >
-            {createClient.isPending ? "Création..." : "Créer le client"}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {!isReadOnly && (
+        <Dialog open={newClientModalOpen} onClose={() => setNewClientModalOpen(false)} maxWidth="xs" fullWidth>
+          <DialogTitle fontWeight={800}>Ajouter un nouveau client</DialogTitle>
+          <DialogContent>
+            <Stack spacing={2} sx={{ mt: 1 }}>
+              <TextField
+                size="small"
+                label="Nom complet *"
+                fullWidth
+                value={newClientForm.nom}
+                onChange={(e) => setNewClientForm({ ...newClientForm, nom: e.target.value })}
+                autoFocus
+              />
+              <TextField
+                size="small"
+                label="Numéro de téléphone"
+                fullWidth
+                value={newClientForm.telephone}
+                onChange={(e) => setNewClientForm({ ...newClientForm, telephone: e.target.value })}
+                placeholder="034 00 000 00"
+              />
+              <TextField
+                size="small"
+                label="E-mail"
+                fullWidth
+                value={newClientForm.email}
+                onChange={(e) => setNewClientForm({ ...newClientForm, email: e.target.value })}
+              />
+              <TextField
+                size="small"
+                label="Agence de voyage (si partenaire)"
+                fullWidth
+                value={newClientForm.agenceVoyage}
+                onChange={(e) => setNewClientForm({ ...newClientForm, agenceVoyage: e.target.value })}
+                placeholder="Ex: Booking, Agence A..."
+              />
+              <TextField
+                size="small"
+                label="Origine (Canal)"
+                fullWidth
+                value={newClientForm.origine}
+                onChange={(e) => setNewClientForm({ ...newClientForm, origine: e.target.value })}
+                placeholder="Site web, Téléphone..."
+              />
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setNewClientModalOpen(false)}>Annuler</Button>
+            <Button
+              variant="contained"
+              disabled={!newClientForm.nom.trim() || createClient.isPending}
+              onClick={handleCreateNewClient}
+            >
+              {createClient.isPending ? "Création..." : "Créer le client"}
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
     </Box>
   );
 }
