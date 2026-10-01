@@ -26,6 +26,11 @@ import {
   Tab,
   Checkbox,
   FormControlLabel,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  ToggleButtonGroup,
+  ToggleButton,
 } from "@mui/material";
 import {
   Add,
@@ -52,6 +57,9 @@ import {
   Inventory2,
   Lock,
   CloudUpload,
+  ExpandMore,
+  ViewList,
+  FolderSpecial,
 } from "@mui/icons-material";
 import { useAppSelector } from "@/store";
 import { useAuth } from "@/contexts/AuthContext";
@@ -217,6 +225,8 @@ export default function Financier() {
   const [statusFilter, setStatusFilter] = useState<"all" | "emise" | "payee" | "annulee" | "retard" | "proforma">("all");
   const [sourceFilter, setSourceFilter] = useState<"all" | "Hebergement" | "Restaurant" | "Evenement">("all");
   const [agencyFilter, setAgencyFilter] = useState<"all" | "with_agency" | "direct">("all");
+  const [selectedSpecificAgency, setSelectedSpecificAgency] = useState<string>("all");
+  const [listMode, setListMode] = useState<"flat" | "by_agency">("flat");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<0 | 1>(0);
 
@@ -386,6 +396,11 @@ export default function Financier() {
 
     if (agencyFilter === "with_agency") {
       base = base.filter((f) => !!f.agenceVoyage && f.agenceVoyage.trim().length > 0);
+      if (selectedSpecificAgency !== "all") {
+        base = base.filter(
+          (f) => (f.agenceVoyage || "").trim().toLowerCase() === selectedSpecificAgency.trim().toLowerCase()
+        );
+      }
     } else if (agencyFilter === "direct") {
       base = base.filter((f) => !f.agenceVoyage || f.agenceVoyage.trim().length === 0);
     }
@@ -413,7 +428,7 @@ export default function Financier() {
     }
 
     return base.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [factures, q, clientIdParam, clients, statusFilter, sourceFilter, agencyFilter, isDircom, userEmail, myReservationIds]);
+  }, [factures, q, clientIdParam, clients, statusFilter, sourceFilter, agencyFilter, selectedSpecificAgency, isDircom, userEmail, myReservationIds]);
 
   const selected = list.find((f) => f.id === selectedId) || list[0] || null;
 
@@ -491,8 +506,76 @@ export default function Financier() {
       countTotal: officialFactures.length,
       totalProformas,
       countProformas: proformas.length,
+      proformasItems: proformas,
     };
   }, [factures, isDircom, userEmail, myReservationIds]);
+
+  // Détail des proformas par Agence & Client pour clarté totale et dé-lumping
+  const proformasBreakdown = useMemo(() => {
+    const map = new Map<string, { count: number; total: number; clientNoms: string[] }>();
+    (kpis.proformasItems || []).forEach((p: Facture) => {
+      const key = p.agenceVoyage?.trim() || "Clients Directs";
+      const curr = map.get(key) || { count: 0, total: 0, clientNoms: [] };
+      curr.count += 1;
+      curr.total += p.totalTTC;
+      if (p.clientNom && !curr.clientNoms.includes(p.clientNom)) {
+        curr.clientNoms.push(p.clientNom);
+      }
+      map.set(key, curr);
+    });
+    return Array.from(map.entries()).map(([agency, val]) => ({ agency, ...val }));
+  }, [kpis.proformasItems]);
+
+  // Groupement par agence / dossier pour la vue organisée
+  const groupedByAgency = useMemo(() => {
+    const map = new Map<
+      string,
+      {
+        agencyName: string;
+        isDirect: boolean;
+        documents: Facture[];
+        officialCount: number;
+        officialTotal: number;
+        proformaCount: number;
+        proformaTotal: number;
+      }
+    >();
+
+    list.forEach((f) => {
+      const isDirect = !f.agenceVoyage || f.agenceVoyage.trim().length === 0;
+      const agencyName = isDirect ? "Clients Directs (Sans Agence)" : f.agenceVoyage!.trim();
+      const isProf = isProformaDocument(f);
+
+      const curr = map.get(agencyName) || {
+        agencyName,
+        isDirect,
+        documents: [],
+        officialCount: 0,
+        officialTotal: 0,
+        proformaCount: 0,
+        proformaTotal: 0,
+      };
+
+      curr.documents.push(f);
+      if (isProf) {
+        curr.proformaCount += 1;
+        curr.proformaTotal += f.totalTTC;
+      } else {
+        curr.officialCount += 1;
+        if (f.statut !== "annulee") {
+          curr.officialTotal += f.totalTTC;
+        }
+      }
+      map.set(agencyName, curr);
+    });
+
+    // Trier : les agences partenaires d'abord par nom, puis les clients directs à la fin
+    return Array.from(map.values()).sort((a, b) => {
+      if (a.isDirect && !b.isDirect) return 1;
+      if (!a.isDirect && b.isDirect) return -1;
+      return a.agencyName.localeCompare(b.agencyName);
+    });
+  }, [list]);
 
   // Calculs dynamiques du formulaire
   const formCalculations = useMemo(() => {
@@ -1041,24 +1124,82 @@ export default function Financier() {
 
       {/* BANNIÈRE PROFORMAS / DEVIS EN COURS */}
       {kpis.countProformas > 0 && (
-        <Box sx={{ mb: 2.5, p: 1.5, borderRadius: 2, bgcolor: "#fffbeb", border: "1px solid #fde68a", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 1 }}>
-          <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap">
-            <Chip label="Devis & Proformas" size="small" sx={{ bgcolor: "#f59e0b", color: "#fff", fontWeight: 800 }} />
-            <Typography variant="body2" fontWeight={600} color="#92400e">
-              <strong>{kpis.countProformas} document(s)</strong> proforma / devis en cours pour un montant de <strong>{kpis.totalProformas.toLocaleString('fr-FR')} Ar</strong>.
-            </Typography>
-            <Typography variant="caption" color="#b45309">
-              (Non comptabilisés dans le CA officiel avant validation)
-            </Typography>
+        <Box
+          sx={{
+            mb: 2.5,
+            p: 2,
+            borderRadius: 2.5,
+            bgcolor: "#fffdf5",
+            border: "1px solid #fed7aa",
+            boxShadow: "0 1px 3px rgba(0,0,0,0.02)",
+          }}
+        >
+          <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1} mb={1}>
+            <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap">
+              <Chip label="Devis & Proformas en cours" size="small" sx={{ bgcolor: "#f59e0b", color: "#fff", fontWeight: 800 }} />
+              <Typography variant="body2" fontWeight={700} color="#7c2d12">
+                {kpis.countProformas} document(s) proforma en attente de confirmation — Total estimatif : <strong>{kpis.totalProformas.toLocaleString('fr-FR')} Ar</strong>
+              </Typography>
+              <Chip
+                label="Strictement Hors Trésorerie & Hors CA"
+                size="small"
+                variant="outlined"
+                sx={{ borderColor: "#fde68a", color: "#b45309", fontWeight: 700, fontSize: "0.68rem" }}
+              />
+            </Stack>
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={() => {
+                setStatusFilter(statusFilter === "proforma" ? "all" : "proforma");
+                setSelectedSpecificAgency("all");
+              }}
+              sx={{ borderColor: "#f59e0b", color: "#b45309", fontWeight: 700, fontSize: "0.75rem", textTransform: "none" }}
+            >
+              {statusFilter === "proforma" ? "Afficher tous les documents" : "Filtrer les Proformas"}
+            </Button>
           </Stack>
-          <Button
-            size="small"
-            variant="outlined"
-            onClick={() => setStatusFilter(statusFilter === "proforma" ? "all" : "proforma")}
-            sx={{ borderColor: "#f59e0b", color: "#b45309", fontWeight: 700, fontSize: "0.75rem" }}
-          >
-            {statusFilter === "proforma" ? "Afficher tous les documents" : "Filtrer les Proformas"}
-          </Button>
+
+          {/* DÉTAIL PAR DOSSIER / AGENCE */}
+          <Stack direction="row" spacing={0.8} flexWrap="wrap" useFlexGap alignItems="center">
+            <Typography variant="caption" fontWeight={700} color="#9a3412" sx={{ mr: 0.5 }}>
+              Répartition par partenaire :
+            </Typography>
+            {proformasBreakdown.map((item) => {
+              const isSelectedGroup =
+                statusFilter === "proforma" &&
+                ((item.agency === "Clients Directs" && agencyFilter === "direct") ||
+                  (item.agency !== "Clients Directs" && selectedSpecificAgency === item.agency));
+
+              return (
+                <Chip
+                  key={item.agency}
+                  size="small"
+                  clickable
+                  onClick={() => {
+                    setStatusFilter("proforma");
+                    if (item.agency === "Clients Directs") {
+                      setAgencyFilter("direct");
+                      setSelectedSpecificAgency("all");
+                    } else {
+                      setAgencyFilter("with_agency");
+                      setSelectedSpecificAgency(item.agency);
+                    }
+                  }}
+                  icon={item.agency === "Clients Directs" ? undefined : <FlightTakeoff sx={{ fontSize: 13 }} />}
+                  label={`${item.agency} (${item.count} doc · ${item.total.toLocaleString('fr-FR')} Ar)`}
+                  sx={{
+                    bgcolor: isSelectedGroup ? "#ea580c" : "#ffedd5",
+                    color: isSelectedGroup ? "#ffffff" : "#9a3412",
+                    fontWeight: 700,
+                    fontSize: "0.72rem",
+                    transition: "all 0.15s ease",
+                    "&:hover": { bgcolor: "#fdba74" },
+                  }}
+                />
+              );
+            })}
+          </Stack>
         </Box>
       )}
 
@@ -1108,10 +1249,85 @@ export default function Financier() {
                 <Chip size="small" label="Événement" onClick={() => setSourceFilter("Evenement")} color={sourceFilter === "Evenement" ? "primary" : "default"} variant={sourceFilter === "Evenement" ? "filled" : "outlined"} />
               </Stack>
 
-              <Stack direction="row" spacing={0.8} sx={{ mb: 2, flexWrap: "wrap", gap: 0.5 }}>
-                <Chip size="small" label="Tous types" onClick={() => setAgencyFilter("all")} color={agencyFilter === "all" ? "secondary" : "default"} variant={agencyFilter === "all" ? "filled" : "outlined"} />
-                <Chip size="small" icon={<FlightTakeoff fontSize="small" />} label="Avec Agence" onClick={() => setAgencyFilter("with_agency")} color={agencyFilter === "with_agency" ? "secondary" : "default"} variant={agencyFilter === "with_agency" ? "filled" : "outlined"} />
-                <Chip size="small" label="Clients Directs" onClick={() => setAgencyFilter("direct")} color={agencyFilter === "direct" ? "secondary" : "default"} variant={agencyFilter === "direct" ? "filled" : "outlined"} />
+              <Stack direction="row" spacing={0.8} sx={{ mb: 1.5, flexWrap: "wrap", gap: 0.8, alignItems: "center", justifyContent: "space-between" }}>
+                <Stack direction="row" spacing={0.8} sx={{ flexWrap: "wrap", gap: 0.5, alignItems: "center" }}>
+                  <Chip
+                    size="small"
+                    label="Tous types"
+                    onClick={() => {
+                      setAgencyFilter("all");
+                      setSelectedSpecificAgency("all");
+                    }}
+                    color={agencyFilter === "all" ? "secondary" : "default"}
+                    variant={agencyFilter === "all" ? "filled" : "outlined"}
+                  />
+                  <Chip
+                    size="small"
+                    icon={<FlightTakeoff fontSize="small" />}
+                    label="Avec Agence"
+                    onClick={() => setAgencyFilter("with_agency")}
+                    color={agencyFilter === "with_agency" ? "secondary" : "default"}
+                    variant={agencyFilter === "with_agency" ? "filled" : "outlined"}
+                  />
+                  <Chip
+                    size="small"
+                    label="Clients Directs"
+                    onClick={() => {
+                      setAgencyFilter("direct");
+                      setSelectedSpecificAgency("all");
+                    }}
+                    color={agencyFilter === "direct" ? "secondary" : "default"}
+                    variant={agencyFilter === "direct" ? "filled" : "outlined"}
+                  />
+                  {agencyFilter === "with_agency" && knownAgencies.length > 0 && (
+                    <Select
+                      size="small"
+                      value={selectedSpecificAgency}
+                      onChange={(e) => setSelectedSpecificAgency(e.target.value)}
+                      sx={{
+                        height: 28,
+                        fontSize: "0.75rem",
+                        fontWeight: 700,
+                        bgcolor: "#f8fafc",
+                        borderRadius: 2,
+                        "& .MuiSelect-select": { py: 0.4, px: 1 },
+                      }}
+                    >
+                      <MenuItem value="all" sx={{ fontSize: "0.78rem" }}>
+                        Toutes les agences ({knownAgencies.length})
+                      </MenuItem>
+                      {knownAgencies.map((agency) => (
+                        <MenuItem key={agency} value={agency} sx={{ fontSize: "0.78rem" }}>
+                          ✈️ {agency}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  )}
+                </Stack>
+
+                {/* TOGGLE VUE LISTE vs VUE DOSSIERS PAR AGENCE */}
+                <ToggleButtonGroup
+                  size="small"
+                  value={listMode}
+                  exclusive
+                  onChange={(_, val) => {
+                    if (val) setListMode(val);
+                  }}
+                  sx={{ height: 28 }}
+                >
+                  <ToggleButton
+                    value="flat"
+                    sx={{ px: 1, py: 0.2, fontSize: "0.72rem", fontWeight: 700, textTransform: "none" }}
+                  >
+                    <ViewList sx={{ fontSize: 16, mr: 0.5 }} /> Liste
+                  </ToggleButton>
+                  <ToggleButton
+                    value="by_agency"
+                    sx={{ px: 1, py: 0.2, fontSize: "0.72rem", fontWeight: 700, textTransform: "none" }}
+                  >
+                    <FolderSpecial sx={{ fontSize: 16, mr: 0.5 }} /> Dossiers Agence
+                  </ToggleButton>
+                </ToggleButtonGroup>
               </Stack>
 
               <Divider sx={{ mb: 1.5 }} />
@@ -1125,87 +1341,220 @@ export default function Financier() {
                   </Box>
                 )}
 
-                {list.map((f) => {
-                  const isSel = selected?.id === f.id;
-                  return (
-                    <Paper
-                      key={f.id}
-                      onClick={() => setSelectedId(f.id)}
-                      elevation={isSel ? 2 : 0}
-                      sx={{
-                        p: 1.8,
-                        mb: 1.2,
-                        borderRadius: 2.5,
-                        cursor: "pointer",
-                        border: "1px solid",
-                        borderColor: isSel ? "#4f46e5" : "#e2e8f0",
-                        bgcolor: isSel ? "#f8faff" : "#ffffff",
-                        transition: "all 0.15s ease",
-                        "&:hover": {
-                          borderColor: "#818cf8",
-                          bgcolor: "#fcfdff",
-                        },
-                      }}
-                    >
-                      <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-                        <Box>
-                          <Stack direction="row" alignItems="center" spacing={1}>
-                            <Typography fontWeight={800} color="#0f172a" fontSize="0.95rem">
-                              {f.numero}
-                            </Typography>
-                            <Chip size="small" label={f.source} variant="outlined" sx={{ fontSize: "0.68rem", height: 20 }} />
-                            {f.typeDocument && f.typeDocument !== "facture" && (
+                {listMode === "by_agency" ? (
+                  <Box sx={{ display: "flex", flexDirection: "column", gap: 1.2 }}>
+                    {groupedByAgency.map((grp) => {
+                      const hasSelectedInGrp = grp.documents.some((d) => d.id === selectedId);
+                      return (
+                        <Accordion
+                          key={grp.agencyName}
+                          defaultExpanded={true}
+                          disableGutters
+                          elevation={0}
+                          sx={{
+                            border: "1px solid",
+                            borderColor: hasSelectedInGrp ? "#818cf8" : "#e2e8f0",
+                            borderRadius: "12px !important",
+                            bgcolor: "#ffffff",
+                            overflow: "hidden",
+                            "&:before": { display: "none" },
+                          }}
+                        >
+                          <AccordionSummary
+                            expandIcon={<ExpandMore sx={{ fontSize: 18 }} />}
+                            sx={{
+                              bgcolor: grp.isDirect ? "#f8fafc" : "#f5f7ff",
+                              py: 0.5,
+                              px: 1.5,
+                              minHeight: 44,
+                              "& .MuiAccordionSummary-content": { my: 0.5, alignItems: "center", justifyContent: "space-between", pr: 1 },
+                            }}
+                          >
+                            <Stack direction="row" alignItems="center" spacing={1} flexWrap="wrap">
+                              {grp.isDirect ? (
+                                <Person sx={{ fontSize: 18, color: "#64748b" }} />
+                              ) : (
+                                <FlightTakeoff sx={{ fontSize: 18, color: "#4f46e5" }} />
+                              )}
+                              <Typography fontWeight={800} fontSize="0.88rem" color={grp.isDirect ? "#334155" : "#1e1b4b"}>
+                                {grp.agencyName}
+                              </Typography>
                               <Chip
                                 size="small"
-                                label={f.typeDocument === "proforma" ? "Proforma" : "Devis"}
-                                color={f.typeDocument === "proforma" ? "info" : "secondary"}
-                                sx={{ fontSize: "0.65rem", height: 20, fontWeight: 800 }}
+                                label={`${grp.documents.length} dossier${grp.documents.length > 1 ? "s" : ""}`}
+                                sx={{ height: 20, fontSize: "0.68rem", fontWeight: 700, bgcolor: grp.isDirect ? "#e2e8f0" : "#e0e7ff", color: grp.isDirect ? "#475569" : "#3730a3" }}
+                              />
+                            </Stack>
+
+                            <Stack direction="row" spacing={0.8} alignItems="center" flexWrap="wrap">
+                              {grp.proformaCount > 0 && (
+                                <Chip
+                                  size="small"
+                                  label={`${grp.proformaCount} Proforma(s) : ${grp.proformaTotal.toLocaleString('fr-FR')} Ar`}
+                                  sx={{ height: 20, fontSize: "0.65rem", fontWeight: 800, bgcolor: "#fef3c7", color: "#b45309", border: "1px solid #fde68a" }}
+                                />
+                              )}
+                              {grp.officialCount > 0 && (
+                                <Chip
+                                  size="small"
+                                  label={`${grp.officialCount} Facture(s) : ${grp.officialTotal.toLocaleString('fr-FR')} Ar`}
+                                  sx={{ height: 20, fontSize: "0.65rem", fontWeight: 800, bgcolor: "#dbeafe", color: "#1e40af", border: "1px solid #bfdbfe" }}
+                                />
+                              )}
+                            </Stack>
+                          </AccordionSummary>
+
+                          <AccordionDetails sx={{ p: 1, bgcolor: "#ffffff" }}>
+                            <Stack spacing={0.8}>
+                              {grp.documents.map((f) => {
+                                const isSel = selected?.id === f.id;
+                                const isProf = isProformaDocument(f);
+                                return (
+                                  <Box
+                                    key={f.id}
+                                    onClick={() => setSelectedId(f.id)}
+                                    sx={{
+                                      p: 1.2,
+                                      borderRadius: 2,
+                                      cursor: "pointer",
+                                      border: "1px solid",
+                                      borderColor: isSel ? "#4f46e5" : "#f1f5f9",
+                                      bgcolor: isSel ? "#f8faff" : "#fafafa",
+                                      transition: "all 0.15s ease",
+                                      "&:hover": {
+                                        borderColor: "#818cf8",
+                                        bgcolor: "#fcfdff",
+                                      },
+                                    }}
+                                  >
+                                    <Stack direction="row" justifyContent="space-between" alignItems="center">
+                                      <Box>
+                                        <Stack direction="row" alignItems="center" spacing={0.8}>
+                                          <Typography fontWeight={800} fontSize="0.84rem" color="#0f172a">
+                                            {f.numero}
+                                          </Typography>
+                                          <Chip
+                                            size="small"
+                                            label={isProf ? (f.typeDocument === "devis" ? "Devis" : "Proforma") : "Facture"}
+                                            color={isProf ? "warning" : "primary"}
+                                            variant={isProf ? "filled" : "outlined"}
+                                            sx={{ height: 18, fontSize: "0.62rem", fontWeight: 800 }}
+                                          />
+                                          <Chip
+                                            size="small"
+                                            label={f.source}
+                                            sx={{ height: 18, fontSize: "0.62rem", bgcolor: "#f1f5f9", color: "#64748b" }}
+                                          />
+                                        </Stack>
+                                        <Typography fontWeight={700} fontSize="0.84rem" color="#1e293b" mt={0.3}>
+                                          Client : {f.clientNom}
+                                        </Typography>
+                                        <Typography variant="caption" color="text.secondary">
+                                          📅 {new Date(f.date).toLocaleDateString('fr-FR')} &nbsp;·&nbsp; 💳 {getPaymentLabel(f.modePaiement)}
+                                        </Typography>
+                                      </Box>
+
+                                      <Box sx={{ textAlign: "right" }}>
+                                        <Typography fontWeight={800} color={isProf ? "#b45309" : "#4f46e5"} fontSize="0.95rem">
+                                          {f.totalTTC.toLocaleString('fr-FR')} Ar
+                                        </Typography>
+                                        <Box mt={0.4}>
+                                          <StatutBadge f={f} />
+                                        </Box>
+                                      </Box>
+                                    </Stack>
+                                  </Box>
+                                );
+                              })}
+                            </Stack>
+                          </AccordionDetails>
+                        </Accordion>
+                      );
+                    })}
+                  </Box>
+                ) : (
+                  list.map((f) => {
+                    const isSel = selected?.id === f.id;
+                    return (
+                      <Paper
+                        key={f.id}
+                        onClick={() => setSelectedId(f.id)}
+                        elevation={isSel ? 2 : 0}
+                        sx={{
+                          p: 1.8,
+                          mb: 1.2,
+                          borderRadius: 2.5,
+                          cursor: "pointer",
+                          border: "1px solid",
+                          borderColor: isSel ? "#4f46e5" : "#e2e8f0",
+                          bgcolor: isSel ? "#f8faff" : "#ffffff",
+                          transition: "all 0.15s ease",
+                          "&:hover": {
+                            borderColor: "#818cf8",
+                            bgcolor: "#fcfdff",
+                          },
+                        }}
+                      >
+                        <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                          <Box>
+                            <Stack direction="row" alignItems="center" spacing={1}>
+                              <Typography fontWeight={800} color="#0f172a" fontSize="0.95rem">
+                                {f.numero}
+                              </Typography>
+                              <Chip size="small" label={f.source} variant="outlined" sx={{ fontSize: "0.68rem", height: 20 }} />
+                              {f.typeDocument && f.typeDocument !== "facture" && (
+                                <Chip
+                                  size="small"
+                                  label={f.typeDocument === "proforma" ? "Proforma" : "Devis"}
+                                  color={f.typeDocument === "proforma" ? "info" : "secondary"}
+                                  sx={{ fontSize: "0.65rem", height: 20, fontWeight: 800 }}
+                                />
+                              )}
+                            </Stack>
+
+                            <Typography fontWeight={700} color="#1e293b" fontSize="0.9rem" mt={0.4}>
+                              {f.clientNom}
+                            </Typography>
+
+                            {f.agenceVoyage && (
+                              <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, bgcolor: "#eef2ff", px: 1, py: 0.2, borderRadius: 1, mt: 0.5 }}>
+                                <FlightTakeoff sx={{ fontSize: 13, color: "#4338ca" }} />
+                                <Typography variant="caption" fontWeight={700} color="#4338ca">
+                                  {f.agenceVoyage}
+                                </Typography>
+                              </Box>
+                            )}
+
+                            <Typography variant="caption" color="text.secondary" display="block" mt={0.5}>
+                              📅 {new Date(f.date).toLocaleDateString('fr-FR')} &nbsp;·&nbsp; 💳 {getPaymentLabel(f.modePaiement)}
+                            </Typography>
+                          </Box>
+
+                          <Box sx={{ textAlign: "right" }}>
+                            <Typography fontWeight={800} color="#4f46e5" fontSize="1.05rem">
+                              {f.totalTTC.toLocaleString('fr-FR')} Ar
+                            </Typography>
+                            {Number((f as any).accompte || 0) > 0 && (
+                              <Chip
+                                size="small"
+                                label={`Acompte: ${Number((f as any).accompte).toLocaleString('fr-FR')} Ar`}
+                                sx={{ height: 18, fontSize: "0.62rem", fontWeight: 700, bgcolor: "#dcfce7", color: "#166534", mt: 0.3 }}
                               />
                             )}
-                          </Stack>
-
-                          <Typography fontWeight={700} color="#1e293b" fontSize="0.9rem" mt={0.4}>
-                            {f.clientNom}
-                          </Typography>
-
-                          {f.agenceVoyage && (
-                            <Box sx={{ display: "inline-flex", alignItems: "center", gap: 0.5, bgcolor: "#eef2ff", px: 1, py: 0.2, borderRadius: 1, mt: 0.5 }}>
-                              <FlightTakeoff sx={{ fontSize: 13, color: "#4338ca" }} />
-                              <Typography variant="caption" fontWeight={700} color="#4338ca">
-                                {f.agenceVoyage}
+                            {f.remiseMontant && f.remiseMontant > 0 ? (
+                              <Typography variant="caption" color="#059669" fontWeight={600} display="block">
+                                Remise: -{f.remiseMontant.toLocaleString('fr-FR')} Ar ({f.remisePourcentage}%)
                               </Typography>
+                            ) : null}
+                            <Box mt={0.6}>
+                              <StatutBadge f={f} />
                             </Box>
-                          )}
-
-                          <Typography variant="caption" color="text.secondary" display="block" mt={0.5}>
-                            📅 {new Date(f.date).toLocaleDateString('fr-FR')} &nbsp;·&nbsp; 💳 {getPaymentLabel(f.modePaiement)}
-                          </Typography>
-                        </Box>
-
-                        <Box sx={{ textAlign: "right" }}>
-                          <Typography fontWeight={800} color="#4f46e5" fontSize="1.05rem">
-                            {f.totalTTC.toLocaleString('fr-FR')} Ar
-                          </Typography>
-                          {Number((f as any).accompte || 0) > 0 && (
-                            <Chip
-                              size="small"
-                              label={`Acompte: ${Number((f as any).accompte).toLocaleString('fr-FR')} Ar`}
-                              sx={{ height: 18, fontSize: "0.62rem", fontWeight: 700, bgcolor: "#dcfce7", color: "#166534", mt: 0.3 }}
-                            />
-                          )}
-                          {f.remiseMontant && f.remiseMontant > 0 ? (
-                            <Typography variant="caption" color="#059669" fontWeight={600} display="block">
-                              Remise: -{f.remiseMontant.toLocaleString('fr-FR')} Ar ({f.remisePourcentage}%)
-                            </Typography>
-                          ) : null}
-                          <Box mt={0.6}>
-                            <StatutBadge f={f} />
                           </Box>
-                        </Box>
-                      </Stack>
-                    </Paper>
-                  );
-                })}
+                        </Stack>
+                      </Paper>
+                    );
+                  })
+                )}
               </Box>
             </Paper>
           </Grid>

@@ -312,12 +312,25 @@ export async function generateHebergementInvoice(
 
     // 1. Détection stricte des documents existants pour cette réservation afin d'éviter tout doublon
     const allFactures = await fetchCollection<any>(tenantId, "factures");
-    const linkedFactures = allFactures.filter((f) =>
-      f.reservationId === reservation.id ||
-      f.reservationIds?.includes(reservation.id) ||
-      (f.stayIds && Array.isArray(f.stayIds) && targetedStayIds.some((id) => f.stayIds.includes(id))) ||
-      allStays.some((s) => s.invoiceId === f.id && targetedStayIds.includes(s.id))
+    const isPartialStayBilling = Boolean(
+      options?.stayIds &&
+      options.stayIds.length > 0 &&
+      options.stayIds.length < allStays.length
     );
+
+    const linkedFactures = allFactures.filter((f) => {
+      if (isPartialStayBilling) {
+        // En facturation partielle par chambre/séjour, on ne lie que les factures ciblant précisément ces séjours
+        const fStayIds: string[] = f.stayIds || [];
+        return targetedStayIds.some((id) => fStayIds.includes(id));
+      }
+      return (
+        f.reservationId === reservation.id ||
+        f.reservationIds?.includes(reservation.id) ||
+        (f.stayIds && Array.isArray(f.stayIds) && targetedStayIds.some((id) => f.stayIds.includes(id))) ||
+        allStays.some((s) => s.invoiceId === f.id && targetedStayIds.includes(s.id))
+      );
+    });
 
     const existingFacture = linkedFactures.find((f) => !isProformaDocument(f) && f.statut !== "annulee");
     const existingProformas = linkedFactures.filter((f) => isProformaDocument(f) && f.statut !== "annulee");
